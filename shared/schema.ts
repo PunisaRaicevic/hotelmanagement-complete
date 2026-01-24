@@ -110,6 +110,99 @@ export const notifications = pgTable("notifications", {
   read_at: timestamp("read_at", { withTimezone: true }),
 });
 
+// =============================================
+// HOUSEKEEPING TABLES
+// =============================================
+
+export const rooms = pgTable("rooms", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  room_number: varchar("room_number").notNull().unique(),
+  floor: integer("floor").notNull(),
+  category: varchar("category").notNull().default("standard"), // standard, superior, deluxe, suite, apartment
+  status: varchar("status").notNull().default("clean"), // clean, dirty, in_cleaning, inspected, out_of_order, do_not_disturb
+  occupancy_status: varchar("occupancy_status").notNull().default("vacant"), // vacant, occupied, checkout, checkin_expected, checkout_expected
+  assigned_housekeeper_id: varchar("assigned_housekeeper_id"),
+  assigned_housekeeper_name: text("assigned_housekeeper_name"),
+  last_cleaned_at: timestamp("last_cleaned_at", { withTimezone: true }),
+  last_inspected_at: timestamp("last_inspected_at", { withTimezone: true }),
+  last_inspected_by: varchar("last_inspected_by"),
+  guest_name: text("guest_name"),
+  checkout_date: timestamp("checkout_date", { withTimezone: true }),
+  checkin_date: timestamp("checkin_date", { withTimezone: true }),
+  notes: text("notes"),
+  priority_score: integer("priority_score").notNull().default(0),
+  has_minibar: boolean("has_minibar").notNull().default(true),
+  needs_minibar_check: boolean("needs_minibar_check").notNull().default(false),
+  bed_type: varchar("bed_type").default("double"), // single, double, twin, king, queen
+  max_occupancy: integer("max_occupancy").notNull().default(2),
+  is_active: boolean("is_active").notNull().default(true),
+  created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const room_status_history = pgTable("room_status_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  room_id: varchar("room_id").notNull(),
+  status_from: varchar("status_from").notNull(),
+  status_to: varchar("status_to").notNull(),
+  changed_by: varchar("changed_by").notNull(),
+  changed_by_name: text("changed_by_name").notNull(),
+  notes: text("notes"),
+  timestamp: timestamp("timestamp", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const housekeeping_tasks = pgTable("housekeeping_tasks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  room_id: varchar("room_id").notNull(),
+  room_number: varchar("room_number").notNull(),
+  cleaning_type: varchar("cleaning_type").notNull().default("daily"), // daily, checkout, deep_clean, turndown, touch_up
+  assigned_to: varchar("assigned_to"),
+  assigned_to_name: text("assigned_to_name"),
+  supervisor_id: varchar("supervisor_id"),
+  supervisor_name: text("supervisor_name"),
+  status: varchar("status").notNull().default("pending"), // pending, in_progress, completed, inspected, needs_rework
+  priority: varchar("priority").notNull().default("normal"),
+  scheduled_date: timestamp("scheduled_date", { withTimezone: true }).notNull(),
+  started_at: timestamp("started_at", { withTimezone: true }),
+  completed_at: timestamp("completed_at", { withTimezone: true }),
+  inspected_at: timestamp("inspected_at", { withTimezone: true }),
+  inspection_notes: text("inspection_notes"),
+  inspection_passed: boolean("inspection_passed"),
+  guest_requests: text("guest_requests"),
+  minibar_items_used: text("minibar_items_used").array(),
+  linens_changed: boolean("linens_changed").notNull().default(false),
+  towels_changed: boolean("towels_changed").notNull().default(false),
+  amenities_restocked: boolean("amenities_restocked").notNull().default(false),
+  issues_found: text("issues_found"),
+  images: text("images").array(),
+  time_spent_minutes: integer("time_spent_minutes").notNull().default(0),
+  created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const inventory_items = pgTable("inventory_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  category: varchar("category").notNull(), // linen, amenity, minibar, cleaning_supply
+  unit: varchar("unit").notNull().default("kom"), // kom, pakovanje, litar, etc.
+  current_stock: integer("current_stock").notNull().default(0),
+  minimum_stock: integer("minimum_stock").notNull().default(10),
+  reorder_quantity: integer("reorder_quantity").notNull().default(50),
+  cost_per_unit: integer("cost_per_unit").notNull().default(0), // u centima/feninga
+  is_active: boolean("is_active").notNull().default(true),
+  created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const room_inventory = pgTable("room_inventory", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  room_id: varchar("room_id").notNull(),
+  item_id: varchar("item_id").notNull(),
+  quantity: integer("quantity").notNull().default(0),
+  last_restocked_at: timestamp("last_restocked_at", { withTimezone: true }),
+  last_restocked_by: varchar("last_restocked_by"),
+});
+
 export const usersRelations = relations(users, ({ many }) => ({
   createdTasks: many(tasks, { relationName: "created_by" }),
   notifications: many(notifications),
@@ -154,12 +247,71 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
   }),
 }));
 
+// Housekeeping relations
+export const roomsRelations = relations(rooms, ({ one, many }) => ({
+  assignedHousekeeper: one(users, {
+    fields: [rooms.assigned_housekeeper_id],
+    references: [users.id],
+  }),
+  statusHistory: many(room_status_history),
+  housekeepingTasks: many(housekeeping_tasks),
+  inventory: many(room_inventory),
+}));
+
+export const roomStatusHistoryRelations = relations(room_status_history, ({ one }) => ({
+  room: one(rooms, {
+    fields: [room_status_history.room_id],
+    references: [rooms.id],
+  }),
+  changedByUser: one(users, {
+    fields: [room_status_history.changed_by],
+    references: [users.id],
+  }),
+}));
+
+export const housekeepingTasksRelations = relations(housekeeping_tasks, ({ one }) => ({
+  room: one(rooms, {
+    fields: [housekeeping_tasks.room_id],
+    references: [rooms.id],
+  }),
+  assignedHousekeeper: one(users, {
+    fields: [housekeeping_tasks.assigned_to],
+    references: [users.id],
+  }),
+  supervisor: one(users, {
+    fields: [housekeeping_tasks.supervisor_id],
+    references: [users.id],
+  }),
+}));
+
+export const inventoryItemsRelations = relations(inventory_items, ({ many }) => ({
+  roomInventory: many(room_inventory),
+}));
+
+export const roomInventoryRelations = relations(room_inventory, ({ one }) => ({
+  room: one(rooms, {
+    fields: [room_inventory.room_id],
+    references: [rooms.id],
+  }),
+  item: one(inventory_items, {
+    fields: [room_inventory.item_id],
+    references: [inventory_items.id],
+  }),
+}));
+
+// Insert schemas
 export const insertUserSchema = createInsertSchema(users);
 export const insertUserDeviceTokenSchema = createInsertSchema(user_device_tokens);
 export const insertTaskSchema = createInsertSchema(tasks);
 export const insertTaskHistorySchema = createInsertSchema(task_history);
 export const insertNotificationSchema = createInsertSchema(notifications);
+export const insertRoomSchema = createInsertSchema(rooms);
+export const insertRoomStatusHistorySchema = createInsertSchema(room_status_history);
+export const insertHousekeepingTaskSchema = createInsertSchema(housekeeping_tasks);
+export const insertInventoryItemSchema = createInsertSchema(inventory_items);
+export const insertRoomInventorySchema = createInsertSchema(room_inventory);
 
+// Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertUserDeviceToken = z.infer<typeof insertUserDeviceTokenSchema>;
@@ -170,3 +322,13 @@ export type InsertTaskHistory = z.infer<typeof insertTaskHistorySchema>;
 export type TaskHistory = typeof task_history.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type Notification = typeof notifications.$inferSelect;
+export type InsertRoom = z.infer<typeof insertRoomSchema>;
+export type Room = typeof rooms.$inferSelect;
+export type InsertRoomStatusHistory = z.infer<typeof insertRoomStatusHistorySchema>;
+export type RoomStatusHistory = typeof room_status_history.$inferSelect;
+export type InsertHousekeepingTask = z.infer<typeof insertHousekeepingTaskSchema>;
+export type HousekeepingTask = typeof housekeeping_tasks.$inferSelect;
+export type InsertInventoryItem = z.infer<typeof insertInventoryItemSchema>;
+export type InventoryItem = typeof inventory_items.$inferSelect;
+export type InsertRoomInventory = z.infer<typeof insertRoomInventorySchema>;
+export type RoomInventory = typeof room_inventory.$inferSelect;

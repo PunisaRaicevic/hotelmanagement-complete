@@ -1,8 +1,14 @@
 // Database types for hotel task management
 
-export type UserRole = 'admin' | 'recepcioner' | 'operater' | 'radnik' | 'sef' | 'serviser' | 'menadzer';
+export type UserRole = 'admin' | 'recepcioner' | 'operater' | 'radnik' | 'sef' | 'serviser' | 'menadzer' | 'sobarica' | 'sef_domacinstva';
 export type Department = 'recepcija' | 'restoran' | 'bazen' | 'domacinstvo' | 'tehnicka' | 'eksterni';
 export type Priority = 'urgent' | 'normal' | 'can_wait';
+
+// Housekeeping types
+export type RoomStatus = 'clean' | 'dirty' | 'in_cleaning' | 'inspected' | 'out_of_order' | 'do_not_disturb';
+export type RoomCategory = 'standard' | 'superior' | 'deluxe' | 'suite' | 'apartment';
+export type OccupancyStatus = 'vacant' | 'occupied' | 'checkout' | 'checkin_expected' | 'checkout_expected';
+export type CleaningType = 'daily' | 'checkout' | 'deep_clean' | 'turndown' | 'touch_up';
 export type TaskStatus = 
   | 'new' 
   | 'with_operator' 
@@ -114,4 +120,94 @@ export interface ExternalCompany {
   total_jobs: number;
   is_active: boolean;
   created_at: string;
+}
+
+// Housekeeping interfaces
+export interface Room {
+  id: string;
+  room_number: string;
+  floor: number;
+  category: RoomCategory;
+  status: RoomStatus;
+  occupancy_status: OccupancyStatus;
+  assigned_housekeeper_id?: string;
+  assigned_housekeeper_name?: string;
+  last_cleaned_at?: string;
+  last_inspected_at?: string;
+  last_inspected_by?: string;
+  guest_name?: string;
+  checkout_date?: string;
+  checkin_date?: string;
+  notes?: string;
+  priority_score: number;
+  has_minibar: boolean;
+  needs_minibar_check: boolean;
+  bed_type: string;
+  max_occupancy: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RoomStatusHistory {
+  id: string;
+  room_id: string;
+  status_from: RoomStatus;
+  status_to: RoomStatus;
+  changed_by: string;
+  changed_by_name: string;
+  notes?: string;
+  timestamp: string;
+}
+
+export interface HousekeepingTask {
+  id: string;
+  room_id: string;
+  room_number: string;
+  cleaning_type: CleaningType;
+  assigned_to?: string;
+  assigned_to_name?: string;
+  supervisor_id?: string;
+  supervisor_name?: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'inspected' | 'needs_rework';
+  priority: Priority;
+  scheduled_date: string;
+  started_at?: string;
+  completed_at?: string;
+  inspected_at?: string;
+  inspection_notes?: string;
+  inspection_passed?: boolean;
+  guest_requests?: string;
+  minibar_items_used?: string[];
+  linens_changed: boolean;
+  towels_changed: boolean;
+  amenities_restocked: boolean;
+  issues_found?: string;
+  images?: string[];
+  time_spent_minutes: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InventoryItem {
+  id: string;
+  name: string;
+  category: 'linen' | 'amenity' | 'minibar' | 'cleaning_supply';
+  unit: string;
+  current_stock: number;
+  minimum_stock: number;
+  reorder_quantity: number;
+  cost_per_unit: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RoomInventory {
+  id: string;
+  room_id: string;
+  item_id: string;
+  quantity: number;
+  last_restocked_at: string;
+  last_restocked_by: string;
 }

@@ -1,8 +1,8 @@
 {
-  "name": "Hotel Park Tehnika",
+  "name": "Hotel Management Complete",
   "integrations": {
     "capacitor": {}
   },
   "type": "react",
-  "id": "hotel-maintenance"
+  "id": "hotel-management-complete"
 }
