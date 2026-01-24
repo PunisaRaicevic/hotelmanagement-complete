@@ -1,6 +1,6 @@
 import { supabase } from "./lib/supabase";
-import { 
-  type User, 
+import {
+  type User,
   type InsertUser,
   type Task,
   type InsertTask,
@@ -9,7 +9,17 @@ import {
   type Notification,
   type InsertNotification,
   type UserDeviceToken,
-  type InsertUserDeviceToken
+  type InsertUserDeviceToken,
+  type Room,
+  type InsertRoom,
+  type RoomStatusHistory,
+  type InsertRoomStatusHistory,
+  type HousekeepingTask,
+  type InsertHousekeepingTask,
+  type InventoryItem,
+  type InsertInventoryItem,
+  type RoomInventory,
+  type InsertRoomInventory
 } from "@shared/schema";
 
 export interface IStorage {
@@ -45,6 +55,43 @@ export interface IStorage {
   saveDeviceToken(token: Partial<InsertUserDeviceToken>): Promise<UserDeviceToken>;
   getDeviceTokensForUser(userId: string): Promise<UserDeviceToken[]>;
   deactivateDeviceToken(fcmToken: string): Promise<void>;
+
+  // Housekeeping - Rooms
+  getRooms(): Promise<Room[]>;
+  getRoomById(id: string): Promise<Room | undefined>;
+  getRoomByNumber(roomNumber: string): Promise<Room | undefined>;
+  getRoomsByFloor(floor: number): Promise<Room[]>;
+  getRoomsByStatus(status: string): Promise<Room[]>;
+  createRoom(room: Partial<InsertRoom>): Promise<Room>;
+  updateRoom(id: string, data: Partial<Room>): Promise<Room | undefined>;
+  deleteRoom(id: string): Promise<boolean>;
+
+  // Housekeeping - Room Status History
+  createRoomStatusHistory(history: Partial<InsertRoomStatusHistory>): Promise<RoomStatusHistory>;
+  getRoomStatusHistory(roomId: string): Promise<RoomStatusHistory[]>;
+
+  // Housekeeping - Tasks
+  getHousekeepingTasks(): Promise<HousekeepingTask[]>;
+  getHousekeepingTaskById(id: string): Promise<HousekeepingTask | undefined>;
+  getHousekeepingTasksByRoom(roomId: string): Promise<HousekeepingTask[]>;
+  getHousekeepingTasksByAssignee(userId: string): Promise<HousekeepingTask[]>;
+  getHousekeepingTasksByDate(date: string): Promise<HousekeepingTask[]>;
+  createHousekeepingTask(task: Partial<InsertHousekeepingTask>): Promise<HousekeepingTask>;
+  updateHousekeepingTask(id: string, data: Partial<HousekeepingTask>): Promise<HousekeepingTask | undefined>;
+  deleteHousekeepingTask(id: string): Promise<boolean>;
+
+  // Housekeeping - Inventory
+  getInventoryItems(): Promise<InventoryItem[]>;
+  getInventoryItemById(id: string): Promise<InventoryItem | undefined>;
+  getInventoryItemsByCategory(category: string): Promise<InventoryItem[]>;
+  getLowStockItems(): Promise<InventoryItem[]>;
+  createInventoryItem(item: Partial<InsertInventoryItem>): Promise<InventoryItem>;
+  updateInventoryItem(id: string, data: Partial<InventoryItem>): Promise<InventoryItem | undefined>;
+  deleteInventoryItem(id: string): Promise<boolean>;
+
+  // Housekeeping - Room Inventory
+  getRoomInventory(roomId: string): Promise<RoomInventory[]>;
+  updateRoomInventory(roomId: string, itemId: string, quantity: number, userId: string): Promise<RoomInventory>;
 }
 
 export class SupabaseStorage implements IStorage {
@@ -415,8 +462,403 @@ export class SupabaseStorage implements IStorage {
       .from('user_device_tokens')
       .update({ is_active: false })
       .eq('fcm_token', fcmToken);
-    
+
     if (error) throw error;
+  }
+
+  // =============================================
+  // HOUSEKEEPING - ROOMS
+  // =============================================
+
+  async getRooms(): Promise<Room[]> {
+    const { data, error } = await supabase
+      .from('rooms')
+      .select('*')
+      .eq('is_active', true)
+      .order('floor', { ascending: true })
+      .order('room_number', { ascending: true });
+
+    if (error) throw error;
+    return (data || []) as Room[];
+  }
+
+  async getRoomById(id: string): Promise<Room | undefined> {
+    const { data, error } = await supabase
+      .from('rooms')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return undefined;
+      throw error;
+    }
+    return data as Room;
+  }
+
+  async getRoomByNumber(roomNumber: string): Promise<Room | undefined> {
+    const { data, error } = await supabase
+      .from('rooms')
+      .select('*')
+      .eq('room_number', roomNumber)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return undefined;
+      throw error;
+    }
+    return data as Room;
+  }
+
+  async getRoomsByFloor(floor: number): Promise<Room[]> {
+    const { data, error } = await supabase
+      .from('rooms')
+      .select('*')
+      .eq('floor', floor)
+      .eq('is_active', true)
+      .order('room_number', { ascending: true });
+
+    if (error) throw error;
+    return (data || []) as Room[];
+  }
+
+  async getRoomsByStatus(status: string): Promise<Room[]> {
+    const { data, error } = await supabase
+      .from('rooms')
+      .select('*')
+      .eq('status', status)
+      .eq('is_active', true)
+      .order('priority_score', { ascending: false });
+
+    if (error) throw error;
+    return (data || []) as Room[];
+  }
+
+  async createRoom(roomData: Partial<InsertRoom>): Promise<Room> {
+    const { data, error } = await supabase
+      .from('rooms')
+      .insert(roomData)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as Room;
+  }
+
+  async updateRoom(id: string, data: Partial<Room>): Promise<Room | undefined> {
+    const updateData = { ...data, updated_at: new Date().toISOString() };
+    const { data: updated, error } = await supabase
+      .from('rooms')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return undefined;
+      throw error;
+    }
+    return updated as Room;
+  }
+
+  async deleteRoom(id: string): Promise<boolean> {
+    const { error } = await supabase
+      .from('rooms')
+      .update({ is_active: false })
+      .eq('id', id);
+
+    if (error) {
+      console.error('[STORAGE] Error deactivating room:', error);
+      return false;
+    }
+    return true;
+  }
+
+  // =============================================
+  // HOUSEKEEPING - ROOM STATUS HISTORY
+  // =============================================
+
+  async createRoomStatusHistory(historyData: Partial<InsertRoomStatusHistory>): Promise<RoomStatusHistory> {
+    const { data, error } = await supabase
+      .from('room_status_history')
+      .insert(historyData)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as RoomStatusHistory;
+  }
+
+  async getRoomStatusHistory(roomId: string): Promise<RoomStatusHistory[]> {
+    const { data, error } = await supabase
+      .from('room_status_history')
+      .select('*')
+      .eq('room_id', roomId)
+      .order('timestamp', { ascending: false });
+
+    if (error) throw error;
+    return (data || []) as RoomStatusHistory[];
+  }
+
+  // =============================================
+  // HOUSEKEEPING - TASKS
+  // =============================================
+
+  async getHousekeepingTasks(): Promise<HousekeepingTask[]> {
+    const { data, error } = await supabase
+      .from('housekeeping_tasks')
+      .select('*')
+      .order('scheduled_date', { ascending: true })
+      .order('priority', { ascending: false });
+
+    if (error) throw error;
+    return (data || []) as HousekeepingTask[];
+  }
+
+  async getHousekeepingTaskById(id: string): Promise<HousekeepingTask | undefined> {
+    const { data, error } = await supabase
+      .from('housekeeping_tasks')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return undefined;
+      throw error;
+    }
+    return data as HousekeepingTask;
+  }
+
+  async getHousekeepingTasksByRoom(roomId: string): Promise<HousekeepingTask[]> {
+    const { data, error } = await supabase
+      .from('housekeeping_tasks')
+      .select('*')
+      .eq('room_id', roomId)
+      .order('scheduled_date', { ascending: false });
+
+    if (error) throw error;
+    return (data || []) as HousekeepingTask[];
+  }
+
+  async getHousekeepingTasksByAssignee(userId: string): Promise<HousekeepingTask[]> {
+    const { data, error } = await supabase
+      .from('housekeeping_tasks')
+      .select('*')
+      .eq('assigned_to', userId)
+      .order('scheduled_date', { ascending: true });
+
+    if (error) throw error;
+    return (data || []) as HousekeepingTask[];
+  }
+
+  async getHousekeepingTasksByDate(date: string): Promise<HousekeepingTask[]> {
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const { data, error } = await supabase
+      .from('housekeeping_tasks')
+      .select('*')
+      .gte('scheduled_date', startOfDay.toISOString())
+      .lte('scheduled_date', endOfDay.toISOString())
+      .order('priority', { ascending: false });
+
+    if (error) throw error;
+    return (data || []) as HousekeepingTask[];
+  }
+
+  async createHousekeepingTask(taskData: Partial<InsertHousekeepingTask>): Promise<HousekeepingTask> {
+    const { data, error } = await supabase
+      .from('housekeeping_tasks')
+      .insert(taskData)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as HousekeepingTask;
+  }
+
+  async updateHousekeepingTask(id: string, data: Partial<HousekeepingTask>): Promise<HousekeepingTask | undefined> {
+    const updateData = { ...data, updated_at: new Date().toISOString() };
+    const { data: updated, error } = await supabase
+      .from('housekeeping_tasks')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return undefined;
+      throw error;
+    }
+    return updated as HousekeepingTask;
+  }
+
+  async deleteHousekeepingTask(id: string): Promise<boolean> {
+    const { error } = await supabase
+      .from('housekeeping_tasks')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('[STORAGE] Error deleting housekeeping task:', error);
+      return false;
+    }
+    return true;
+  }
+
+  // =============================================
+  // HOUSEKEEPING - INVENTORY
+  // =============================================
+
+  async getInventoryItems(): Promise<InventoryItem[]> {
+    const { data, error } = await supabase
+      .from('inventory_items')
+      .select('*')
+      .eq('is_active', true)
+      .order('category', { ascending: true })
+      .order('name', { ascending: true });
+
+    if (error) throw error;
+    return (data || []) as InventoryItem[];
+  }
+
+  async getInventoryItemById(id: string): Promise<InventoryItem | undefined> {
+    const { data, error } = await supabase
+      .from('inventory_items')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return undefined;
+      throw error;
+    }
+    return data as InventoryItem;
+  }
+
+  async getInventoryItemsByCategory(category: string): Promise<InventoryItem[]> {
+    const { data, error } = await supabase
+      .from('inventory_items')
+      .select('*')
+      .eq('category', category)
+      .eq('is_active', true)
+      .order('name', { ascending: true });
+
+    if (error) throw error;
+    return (data || []) as InventoryItem[];
+  }
+
+  async getLowStockItems(): Promise<InventoryItem[]> {
+    const { data, error } = await supabase
+      .from('inventory_items')
+      .select('*')
+      .eq('is_active', true);
+
+    if (error) throw error;
+
+    // Filter items where current_stock <= minimum_stock
+    const lowStock = (data || []).filter(
+      (item: any) => item.current_stock <= item.minimum_stock
+    );
+    return lowStock as InventoryItem[];
+  }
+
+  async createInventoryItem(itemData: Partial<InsertInventoryItem>): Promise<InventoryItem> {
+    const { data, error } = await supabase
+      .from('inventory_items')
+      .insert(itemData)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as InventoryItem;
+  }
+
+  async updateInventoryItem(id: string, data: Partial<InventoryItem>): Promise<InventoryItem | undefined> {
+    const updateData = { ...data, updated_at: new Date().toISOString() };
+    const { data: updated, error } = await supabase
+      .from('inventory_items')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return undefined;
+      throw error;
+    }
+    return updated as InventoryItem;
+  }
+
+  async deleteInventoryItem(id: string): Promise<boolean> {
+    const { error } = await supabase
+      .from('inventory_items')
+      .update({ is_active: false })
+      .eq('id', id);
+
+    if (error) {
+      console.error('[STORAGE] Error deactivating inventory item:', error);
+      return false;
+    }
+    return true;
+  }
+
+  // =============================================
+  // HOUSEKEEPING - ROOM INVENTORY
+  // =============================================
+
+  async getRoomInventory(roomId: string): Promise<RoomInventory[]> {
+    const { data, error } = await supabase
+      .from('room_inventory')
+      .select('*')
+      .eq('room_id', roomId);
+
+    if (error) throw error;
+    return (data || []) as RoomInventory[];
+  }
+
+  async updateRoomInventory(roomId: string, itemId: string, quantity: number, userId: string): Promise<RoomInventory> {
+    // Try to update existing record
+    const { data: existing } = await supabase
+      .from('room_inventory')
+      .select('*')
+      .eq('room_id', roomId)
+      .eq('item_id', itemId)
+      .single();
+
+    if (existing) {
+      const { data, error } = await supabase
+        .from('room_inventory')
+        .update({
+          quantity,
+          last_restocked_at: new Date().toISOString(),
+          last_restocked_by: userId
+        })
+        .eq('id', existing.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data as RoomInventory;
+    } else {
+      // Create new record
+      const { data, error } = await supabase
+        .from('room_inventory')
+        .insert({
+          room_id: roomId,
+          item_id: itemId,
+          quantity,
+          last_restocked_at: new Date().toISOString(),
+          last_restocked_by: userId
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data as RoomInventory;
+    }
   }
 }
 

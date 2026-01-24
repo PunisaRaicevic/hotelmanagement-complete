@@ -24,8 +24,10 @@ const createUserSchema = z.object({
     "serviser",
     "recepcioner",
     "menadzer",
+    "sobarica",
+    "sef_domacinstva",
   ]),
-  job_title: z.string().optional(), 
+  job_title: z.string().optional(),
   department: z.string().optional(),
   phone: z.string().optional(),
   is_active: z.boolean().optional(),
@@ -37,18 +39,96 @@ const updateUserSchema = z.object({
   password: z.string().min(4, "Password must be at least 4 characters").optional(),
   full_name: z.string().min(1).optional(),
   role: z.enum([
-      "admin",
-      "operater",
-      "sef",
-      "radnik",
-      "serviser",
-      "recepcioner",
-      "menadzer",
-    ]).optional(),
+    "admin",
+    "operater",
+    "sef",
+    "radnik",
+    "serviser",
+    "recepcioner",
+    "menadzer",
+    "sobarica",
+    "sef_domacinstva",
+  ]).optional(),
   job_title: z.string().optional(),
   department: z.string().optional(),
   phone: z.string().optional(),
   is_active: z.boolean().optional(),
+});
+
+// Housekeeping validation schemas
+const createRoomSchema = z.object({
+  room_number: z.string().min(1, "Room number is required"),
+  floor: z.number().int().min(0, "Floor must be 0 or higher"),
+  category: z.enum(["standard", "superior", "deluxe", "suite", "apartment"]).optional(),
+  bed_type: z.enum(["single", "double", "twin", "king", "queen"]).optional(),
+  max_occupancy: z.number().int().min(1).optional(),
+  has_minibar: z.boolean().optional(),
+});
+
+const updateRoomSchema = z.object({
+  room_number: z.string().min(1).optional(),
+  floor: z.number().int().min(0).optional(),
+  category: z.enum(["standard", "superior", "deluxe", "suite", "apartment"]).optional(),
+  status: z.enum(["clean", "dirty", "in_cleaning", "inspected", "out_of_order", "do_not_disturb"]).optional(),
+  occupancy_status: z.enum(["vacant", "occupied", "checkout", "checkin_expected", "checkout_expected"]).optional(),
+  assigned_housekeeper_id: z.string().nullable().optional(),
+  assigned_housekeeper_name: z.string().nullable().optional(),
+  guest_name: z.string().nullable().optional(),
+  checkout_date: z.string().nullable().optional(),
+  checkin_date: z.string().nullable().optional(),
+  notes: z.string().nullable().optional(),
+  priority_score: z.number().int().optional(),
+  has_minibar: z.boolean().optional(),
+  needs_minibar_check: z.boolean().optional(),
+  bed_type: z.enum(["single", "double", "twin", "king", "queen"]).optional(),
+  max_occupancy: z.number().int().min(1).optional(),
+});
+
+const createHousekeepingTaskSchema = z.object({
+  room_id: z.string().min(1, "Room ID is required"),
+  room_number: z.string().min(1, "Room number is required"),
+  cleaning_type: z.enum(["daily", "checkout", "deep_clean", "turndown", "touch_up"]).optional(),
+  assigned_to: z.string().nullable().optional(),
+  assigned_to_name: z.string().nullable().optional(),
+  supervisor_id: z.string().nullable().optional(),
+  supervisor_name: z.string().nullable().optional(),
+  priority: z.enum(["urgent", "normal", "can_wait"]).optional(),
+  scheduled_date: z.string().min(1, "Scheduled date is required"),
+  guest_requests: z.string().nullable().optional(),
+});
+
+const updateHousekeepingTaskSchema = z.object({
+  cleaning_type: z.enum(["daily", "checkout", "deep_clean", "turndown", "touch_up"]).optional(),
+  assigned_to: z.string().nullable().optional(),
+  assigned_to_name: z.string().nullable().optional(),
+  supervisor_id: z.string().nullable().optional(),
+  supervisor_name: z.string().nullable().optional(),
+  status: z.enum(["pending", "in_progress", "completed", "inspected", "needs_rework"]).optional(),
+  priority: z.enum(["urgent", "normal", "can_wait"]).optional(),
+  scheduled_date: z.string().optional(),
+  started_at: z.string().nullable().optional(),
+  completed_at: z.string().nullable().optional(),
+  inspected_at: z.string().nullable().optional(),
+  inspection_notes: z.string().nullable().optional(),
+  inspection_passed: z.boolean().nullable().optional(),
+  guest_requests: z.string().nullable().optional(),
+  minibar_items_used: z.array(z.string()).nullable().optional(),
+  linens_changed: z.boolean().optional(),
+  towels_changed: z.boolean().optional(),
+  amenities_restocked: z.boolean().optional(),
+  issues_found: z.string().nullable().optional(),
+  images: z.array(z.string()).nullable().optional(),
+  time_spent_minutes: z.number().int().optional(),
+});
+
+const createInventoryItemSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  category: z.enum(["linen", "amenity", "minibar", "cleaning_supply"]),
+  unit: z.string().optional(),
+  current_stock: z.number().int().min(0).optional(),
+  minimum_stock: z.number().int().min(0).optional(),
+  reorder_quantity: z.number().int().min(1).optional(),
+  cost_per_unit: z.number().int().min(0).optional(),
 });
 
 // Authentication middleware
@@ -1256,6 +1336,448 @@ ${scheduledTasksFormatted}`;
     } catch (error) {
       console.error('[AI ANALYSIS] Error:', error);
       res.status(500).json({ error: 'Greška pri analizi. Pokušajte ponovo.' });
+    }
+  });
+
+  // =============================================
+  // HOUSEKEEPING API ROUTES
+  // =============================================
+
+  // Middleware for housekeeping access (admin, sef_domacinstva, sobarica)
+  async function requireHousekeepingAccess(req: any, res: any, next: any) {
+    const authHeader = req.headers.authorization;
+    const token = extractTokenFromHeader(authHeader);
+
+    if (token) {
+      const payload = verifyToken(token);
+      if (payload) {
+        req.session.userId = payload.userId;
+        req.session.userRole = payload.role;
+        req.session.username = payload.username;
+        req.session.fullName = payload.fullName;
+
+        const allowedRoles = ['admin', 'sef_domacinstva', 'sobarica', 'recepcioner'];
+        if (!allowedRoles.includes(payload.role)) {
+          return res.status(403).json({ error: "Housekeeping access required" });
+        }
+        return next();
+      }
+    }
+
+    if (!req.session.userId) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const allowedRoles = ['admin', 'sef_domacinstva', 'sobarica', 'recepcioner'];
+    if (!allowedRoles.includes(req.session.userRole)) {
+      return res.status(403).json({ error: "Housekeeping access required" });
+    }
+    next();
+  }
+
+  // ----- ROOMS -----
+
+  // Get all rooms
+  app.get("/api/rooms", requireHousekeepingAccess, async (req, res) => {
+    try {
+      const { floor, status } = req.query;
+
+      let rooms;
+      if (floor) {
+        rooms = await storage.getRoomsByFloor(parseInt(floor as string));
+      } else if (status) {
+        rooms = await storage.getRoomsByStatus(status as string);
+      } else {
+        rooms = await storage.getRooms();
+      }
+
+      res.json({ rooms });
+    } catch (error) {
+      console.error("Error fetching rooms:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get room by ID
+  app.get("/api/rooms/:id", requireHousekeepingAccess, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const room = await storage.getRoomById(id);
+
+      if (!room) {
+        return res.status(404).json({ error: "Room not found" });
+      }
+
+      res.json({ room });
+    } catch (error) {
+      console.error("Error fetching room:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Create room (admin/sef_domacinstva only)
+  app.post("/api/rooms", requireAdmin, async (req, res) => {
+    try {
+      const validationResult = createRoomSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ error: validationResult.error.errors[0].message });
+      }
+
+      const existingRoom = await storage.getRoomByNumber(validationResult.data.room_number);
+      if (existingRoom) {
+        return res.status(409).json({ error: "Room with this number already exists" });
+      }
+
+      const room = await storage.createRoom(validationResult.data);
+      res.status(201).json({ room });
+    } catch (error) {
+      console.error("Error creating room:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Update room
+  app.patch("/api/rooms/:id", requireHousekeepingAccess, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const validationResult = updateRoomSchema.safeParse(req.body);
+
+      if (!validationResult.success) {
+        return res.status(400).json({ error: validationResult.error.errors[0].message });
+      }
+
+      const currentRoom = await storage.getRoomById(id);
+      if (!currentRoom) {
+        return res.status(404).json({ error: "Room not found" });
+      }
+
+      const sessionUser = await storage.getUserById(req.session.userId);
+      if (!sessionUser) {
+        return res.status(401).json({ error: "Invalid session" });
+      }
+
+      // Track status change in history
+      if (validationResult.data.status && validationResult.data.status !== currentRoom.status) {
+        await storage.createRoomStatusHistory({
+          room_id: id,
+          status_from: currentRoom.status,
+          status_to: validationResult.data.status,
+          changed_by: sessionUser.id,
+          changed_by_name: sessionUser.full_name,
+          notes: req.body.notes || null,
+        });
+
+        // Update last_cleaned_at if status changes to clean/inspected
+        if (validationResult.data.status === 'clean' || validationResult.data.status === 'inspected') {
+          (validationResult.data as any).last_cleaned_at = new Date().toISOString();
+        }
+        if (validationResult.data.status === 'inspected') {
+          (validationResult.data as any).last_inspected_at = new Date().toISOString();
+          (validationResult.data as any).last_inspected_by = sessionUser.id;
+        }
+      }
+
+      const room = await storage.updateRoom(id, validationResult.data as any);
+      res.json({ room });
+    } catch (error) {
+      console.error("Error updating room:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Delete room (admin only)
+  app.delete("/api/rooms/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const deleted = await storage.deleteRoom(id);
+
+      if (!deleted) {
+        return res.status(404).json({ error: "Room not found" });
+      }
+
+      res.json({ message: "Room deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting room:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get room status history
+  app.get("/api/rooms/:id/history", requireHousekeepingAccess, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const history = await storage.getRoomStatusHistory(id);
+      res.json({ history });
+    } catch (error) {
+      console.error("Error fetching room history:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // ----- HOUSEKEEPING TASKS -----
+
+  // Get all housekeeping tasks
+  app.get("/api/housekeeping/tasks", requireHousekeepingAccess, async (req, res) => {
+    try {
+      const { room_id, assigned_to, date } = req.query;
+
+      let tasks;
+      if (room_id) {
+        tasks = await storage.getHousekeepingTasksByRoom(room_id as string);
+      } else if (assigned_to) {
+        tasks = await storage.getHousekeepingTasksByAssignee(assigned_to as string);
+      } else if (date) {
+        tasks = await storage.getHousekeepingTasksByDate(date as string);
+      } else {
+        tasks = await storage.getHousekeepingTasks();
+      }
+
+      res.json({ tasks });
+    } catch (error) {
+      console.error("Error fetching housekeeping tasks:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get housekeeping task by ID
+  app.get("/api/housekeeping/tasks/:id", requireHousekeepingAccess, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const task = await storage.getHousekeepingTaskById(id);
+
+      if (!task) {
+        return res.status(404).json({ error: "Housekeeping task not found" });
+      }
+
+      res.json({ task });
+    } catch (error) {
+      console.error("Error fetching housekeeping task:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Create housekeeping task
+  app.post("/api/housekeeping/tasks", requireHousekeepingAccess, async (req, res) => {
+    try {
+      const validationResult = createHousekeepingTaskSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ error: validationResult.error.errors[0].message });
+      }
+
+      const task = await storage.createHousekeepingTask(validationResult.data);
+
+      // Update room status to dirty if creating a checkout cleaning
+      if (validationResult.data.cleaning_type === 'checkout') {
+        await storage.updateRoom(validationResult.data.room_id, { status: 'dirty' });
+      }
+
+      res.status(201).json({ task });
+    } catch (error) {
+      console.error("Error creating housekeeping task:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Update housekeeping task
+  app.patch("/api/housekeeping/tasks/:id", requireHousekeepingAccess, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const validationResult = updateHousekeepingTaskSchema.safeParse(req.body);
+
+      if (!validationResult.success) {
+        return res.status(400).json({ error: validationResult.error.errors[0].message });
+      }
+
+      const currentTask = await storage.getHousekeepingTaskById(id);
+      if (!currentTask) {
+        return res.status(404).json({ error: "Housekeeping task not found" });
+      }
+
+      const sessionUser = await storage.getUserById(req.session.userId);
+      if (!sessionUser) {
+        return res.status(401).json({ error: "Invalid session" });
+      }
+
+      const updateData: any = { ...validationResult.data };
+
+      // Handle status transitions
+      if (updateData.status) {
+        if (updateData.status === 'in_progress' && currentTask.status === 'pending') {
+          updateData.started_at = new Date().toISOString();
+          // Update room status
+          await storage.updateRoom(currentTask.room_id, { status: 'in_cleaning' });
+        }
+
+        if (updateData.status === 'completed' && currentTask.status !== 'completed') {
+          updateData.completed_at = new Date().toISOString();
+          // Update room status to clean
+          await storage.updateRoom(currentTask.room_id, { status: 'clean' });
+        }
+
+        if (updateData.status === 'inspected') {
+          updateData.inspected_at = new Date().toISOString();
+          // Update room status to inspected
+          await storage.updateRoom(currentTask.room_id, {
+            status: 'inspected',
+            last_inspected_at: new Date().toISOString(),
+            last_inspected_by: sessionUser.id
+          } as any);
+        }
+
+        if (updateData.status === 'needs_rework') {
+          // Room stays in cleaning state
+          await storage.updateRoom(currentTask.room_id, { status: 'dirty' });
+        }
+      }
+
+      const task = await storage.updateHousekeepingTask(id, updateData);
+      res.json({ task });
+    } catch (error) {
+      console.error("Error updating housekeeping task:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Delete housekeeping task
+  app.delete("/api/housekeeping/tasks/:id", requireHousekeepingAccess, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const sessionUser = await storage.getUserById(req.session.userId);
+
+      if (!sessionUser || (sessionUser.role !== 'admin' && sessionUser.role !== 'sef_domacinstva')) {
+        return res.status(403).json({ error: "Only admin or supervisor can delete tasks" });
+      }
+
+      const deleted = await storage.deleteHousekeepingTask(id);
+
+      if (!deleted) {
+        return res.status(404).json({ error: "Housekeeping task not found" });
+      }
+
+      res.json({ message: "Housekeeping task deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting housekeeping task:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // ----- INVENTORY -----
+
+  // Get all inventory items
+  app.get("/api/inventory", requireHousekeepingAccess, async (req, res) => {
+    try {
+      const { category, low_stock } = req.query;
+
+      let items;
+      if (low_stock === 'true') {
+        items = await storage.getLowStockItems();
+      } else if (category) {
+        items = await storage.getInventoryItemsByCategory(category as string);
+      } else {
+        items = await storage.getInventoryItems();
+      }
+
+      res.json({ items });
+    } catch (error) {
+      console.error("Error fetching inventory:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Create inventory item (admin only)
+  app.post("/api/inventory", requireAdmin, async (req, res) => {
+    try {
+      const validationResult = createInventoryItemSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ error: validationResult.error.errors[0].message });
+      }
+
+      const item = await storage.createInventoryItem(validationResult.data);
+      res.status(201).json({ item });
+    } catch (error) {
+      console.error("Error creating inventory item:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Update inventory item
+  app.patch("/api/inventory/:id", requireHousekeepingAccess, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const item = await storage.updateInventoryItem(id, req.body);
+
+      if (!item) {
+        return res.status(404).json({ error: "Inventory item not found" });
+      }
+
+      res.json({ item });
+    } catch (error) {
+      console.error("Error updating inventory item:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Delete inventory item (admin only)
+  app.delete("/api/inventory/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const deleted = await storage.deleteInventoryItem(id);
+
+      if (!deleted) {
+        return res.status(404).json({ error: "Inventory item not found" });
+      }
+
+      res.json({ message: "Inventory item deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting inventory item:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get room inventory
+  app.get("/api/rooms/:id/inventory", requireHousekeepingAccess, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const inventory = await storage.getRoomInventory(id);
+      res.json({ inventory });
+    } catch (error) {
+      console.error("Error fetching room inventory:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Update room inventory
+  app.put("/api/rooms/:roomId/inventory/:itemId", requireHousekeepingAccess, async (req, res) => {
+    try {
+      const { roomId, itemId } = req.params;
+      const { quantity } = req.body;
+
+      if (typeof quantity !== 'number' || quantity < 0) {
+        return res.status(400).json({ error: "Valid quantity is required" });
+      }
+
+      const sessionUser = await storage.getUserById(req.session.userId);
+      if (!sessionUser) {
+        return res.status(401).json({ error: "Invalid session" });
+      }
+
+      const inventory = await storage.updateRoomInventory(roomId, itemId, quantity, sessionUser.id);
+      res.json({ inventory });
+    } catch (error) {
+      console.error("Error updating room inventory:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get housekeepers (sobarica role)
+  app.get("/api/housekeepers", requireHousekeepingAccess, async (req, res) => {
+    try {
+      const housekeepers = await storage.getUsersByRole('sobarica');
+      const usersWithoutPasswords = housekeepers.map(({ password_hash, ...user }) => user);
+      res.json({ housekeepers: usersWithoutPasswords });
+    } catch (error) {
+      console.error("Error fetching housekeepers:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
   });
 
