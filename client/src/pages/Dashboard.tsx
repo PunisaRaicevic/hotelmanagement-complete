@@ -6,6 +6,8 @@ import WorkerDashboard from './WorkerDashboard';
 import TechnicianDashboard from './TechnicianDashboard';
 import ManagerDashboard from './ManagerDashboard';
 import ComplaintSubmissionDashboard from './ComplaintSubmissionDashboard';
+import HousekeeperDashboard from './HousekeeperDashboard';
+import HousekeepingSupervisorDashboard from './HousekeepingSupervisorDashboard';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -28,8 +30,12 @@ export default function Dashboard() {
       return <TechnicianDashboard />;
     case 'menadzer':
       return <ManagerDashboard />;
+    case 'sobarica':
+      return <HousekeeperDashboard />;
+    case 'sef_domacinstva':
+      return <HousekeepingSupervisorDashboard />;
     default:
-      // All other roles (recepcioner, kuhar, sobarica, etc.) use complaint submission dashboard
+      // All other roles (recepcioner, etc.) use complaint submission dashboard
       return <ComplaintSubmissionDashboard />;
   }
 }
