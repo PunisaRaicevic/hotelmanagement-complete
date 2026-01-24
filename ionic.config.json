@@ -1,0 +1,8 @@
+{
+  "name": "Hotel Park Tehnika",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "react",
+  "id": "hotel-maintenance"
+}

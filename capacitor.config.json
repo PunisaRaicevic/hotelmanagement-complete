@@ -1,0 +1,19 @@
+{
+  "appId": "com.hotelmanagement.complete",
+  "appName": "Hotel Management",
+  "webDir": "dist/public",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https",
+    "cleartext": false
+  },
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": [
+        "badge",
+        "sound",
+        "alert"
+      ]
+    }
+  }
+}

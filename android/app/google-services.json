@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "615826196463",
+    "project_id": "hotelpark-tehnika",
+    "storage_bucket": "hotelpark-tehnika.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:615826196463:android:c7cc7e755b4cc09b73181a",
+        "android_client_info": {
+          "package_name": "com.hotelpark.tehnika"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBR9fFW-hb4BwqE5Tp1rLORoC76PIr8uac"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
