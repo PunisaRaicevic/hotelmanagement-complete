@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "375153203002",
-    "project_id": "hgbtapp",
-    "storage_bucket": "hgbtapp.firebasestorage.app"
+    "project_number": "97241477060",
+    "project_id": "hotelmanagement-complete",
+    "storage_bucket": "hotelmanagement-complete.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:375153203002:android:d57aea9c9c9cd906372203",
+        "mobilesdk_app_id": "1:97241477060:android:eca4ce4e2117d2cf6a3e91",
         "android_client_info": {
-          "package_name": "com.budvanskarivijera.hotel"
+          "package_name": "com.hotelmanagement.complete"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyAG8vYe5WM_3JhXYUj9C6UIrut4FnRBAxU"
+          "current_key": "AIzaSyBfYhSzQH_qVPTVsCO9X85R8Kl6-k6f8dY"
         }
       ],
       "services": {

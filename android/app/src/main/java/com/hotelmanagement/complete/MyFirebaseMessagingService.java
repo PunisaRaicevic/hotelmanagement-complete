@@ -1,4 +1,4 @@
-package com.hotelpark.tehnika;
+package com.hotelmanagement.complete;
 
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -20,8 +20,8 @@ import java.util.Map;
 
 public class MyFirebaseMessagingService extends FirebaseMessagingService {
     private static final String TAG = "FCMService";
-    private static final String CHANNEL_ID = "reklamacije-alert";
-    private static final String CHANNEL_NAME = "Reklamacije i Zadaci";
+    private static final String CHANNEL_ID = "hotelmanagement-alert";
+    private static final String CHANNEL_NAME = "Hotel Management Notifikacije";
 
     @Override
     public void onCreate() {
@@ -83,7 +83,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
                 NotificationManager.IMPORTANCE_HIGH // HIGH = zvuk + vibration
             );
 
-            channel.setDescription("Notifikacije za nove reklamacije i zadatke");
+            channel.setDescription("Notifikacije za hotelski menadzment");
             channel.enableVibration(true);
             channel.setVibrationPattern(new long[]{0, 500, 200, 500}); // Custom vibration
 
@@ -121,9 +121,8 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         Uri soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
 
         // Kreiraj notifikaciju SA ZVUKOM I VIBRACIJOM
-        // Koristi android.R.drawable.ic_dialog_info kao fallback ikonu (uvek dostupna)
         NotificationCompat.Builder notificationBuilder = new NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_info) // System ikona (uvek postoji)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle(title)
             .setContentText(body)
             .setAutoCancel(true)

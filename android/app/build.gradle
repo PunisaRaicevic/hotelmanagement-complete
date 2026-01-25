@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace "com.hotelpark.tehnika"
+    namespace "com.hotelmanagement.complete"
     compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.hotelpark.tehnika"
+        applicationId "com.hotelmanagement.complete"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

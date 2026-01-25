@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Hotel Park</string>
-    <string name="title_activity_main">Hotel Park Tehnika</string>
-    <string name="package_name">com.hotelpark.tehnika</string>
-    <string name="custom_url_scheme">com.hotelpark.tehnika</string>
+    <string name="app_name">Hotel Management</string>
+    <string name="title_activity_main">Hotel Management</string>
+    <string name="package_name">com.hotelmanagement.complete</string>
+    <string name="custom_url_scheme">com.hotelmanagement.complete</string>
 </resources>

@@ -1,4 +1,4 @@
-package com.hotelpark.tehnika;
+package com.hotelmanagement.complete;
 
 import com.getcapacitor.BridgeActivity;
 
