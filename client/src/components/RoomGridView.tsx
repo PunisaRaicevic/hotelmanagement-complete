@@ -221,7 +221,7 @@ export default function RoomGridView({ rooms, tasks = [], onRoomClick }: RoomGri
                 relative p-3 cursor-pointer transition-all hover:scale-[1.02] hover:shadow-lg
                 border-l-4 ${config.borderColor} ${config.bgColor}
                 ${isUrgent ? 'ring-2 ring-red-400 ring-offset-1' : ''}
-                h-full min-h-[180px] flex flex-col
+                w-full h-[200px] flex flex-col overflow-hidden
               `}
               onClick={() => onRoomClick(room)}
             >
@@ -558,7 +558,7 @@ export default function RoomGridView({ rooms, tasks = [], onRoomClick }: RoomGri
                 </div>
 
                 {/* Floor Rooms Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 items-stretch">
+                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                   {floorRooms.map((room) => (
                     <RoomTile key={room.id} room={room} />
                   ))}
@@ -569,7 +569,7 @@ export default function RoomGridView({ rooms, tasks = [], onRoomClick }: RoomGri
         </div>
       ) : (
         // Simple grid view
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 items-stretch">
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
           {filteredRooms
             .sort((a, b) => a.room_number.localeCompare(b.room_number, undefined, { numeric: true }))
             .map((room) => (
