@@ -653,3 +653,215 @@
     @apply w-12 h-12;
   }
 }
+
+/* ========================================
+   MOBILE VIEW MODE (Forced Mobile Layout)
+   ======================================== */
+
+/* Mobile view wrapper */
+body.mobile-view {
+  --mobile-max-width: 430px;
+}
+
+body.mobile-view .mobile-container {
+  max-width: var(--mobile-max-width);
+  margin: 0 auto;
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.15);
+  min-height: 100vh;
+  background: hsl(var(--background));
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Force single column layouts in mobile view */
+body.mobile-view .grid-cols-2,
+body.mobile-view .grid-cols-3,
+body.mobile-view .grid-cols-4,
+body.mobile-view .grid-cols-5,
+body.mobile-view .grid-cols-6,
+body.mobile-view .md\:grid-cols-2,
+body.mobile-view .md\:grid-cols-3,
+body.mobile-view .md\:grid-cols-4,
+body.mobile-view .md\:grid-cols-5,
+body.mobile-view .lg\:grid-cols-3,
+body.mobile-view .lg\:grid-cols-4,
+body.mobile-view .lg\:grid-cols-5,
+body.mobile-view .lg\:grid-cols-6,
+body.mobile-view .xl\:grid-cols-6 {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+/* Stats grid - keep 2 columns but smaller */
+body.mobile-view .grid.grid-cols-2.md\:grid-cols-5 {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 0.5rem !important;
+}
+
+/* Make cards more touch-friendly */
+body.mobile-view .cursor-pointer {
+  min-height: 44px;
+}
+
+/* Larger touch targets for buttons */
+body.mobile-view button,
+body.mobile-view [role="button"] {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+body.mobile-view button.h-8,
+body.mobile-view button.h-9 {
+  min-height: 40px !important;
+  font-size: 0.75rem !important;
+}
+
+/* Stack flex items vertically */
+body.mobile-view .flex.gap-2.flex-wrap,
+body.mobile-view .flex.gap-3.flex-wrap {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+body.mobile-view .flex.gap-1.flex-wrap {
+  flex-wrap: wrap;
+}
+
+/* Dialogs - full screen on mobile view */
+body.mobile-view [data-radix-dialog-content],
+body.mobile-view .DialogContent {
+  max-width: 100% !important;
+  width: 100% !important;
+  max-height: 100vh !important;
+  height: 100vh !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+}
+
+/* Cards more compact */
+body.mobile-view .p-4 {
+  padding: 0.75rem !important;
+}
+
+body.mobile-view .p-6 {
+  padding: 1rem !important;
+}
+
+body.mobile-view .space-y-6 > * + * {
+  margin-top: 1rem !important;
+}
+
+/* Text sizes */
+body.mobile-view .text-2xl {
+  font-size: 1.25rem !important;
+}
+
+body.mobile-view .text-xl {
+  font-size: 1.125rem !important;
+}
+
+body.mobile-view .text-lg {
+  font-size: 1rem !important;
+}
+
+/* Tabs - scrollable on mobile */
+body.mobile-view [role="tablist"] {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+body.mobile-view [role="tablist"]::-webkit-scrollbar {
+  display: none;
+}
+
+/* Room cards in mobile - 2 per row, smaller */
+body.mobile-view .room-tile,
+body.mobile-view [class*="RoomTile"] {
+  padding: 0.5rem !important;
+}
+
+body.mobile-view .room-tile .text-2xl,
+body.mobile-view [class*="RoomTile"] .text-2xl {
+  font-size: 1.25rem !important;
+}
+
+/* Filters - horizontal scroll */
+body.mobile-view .flex.gap-1.flex-wrap:has(button) {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+}
+
+/* Stat cards smaller */
+body.mobile-view .stat-card {
+  padding: 0.75rem !important;
+}
+
+body.mobile-view .stat-card .stat-icon {
+  width: 2.5rem !important;
+  height: 2.5rem !important;
+}
+
+body.mobile-view .stat-card .text-3xl,
+body.mobile-view .stat-card .text-2xl {
+  font-size: 1.5rem !important;
+}
+
+/* Badge sizes */
+body.mobile-view .badge,
+body.mobile-view [class*="Badge"] {
+  font-size: 0.65rem !important;
+  padding: 0.125rem 0.375rem !important;
+}
+
+/* Hide some desktop-only elements */
+body.mobile-view .hidden-mobile {
+  display: none !important;
+}
+
+/* Input fields larger for touch */
+body.mobile-view input,
+body.mobile-view select,
+body.mobile-view textarea {
+  font-size: 16px !important; /* Prevents iOS zoom */
+  min-height: 44px;
+}
+
+/* Select triggers */
+body.mobile-view [data-radix-select-trigger] {
+  min-height: 44px !important;
+}
+
+/* Scrollable areas full height */
+body.mobile-view [data-radix-scroll-area-viewport] {
+  max-height: calc(100vh - 280px) !important;
+}
+
+/* Mobile view indicator bar */
+body.mobile-view::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: var(--mobile-max-width);
+  height: 4px;
+  background: var(--gradient-primary);
+  z-index: 9999;
+}
+
+/* Center content when in mobile view on large screens */
+@media (min-width: 768px) {
+  body.mobile-view {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  }
+
+  body.mobile-view > #root {
+    max-width: var(--mobile-max-width);
+    margin: 0 auto;
+    box-shadow: 0 0 60px rgba(0, 0, 0, 0.3);
+    min-height: 100vh;
+    background: hsl(var(--background));
+    background-image: var(--gradient-hero);
+  }
+}

@@ -5,6 +5,7 @@ import { queryClient, apiRequest } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { ViewModeProvider } from "@/contexts/ViewModeContext";
 import "@/lib/i18n";
 import LoginPage from "@/components/LoginPage";
 import AppHeader from "@/components/AppHeader";
@@ -142,10 +143,12 @@ export default function App() {
     <IonApp>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <TooltipProvider>
-            <Router />
-            <Toaster />
-          </TooltipProvider>
+          <ViewModeProvider>
+            <TooltipProvider>
+              <Router />
+              <Toaster />
+            </TooltipProvider>
+          </ViewModeProvider>
         </AuthProvider>
       </QueryClientProvider>
     </IonApp>

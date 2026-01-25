@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { LogOut, Globe, Volume2, VolumeX } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import ViewModeToggle from '@/components/ViewModeToggle';
 import { useTranslation } from 'react-i18next';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -178,8 +179,11 @@ export default function AppHeader() {
       </div>
 
       <div className="flex items-center gap-2">
-        <Button 
-          variant="ghost" 
+        {/* View Mode Toggle (Mobile/Web) */}
+        <ViewModeToggle />
+
+        <Button
+          variant="ghost"
           onClick={handleLanguageToggle}
           data-testid="button-language-toggle"
           className="gap-2 min-h-11"
