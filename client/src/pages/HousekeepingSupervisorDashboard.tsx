@@ -348,7 +348,7 @@ export default function HousekeepingSupervisorDashboard() {
         <TabsContent value="rooms" className="mt-4">
           <Card>
             <CardContent className="pt-6">
-              <RoomGridView rooms={rooms} onRoomClick={handleRoomClick} />
+              <RoomGridView rooms={rooms} tasks={tasks} onRoomClick={handleRoomClick} />
             </CardContent>
           </Card>
         </TabsContent>

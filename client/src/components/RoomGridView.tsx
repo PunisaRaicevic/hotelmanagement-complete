@@ -10,7 +10,6 @@ import {
   Wine,
   AlertTriangle,
   Grid3X3,
-  List,
   Building2,
   Sparkles,
   Clock,
@@ -18,6 +17,15 @@ import {
   Eye,
   XCircle,
   BedDouble,
+  Calendar,
+  CalendarCheck,
+  CalendarX,
+  MessageSquareWarning,
+  Brush,
+  UserCog,
+  Info,
+  Bed,
+  Users,
 } from 'lucide-react';
 
 interface Room {
@@ -27,16 +35,38 @@ interface Room {
   category: string;
   status: 'clean' | 'dirty' | 'in_cleaning' | 'inspected' | 'out_of_order' | 'do_not_disturb';
   occupancy_status: string;
+  assigned_housekeeper_id?: string;
   assigned_housekeeper_name?: string;
   guest_name?: string;
   checkout_date?: string;
   checkin_date?: string;
   priority_score: number;
   needs_minibar_check: boolean;
+  last_cleaned_at?: string;
+  last_inspected_at?: string;
+  last_inspected_by?: string;
+  notes?: string;
+  bed_type?: string;
+  max_occupancy?: number;
+}
+
+interface HousekeepingTask {
+  id: string;
+  room_id: string;
+  room_number: string;
+  cleaning_type: string;
+  assigned_to?: string;
+  assigned_to_name?: string;
+  status: string;
+  priority: string;
+  scheduled_date: string;
+  issues_found?: string;
+  guest_requests?: string;
 }
 
 interface RoomGridViewProps {
   rooms: Room[];
+  tasks?: HousekeepingTask[];
   onRoomClick: (room: Room) => void;
 }
 
@@ -86,13 +116,56 @@ const statusConfig = {
 };
 
 const occupancyConfig = {
-  occupied: { label: 'Zauzeta', color: 'text-orange-600 bg-orange-100' },
-  vacant: { label: 'Prazna', color: 'text-green-600 bg-green-100' },
-  checkout: { label: 'Check-out', color: 'text-red-600 bg-red-100' },
-  checkin: { label: 'Check-in', color: 'text-blue-600 bg-blue-100' },
+  occupied: { label: 'Zauzeta', color: 'text-orange-600 bg-orange-100', icon: User },
+  vacant: { label: 'Prazna', color: 'text-green-600 bg-green-100', icon: CheckCircle2 },
+  checkout: { label: 'Check-out', color: 'text-red-600 bg-red-100', icon: CalendarX },
+  checkin: { label: 'Check-in', color: 'text-blue-600 bg-blue-100', icon: CalendarCheck },
+  checkin_expected: { label: 'Dolazak', color: 'text-blue-600 bg-blue-100', icon: CalendarCheck },
+  checkout_expected: { label: 'Odlazak', color: 'text-amber-600 bg-amber-100', icon: CalendarX },
 };
 
-export default function RoomGridView({ rooms, onRoomClick }: RoomGridViewProps) {
+const cleaningTypeLabels: Record<string, string> = {
+  daily: 'Dnevno',
+  checkout: 'Check-out',
+  deep_clean: 'Generalno',
+  turndown: 'Večernje',
+  touch_up: 'Brzo',
+};
+
+const categoryLabels: Record<string, string> = {
+  standard: 'Standard',
+  superior: 'Superior',
+  deluxe: 'Deluxe',
+  suite: 'Suite',
+  apartment: 'Apartman',
+};
+
+const bedTypeLabels: Record<string, string> = {
+  single: 'Single',
+  double: 'Double',
+  twin: 'Twin',
+  king: 'King',
+  queen: 'Queen',
+};
+
+const formatDate = (dateString?: string) => {
+  if (!dateString) return null;
+  const date = new Date(dateString);
+  return date.toLocaleDateString('sr-RS', { day: '2-digit', month: '2-digit' });
+};
+
+const formatDateTime = (dateString?: string) => {
+  if (!dateString) return null;
+  const date = new Date(dateString);
+  return date.toLocaleDateString('sr-RS', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+export default function RoomGridView({ rooms, tasks = [], onRoomClick }: RoomGridViewProps) {
   const [viewMode, setViewMode] = useState<'grid' | 'floor'>('floor');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
@@ -127,11 +200,17 @@ export default function RoomGridView({ rooms, onRoomClick }: RoomGridViewProps) 
     inspected: rooms.filter((r) => r.status === 'inspected').length,
   };
 
+  // Get task for room
+  const getTaskForRoom = (roomId: string) => {
+    return tasks.find((t) => t.room_id === roomId && ['pending', 'in_progress'].includes(t.status));
+  };
+
   const RoomTile = ({ room }: { room: Room }) => {
     const config = statusConfig[room.status] || statusConfig.dirty;
     const occConfig = occupancyConfig[room.occupancy_status as keyof typeof occupancyConfig];
     const isUrgent = room.priority_score > 5 || room.occupancy_status === 'checkout';
-    const StatusIcon = config.icon;
+    const task = getTaskForRoom(room.id);
+    const OccIcon = occConfig?.icon || User;
 
     return (
       <TooltipProvider>
@@ -139,64 +218,198 @@ export default function RoomGridView({ rooms, onRoomClick }: RoomGridViewProps) 
           <TooltipTrigger asChild>
             <Card
               className={`
-                relative p-3 cursor-pointer transition-all hover:scale-105 hover:shadow-lg
+                relative p-3 cursor-pointer transition-all hover:scale-[1.02] hover:shadow-lg
                 border-l-4 ${config.borderColor} ${config.bgColor}
                 ${isUrgent ? 'ring-2 ring-red-400 ring-offset-1' : ''}
               `}
               onClick={() => onRoomClick(room)}
             >
-              {/* Room Number - Large and prominent */}
-              <div className="flex items-start justify-between mb-2">
-                <span className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {room.room_number}
-                </span>
-                <div className={`w-3 h-3 rounded-full ${config.color}`} />
+              {/* Header: Room Number + Status Indicator */}
+              <div className="flex items-start justify-between mb-1">
+                <div>
+                  <span className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {room.room_number}
+                  </span>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <span>{categoryLabels[room.category] || room.category}</span>
+                    {room.bed_type && (
+                      <>
+                        <span>•</span>
+                        <Bed className="w-3 h-3" />
+                        <span>{bedTypeLabels[room.bed_type] || room.bed_type}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <div className="flex flex-col items-end gap-1">
+                  <div className={`w-3 h-3 rounded-full ${config.color}`} title={config.label} />
+                  {room.max_occupancy && room.max_occupancy > 2 && (
+                    <div className="flex items-center text-xs text-muted-foreground">
+                      <Users className="w-3 h-3 mr-0.5" />
+                      {room.max_occupancy}
+                    </div>
+                  )}
+                </div>
               </div>
-
-              {/* Category */}
-              <p className="text-xs text-muted-foreground capitalize mb-2">{room.category}</p>
 
               {/* Occupancy Badge */}
               {occConfig && (
                 <Badge className={`text-[10px] px-1.5 py-0 ${occConfig.color} border-0 mb-2`}>
+                  <OccIcon className="w-3 h-3 mr-1" />
                   {occConfig.label}
                 </Badge>
               )}
 
-              {/* Guest/Housekeeper info */}
-              <div className="space-y-1">
-                {room.guest_name && (
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <User className="w-3 h-3" />
+              {/* Guest Info */}
+              {room.guest_name && (
+                <div className="bg-white/60 dark:bg-black/20 rounded p-1.5 mb-2">
+                  <div className="flex items-center gap-1 text-xs font-medium">
+                    <User className="w-3 h-3 text-blue-600" />
                     <span className="truncate">{room.guest_name}</span>
                   </div>
-                )}
-                {room.assigned_housekeeper_name && (
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <BedDouble className="w-3 h-3" />
-                    <span className="truncate">{room.assigned_housekeeper_name}</span>
-                  </div>
-                )}
-              </div>
+                  {(room.checkin_date || room.checkout_date) && (
+                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
+                      {room.checkin_date && (
+                        <span className="flex items-center gap-0.5">
+                          <CalendarCheck className="w-3 h-3 text-green-600" />
+                          {formatDate(room.checkin_date)}
+                        </span>
+                      )}
+                      {room.checkout_date && (
+                        <span className="flex items-center gap-0.5">
+                          <CalendarX className="w-3 h-3 text-red-600" />
+                          {formatDate(room.checkout_date)}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
-              {/* Indicators */}
-              <div className="flex gap-1 mt-2">
+              {/* Cleaning Task Info */}
+              {task && (
+                <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded p-1.5 mb-2">
+                  <div className="flex items-center gap-1 text-xs">
+                    <Brush className="w-3 h-3 text-amber-600" />
+                    <span className="font-medium text-amber-800 dark:text-amber-200">
+                      {cleaningTypeLabels[task.cleaning_type] || task.cleaning_type}
+                    </span>
+                    {task.priority === 'urgent' && (
+                      <Badge variant="destructive" className="text-[9px] px-1 py-0 ml-auto">
+                        HITNO
+                      </Badge>
+                    )}
+                  </div>
+                  {task.assigned_to_name && (
+                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-0.5">
+                      <UserCog className="w-3 h-3" />
+                      <span>{task.assigned_to_name}</span>
+                    </div>
+                  )}
+                  {task.guest_requests && (
+                    <div className="flex items-start gap-1 text-[10px] text-blue-600 mt-0.5">
+                      <Info className="w-3 h-3 flex-shrink-0 mt-0.5" />
+                      <span className="line-clamp-1">{task.guest_requests}</span>
+                    </div>
+                  )}
+                  {task.issues_found && (
+                    <div className="flex items-start gap-1 text-[10px] text-red-600 mt-0.5">
+                      <MessageSquareWarning className="w-3 h-3 flex-shrink-0 mt-0.5" />
+                      <span className="line-clamp-1">{task.issues_found}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Assigned Housekeeper (when no active task) */}
+              {!task && room.assigned_housekeeper_name && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
+                  <BedDouble className="w-3 h-3" />
+                  <span className="truncate">{room.assigned_housekeeper_name}</span>
+                </div>
+              )}
+
+              {/* Last Cleaned/Inspected Info */}
+              {(room.last_cleaned_at || room.last_inspected_at) && (
+                <div className="text-[10px] text-muted-foreground space-y-0.5 mb-2">
+                  {room.last_cleaned_at && (
+                    <div className="flex items-center gap-1">
+                      <Sparkles className="w-3 h-3" />
+                      <span>Čišćeno: {formatDateTime(room.last_cleaned_at)}</span>
+                    </div>
+                  )}
+                  {room.last_inspected_at && (
+                    <div className="flex items-center gap-1">
+                      <Eye className="w-3 h-3" />
+                      <span>Pregled: {formatDateTime(room.last_inspected_at)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Notes */}
+              {room.notes && (
+                <div className="text-[10px] text-muted-foreground bg-gray-100 dark:bg-gray-800 rounded p-1 mb-2 line-clamp-2">
+                  <Info className="w-3 h-3 inline mr-1" />
+                  {room.notes}
+                </div>
+              )}
+
+              {/* Indicators Row */}
+              <div className="flex gap-1.5 flex-wrap">
                 {room.needs_minibar_check && (
-                  <Wine className="w-3.5 h-3.5 text-amber-500" />
+                  <Badge variant="outline" className="text-[9px] px-1 py-0 bg-amber-50 text-amber-700 border-amber-300">
+                    <Wine className="w-3 h-3 mr-0.5" />
+                    Minibar
+                  </Badge>
                 )}
                 {isUrgent && (
-                  <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
+                  <Badge variant="destructive" className="text-[9px] px-1 py-0">
+                    <AlertTriangle className="w-3 h-3 mr-0.5" />
+                    Prioritet
+                  </Badge>
                 )}
               </div>
             </Card>
           </TooltipTrigger>
-          <TooltipContent side="top" className="max-w-xs">
-            <div className="space-y-1">
-              <p className="font-semibold">Soba {room.room_number}</p>
-              <p className="text-sm">Status: {config.label}</p>
-              {room.guest_name && <p className="text-sm">Gost: {room.guest_name}</p>}
-              {room.assigned_housekeeper_name && (
-                <p className="text-sm">Sobarica: {room.assigned_housekeeper_name}</p>
+          <TooltipContent side="top" className="max-w-sm">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="font-bold text-lg">Soba {room.room_number}</p>
+                <Badge className={`${config.bgColor} ${config.borderColor} border text-xs`}>
+                  {config.label}
+                </Badge>
+              </div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                <span className="text-muted-foreground">Kategorija:</span>
+                <span>{categoryLabels[room.category] || room.category}</span>
+                <span className="text-muted-foreground">Sprat:</span>
+                <span>{room.floor}</span>
+                {room.bed_type && (
+                  <>
+                    <span className="text-muted-foreground">Krevet:</span>
+                    <span>{bedTypeLabels[room.bed_type] || room.bed_type}</span>
+                  </>
+                )}
+                {room.max_occupancy && (
+                  <>
+                    <span className="text-muted-foreground">Kapacitet:</span>
+                    <span>{room.max_occupancy} osoba</span>
+                  </>
+                )}
+              </div>
+              {room.guest_name && (
+                <div className="pt-1 border-t">
+                  <p className="text-sm"><span className="text-muted-foreground">Gost:</span> {room.guest_name}</p>
+                  {room.checkin_date && <p className="text-xs text-muted-foreground">Check-in: {formatDate(room.checkin_date)}</p>}
+                  {room.checkout_date && <p className="text-xs text-muted-foreground">Check-out: {formatDate(room.checkout_date)}</p>}
+                </div>
+              )}
+              {task && (
+                <div className="pt-1 border-t">
+                  <p className="text-sm font-medium">Aktivan zadatak:</p>
+                  <p className="text-xs">{cleaningTypeLabels[task.cleaning_type]} - {task.assigned_to_name || 'Nije dodijeljeno'}</p>
+                </div>
               )}
             </div>
           </TooltipContent>
@@ -341,7 +554,7 @@ export default function RoomGridView({ rooms, onRoomClick }: RoomGridViewProps) 
                 </div>
 
                 {/* Floor Rooms Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                   {floorRooms.map((room) => (
                     <RoomTile key={room.id} room={room} />
                   ))}
@@ -352,7 +565,7 @@ export default function RoomGridView({ rooms, onRoomClick }: RoomGridViewProps) 
         </div>
       ) : (
         // Simple grid view
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {filteredRooms
             .sort((a, b) => a.room_number.localeCompare(b.room_number, undefined, { numeric: true }))
             .map((room) => (
@@ -371,14 +584,36 @@ export default function RoomGridView({ rooms, onRoomClick }: RoomGridViewProps) 
 
       {/* Legend */}
       <Card className="p-4 bg-muted/50">
-        <h4 className="font-medium text-sm mb-3">Legenda statusa</h4>
+        <h4 className="font-medium text-sm mb-3">Legenda</h4>
         <div className="flex flex-wrap gap-4">
-          {Object.entries(statusConfig).slice(0, 4).map(([key, config]) => (
-            <div key={key} className="flex items-center gap-2">
-              <div className={`w-3 h-3 rounded-full ${config.color}`} />
-              <span className="text-sm text-muted-foreground">{config.label}</span>
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-muted-foreground mb-1">Status čistoće:</p>
+            <div className="flex flex-wrap gap-3">
+              {Object.entries(statusConfig).slice(0, 4).map(([key, config]) => (
+                <div key={key} className="flex items-center gap-1.5">
+                  <div className={`w-3 h-3 rounded-full ${config.color}`} />
+                  <span className="text-xs text-muted-foreground">{config.label}</span>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-muted-foreground mb-1">Zauzetost:</p>
+            <div className="flex flex-wrap gap-3">
+              <div className="flex items-center gap-1.5">
+                <User className="w-3 h-3 text-orange-600" />
+                <span className="text-xs text-muted-foreground">Zauzeta</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-3 h-3 text-green-600" />
+                <span className="text-xs text-muted-foreground">Prazna</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <CalendarX className="w-3 h-3 text-red-600" />
+                <span className="text-xs text-muted-foreground">Check-out</span>
+              </div>
+            </div>
+          </div>
         </div>
       </Card>
     </div>
