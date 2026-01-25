@@ -15,6 +15,7 @@ import { getApiUrl } from '@/lib/apiUrl';
 import StatCard from '@/components/StatCard';
 import RoomStatusBadge, { OccupancyBadge } from '@/components/RoomStatusBadge';
 import RoomCard from '@/components/RoomCard';
+import RoomGridView from '@/components/RoomGridView';
 import {
   BedDouble,
   CheckCircle,
@@ -346,55 +347,8 @@ export default function HousekeepingSupervisorDashboard() {
         {/* Rooms Tab */}
         <TabsContent value="rooms" className="mt-4">
           <Card>
-            <CardHeader className="pb-3">
-              <div className="flex flex-col md:flex-row gap-3 justify-between">
-                <CardTitle className="text-lg">Pregled soba</CardTitle>
-                <div className="flex gap-2 flex-wrap">
-                  <div className="relative">
-                    <Search className="w-4 h-4 absolute left-2 top-2.5 text-muted-foreground" />
-                    <Input
-                      placeholder="Traži sobu..."
-                      className="pl-8 h-9 w-32"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                  </div>
-                  <Select value={floorFilter} onValueChange={setFloorFilter}>
-                    <SelectTrigger className="w-28 h-9">
-                      <SelectValue placeholder="Sprat" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Svi spratovi</SelectItem>
-                      {floors.map((floor) => (
-                        <SelectItem key={floor} value={floor.toString()}>
-                          Sprat {floor}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-32 h-9">
-                      <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Svi statusi</SelectItem>
-                      <SelectItem value="dirty">Prljave</SelectItem>
-                      <SelectItem value="in_cleaning">U čišćenju</SelectItem>
-                      <SelectItem value="clean">Čiste</SelectItem>
-                      <SelectItem value="inspected">Pregledane</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[500px]">
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 pr-4">
-                  {filteredRooms.map((room) => (
-                    <RoomCard key={room.id} room={room} onClick={() => handleRoomClick(room)} />
-                  ))}
-                </div>
-              </ScrollArea>
+            <CardContent className="pt-6">
+              <RoomGridView rooms={rooms} onRoomClick={handleRoomClick} />
             </CardContent>
           </Card>
         </TabsContent>
