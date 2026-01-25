@@ -221,6 +221,7 @@ export default function RoomGridView({ rooms, tasks = [], onRoomClick }: RoomGri
                 relative p-3 cursor-pointer transition-all hover:scale-[1.02] hover:shadow-lg
                 border-l-4 ${config.borderColor} ${config.bgColor}
                 ${isUrgent ? 'ring-2 ring-red-400 ring-offset-1' : ''}
+                h-full min-h-[180px] flex flex-col
               `}
               onClick={() => onRoomClick(room)}
             >
@@ -355,8 +356,11 @@ export default function RoomGridView({ rooms, tasks = [], onRoomClick }: RoomGri
                 </div>
               )}
 
+              {/* Spacer to push indicators to bottom */}
+              <div className="flex-grow" />
+
               {/* Indicators Row */}
-              <div className="flex gap-1.5 flex-wrap">
+              <div className="flex gap-1.5 flex-wrap mt-auto">
                 {room.needs_minibar_check && (
                   <Badge variant="outline" className="text-[9px] px-1 py-0 bg-amber-50 text-amber-700 border-amber-300">
                     <Wine className="w-3 h-3 mr-0.5" />
@@ -554,7 +558,7 @@ export default function RoomGridView({ rooms, tasks = [], onRoomClick }: RoomGri
                 </div>
 
                 {/* Floor Rooms Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 items-stretch">
                   {floorRooms.map((room) => (
                     <RoomTile key={room.id} room={room} />
                   ))}
@@ -565,7 +569,7 @@ export default function RoomGridView({ rooms, tasks = [], onRoomClick }: RoomGri
         </div>
       ) : (
         // Simple grid view
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 items-stretch">
           {filteredRooms
             .sort((a, b) => a.room_number.localeCompare(b.room_number, undefined, { numeric: true }))
             .map((room) => (
