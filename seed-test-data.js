@@ -15,6 +15,7 @@ async function seedTestData() {
   const passwordHash = await bcrypt.hash('test123', 10);
 
   const users = [
+    // ========== ADMIN ==========
     {
       username: 'admin',
       email: 'admin@hotel.com',
@@ -24,6 +25,66 @@ async function seedTestData() {
       password_hash: passwordHash,
       is_active: true,
     },
+
+    // ========== TEHNICKA SLUZBA ==========
+    {
+      username: 'operater',
+      email: 'operater@hotel.com',
+      full_name: 'Milica Jovanović',
+      role: 'operater',
+      department: 'tehnicka',
+      password_hash: passwordHash,
+      is_active: true,
+    },
+    {
+      username: 'sef_tehnicke',
+      email: 'sef.tehnicke@hotel.com',
+      full_name: 'Dragan Milić',
+      role: 'sef',
+      department: 'tehnicka',
+      password_hash: passwordHash,
+      is_active: true,
+    },
+    {
+      username: 'majstor1',
+      email: 'majstor1@hotel.com',
+      full_name: 'Zoran Pavlović',
+      role: 'serviser',
+      department: 'tehnicka',
+      job_title: 'Vodoinstalater',
+      password_hash: passwordHash,
+      is_active: true,
+    },
+    {
+      username: 'majstor2',
+      email: 'majstor2@hotel.com',
+      full_name: 'Nenad Stojanović',
+      role: 'serviser',
+      department: 'tehnicka',
+      job_title: 'Električar',
+      password_hash: passwordHash,
+      is_active: true,
+    },
+    {
+      username: 'radnik1',
+      email: 'radnik1@hotel.com',
+      full_name: 'Milan Ristić',
+      role: 'radnik',
+      department: 'tehnicka',
+      password_hash: passwordHash,
+      is_active: true,
+    },
+    {
+      username: 'radnik2',
+      email: 'radnik2@hotel.com',
+      full_name: 'Dejan Tomić',
+      role: 'radnik',
+      department: 'tehnicka',
+      password_hash: passwordHash,
+      is_active: true,
+    },
+
+    // ========== DOMACINSTVO ==========
     {
       username: 'sef_domacinstva',
       email: 'sef@hotel.com',
@@ -51,6 +112,8 @@ async function seedTestData() {
       password_hash: passwordHash,
       is_active: true,
     },
+
+    // ========== RECEPCIJA ==========
     {
       username: 'recepcioner',
       email: 'recepcija@hotel.com',
@@ -181,13 +244,104 @@ async function seedTestData() {
     }
   }
 
+  // 5. Create some technical service tasks
+  console.log('\nCreating technical service tasks...');
+  const { data: allUsers } = await supabase.from('users').select('id, full_name, role, department');
+
+  const operater = allUsers?.find(u => u.role === 'operater');
+  const sefTehnicke = allUsers?.find(u => u.role === 'sef');
+  const serviser1 = allUsers?.find(u => u.role === 'serviser');
+  const radnik1 = allUsers?.find(u => u.role === 'radnik');
+
+  if (operater && sefTehnicke) {
+    const techTasks = [
+      {
+        title: 'Curenje vode u kupatilu',
+        description: 'Gost prijavio curenje vode ispod lavaboa',
+        location: 'Soba 105',
+        room_number: '105',
+        priority: 'urgent',
+        status: 'new',
+        created_by: operater.id,
+        created_by_name: operater.full_name,
+        created_by_department: 'recepcija',
+      },
+      {
+        title: 'Klima ne radi',
+        description: 'Klima uredaj se ne ukljucuje',
+        location: 'Soba 203',
+        room_number: '203',
+        priority: 'normal',
+        status: 'with_operator',
+        created_by: operater.id,
+        created_by_name: operater.full_name,
+        created_by_department: 'recepcija',
+        operator_id: operater.id,
+        operator_name: operater.full_name,
+      },
+      {
+        title: 'Zamjena sijalice',
+        description: 'Sijalica u hodniku pregorela',
+        location: 'Hodnik 2. sprat',
+        priority: 'can_wait',
+        status: 'assigned_to_radnik',
+        created_by: operater.id,
+        created_by_name: operater.full_name,
+        created_by_department: 'tehnicka',
+        operator_id: operater.id,
+        operator_name: operater.full_name,
+        assigned_to: radnik1?.id,
+        assigned_to_name: radnik1?.full_name,
+        assigned_to_type: 'radnik',
+      },
+      {
+        title: 'Popravka brave',
+        description: 'Brava na vratima se tesko zakljucava',
+        location: 'Soba 108',
+        room_number: '108',
+        priority: 'normal',
+        status: 'with_sef',
+        created_by: operater.id,
+        created_by_name: operater.full_name,
+        created_by_department: 'recepcija',
+        operator_id: operater.id,
+        operator_name: operater.full_name,
+        sef_id: sefTehnicke.id,
+        sef_name: sefTehnicke.full_name,
+        assigned_to: serviser1?.id,
+        assigned_to_name: serviser1?.full_name,
+        assigned_to_type: 'serviser',
+      },
+    ];
+
+    for (const task of techTasks) {
+      const { error } = await supabase.from('tasks').insert(task);
+      if (error) {
+        console.log(`  Task "${task.title}": ERROR - ${error.message}`);
+      } else {
+        console.log(`  Task "${task.title}": OK`);
+      }
+    }
+  }
+
   console.log('\n=== Test data created successfully! ===');
-  console.log('\nTest login credentials (password for all: test123):');
-  console.log('  - admin / test123 (Administrator)');
-  console.log('  - sef_domacinstva / test123 (Šef domaćinstva)');
-  console.log('  - sobarica1 / test123 (Sobarica Ana)');
-  console.log('  - sobarica2 / test123 (Sobarica Ivana)');
-  console.log('  - recepcioner / test123 (Recepcioner)');
+  console.log('\n========================================');
+  console.log('Test login credentials (password: test123)');
+  console.log('========================================');
+  console.log('\n--- TEHNICKA SLUZBA ---');
+  console.log('  operater / test123 (Operater - prima reklamacije)');
+  console.log('  sef_tehnicke / test123 (Šef tehničke službe)');
+  console.log('  majstor1 / test123 (Serviser - Vodoinstalater)');
+  console.log('  majstor2 / test123 (Serviser - Električar)');
+  console.log('  radnik1 / test123 (Radnik)');
+  console.log('  radnik2 / test123 (Radnik)');
+  console.log('\n--- DOMAĆINSTVO ---');
+  console.log('  sef_domacinstva / test123 (Šef domaćinstva)');
+  console.log('  sobarica1 / test123 (Sobarica Ana)');
+  console.log('  sobarica2 / test123 (Sobarica Ivana)');
+  console.log('\n--- OSTALI ---');
+  console.log('  admin / test123 (Administrator - oba modula)');
+  console.log('  recepcioner / test123 (Recepcioner)');
 }
 
 seedTestData().catch(console.error);

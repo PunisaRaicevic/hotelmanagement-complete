@@ -556,10 +556,16 @@ export default function HousekeepingSupervisorDashboard() {
 
       {/* Room Details Dialog */}
       <Dialog open={isRoomDialogOpen} onOpenChange={setIsRoomDialogOpen}>
-        <DialogContent>
+        <DialogContent className="bg-white dark:bg-gray-900">
           <DialogHeader>
-            <DialogTitle>Soba {selectedRoom?.room_number}</DialogTitle>
+            <DialogTitle>Soba {selectedRoom?.room_number || 'N/A'}</DialogTitle>
           </DialogHeader>
+
+          {!selectedRoom && (
+            <div className="py-4 text-center text-gray-500">
+              Ucitavanje podataka o sobi...
+            </div>
+          )}
 
           {selectedRoom && (
             <div className="space-y-4 py-4">

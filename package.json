@@ -8,14 +8,14 @@
     "npm": ">=10.0.0"
   },
   "scripts": {
-    "dev": "NODE_ENV=development tsx server/index.ts",
+    "dev": "tsx server/index.ts",
     "build": "vite build",
     "build:server": "esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "build:full": "npm run build && npm run build:server",
     "ionic:build:before": "node scripts/decode-firebase-config.js",
     "ionic:build": "vite build --emptyOutDir",
     "build:android": "npm run build && npx cap sync android",
-    "start": "NODE_ENV=production node dist/index.js",
+    "start": "node dist/index.js",
     "check": "tsc",
     "db:push": "drizzle-kit push"
   },

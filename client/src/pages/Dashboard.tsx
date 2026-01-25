@@ -1,5 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
-import AdminDashboard from './AdminDashboard';
+import AdminModuleSelector from './AdminModuleSelector';
 import OperatorDashboard from './OperatorDashboard';
 import SupervisorDashboard from './SupervisorDashboard';
 import WorkerDashboard from './WorkerDashboard';
@@ -19,7 +19,7 @@ export default function Dashboard() {
 
   switch (user.role) {
     case 'admin':
-      return <AdminDashboard />;
+      return <AdminModuleSelector />;
     case 'operater':
       return <OperatorDashboard />;
     case 'sef':
