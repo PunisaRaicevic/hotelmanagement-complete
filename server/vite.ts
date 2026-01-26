@@ -101,7 +101,15 @@ export function serveStatic(app: Express) {
   app.use(express.static(distPath));
 
   // fall through to index.html if the file doesn't exist
-  app.use("*", (_req, res) => {
+  // BUT skip API routes - they should return 404, not HTML
+  app.use("*", (req, res, next) => {
+    const url = req.originalUrl;
+
+    // Skip API routes - they should be handled by Express routes, not serve HTML
+    if (url.startsWith('/api')) {
+      return next();
+    }
+
     res.sendFile(path.resolve(distPath, "index.html"));
   });
 }
