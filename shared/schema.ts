@@ -353,6 +353,9 @@ export const rooms = pgTable("rooms", {
   last_inspected_at: timestamp("last_inspected_at", { withTimezone: true }),
   last_inspected_by: varchar("last_inspected_by"),
   guest_name: text("guest_name"),
+  guest_count: integer("guest_count").default(1),
+  guest_phone: varchar("guest_phone"),
+  guest_email: varchar("guest_email"),
   checkout_date: timestamp("checkout_date", { withTimezone: true }),
   checkin_date: timestamp("checkin_date", { withTimezone: true }),
   notes: text("notes"),
@@ -361,6 +364,9 @@ export const rooms = pgTable("rooms", {
   needs_minibar_check: boolean("needs_minibar_check").notNull().default(false),
   bed_type: varchar("bed_type").default("double"), // single, double, twin, king, queen
   max_occupancy: integer("max_occupancy").notNull().default(2),
+  // Dynamic QR code token - changes on each check-in, invalidated on check-out
+  guest_session_token: varchar("guest_session_token"),
+  token_created_at: timestamp("token_created_at", { withTimezone: true }),
   is_active: boolean("is_active").notNull().default(true),
   created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -375,6 +381,29 @@ export const room_status_history = pgTable("room_status_history", {
   changed_by_name: text("changed_by_name").notNull(),
   notes: text("notes"),
   timestamp: timestamp("timestamp", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Guest requests via QR code - submitted by guests without login
+export const guest_service_requests = pgTable("guest_service_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  room_id: varchar("room_id").notNull(),
+  room_number: varchar("room_number").notNull(),
+  session_token: varchar("session_token").notNull(), // Token used to submit request
+  request_type: varchar("request_type").notNull(), // maintenance, housekeeping, amenities, other
+  category: varchar("category"), // For maintenance: plumbing, electrical, hvac, etc.
+  description: text("description").notNull(),
+  guest_name: text("guest_name"),
+  guest_phone: varchar("guest_phone"),
+  priority: varchar("priority").notNull().default("normal"), // low, normal, urgent
+  status: varchar("status").notNull().default("new"), // new, seen, in_progress, completed, cancelled
+  assigned_to: varchar("assigned_to"),
+  assigned_to_name: text("assigned_to_name"),
+  images: text("images").array(),
+  staff_notes: text("staff_notes"),
+  resolved_at: timestamp("resolved_at", { withTimezone: true }),
+  resolved_by: varchar("resolved_by"),
+  created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const housekeeping_tasks = pgTable("housekeeping_tasks", {
@@ -533,6 +562,7 @@ export const insertTaskHistorySchema = createInsertSchema(task_history);
 export const insertNotificationSchema = createInsertSchema(notifications);
 export const insertRoomSchema = createInsertSchema(rooms);
 export const insertRoomStatusHistorySchema = createInsertSchema(room_status_history);
+export const insertGuestServiceRequestSchema = createInsertSchema(guest_service_requests);
 export const insertHousekeepingTaskSchema = createInsertSchema(housekeeping_tasks);
 export const insertInventoryItemSchema = createInsertSchema(inventory_items);
 export const insertRoomInventorySchema = createInsertSchema(room_inventory);
@@ -571,6 +601,8 @@ export type InsertRoom = z.infer<typeof insertRoomSchema>;
 export type Room = typeof rooms.$inferSelect;
 export type InsertRoomStatusHistory = z.infer<typeof insertRoomStatusHistorySchema>;
 export type RoomStatusHistory = typeof room_status_history.$inferSelect;
+export type InsertGuestServiceRequest = z.infer<typeof insertGuestServiceRequestSchema>;
+export type GuestServiceRequest = typeof guest_service_requests.$inferSelect;
 export type InsertHousekeepingTask = z.infer<typeof insertHousekeepingTaskSchema>;
 export type HousekeepingTask = typeof housekeeping_tasks.$inferSelect;
 export type InsertInventoryItem = z.infer<typeof insertInventoryItemSchema>;

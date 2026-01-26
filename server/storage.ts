@@ -19,7 +19,9 @@ import {
   type InventoryItem,
   type InsertInventoryItem,
   type RoomInventory,
-  type InsertRoomInventory
+  type InsertRoomInventory,
+  type GuestServiceRequest,
+  type InsertGuestServiceRequest
 } from "@shared/schema";
 
 export interface IStorage {
@@ -92,6 +94,13 @@ export interface IStorage {
   // Housekeeping - Room Inventory
   getRoomInventory(roomId: string): Promise<RoomInventory[]>;
   updateRoomInventory(roomId: string, itemId: string, quantity: number, userId: string): Promise<RoomInventory>;
+
+  // Guest Service Requests (QR code system)
+  createGuestServiceRequest(request: Partial<InsertGuestServiceRequest>): Promise<GuestServiceRequest>;
+  getGuestServiceRequests(filters?: { status?: string; roomId?: string; request_type?: string }): Promise<GuestServiceRequest[]>;
+  getGuestServiceRequestById(id: string): Promise<GuestServiceRequest | undefined>;
+  getGuestServiceRequestsByRoom(roomId: string): Promise<GuestServiceRequest[]>;
+  updateGuestServiceRequest(id: string, data: Partial<GuestServiceRequest>): Promise<GuestServiceRequest | undefined>;
 }
 
 export class SupabaseStorage implements IStorage {
@@ -859,6 +868,84 @@ export class SupabaseStorage implements IStorage {
       if (error) throw error;
       return data as RoomInventory;
     }
+  }
+
+  // =============================================
+  // GUEST SERVICE REQUESTS (QR CODE SYSTEM)
+  // =============================================
+
+  async createGuestServiceRequest(requestData: Partial<InsertGuestServiceRequest>): Promise<GuestServiceRequest> {
+    const { data, error } = await supabase
+      .from('guest_service_requests')
+      .insert(requestData)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as GuestServiceRequest;
+  }
+
+  async getGuestServiceRequests(filters?: { status?: string; roomId?: string; request_type?: string }): Promise<GuestServiceRequest[]> {
+    let query = supabase
+      .from('guest_service_requests')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (filters?.status) {
+      query = query.eq('status', filters.status);
+    }
+    if (filters?.roomId) {
+      query = query.eq('room_id', filters.roomId);
+    }
+    if (filters?.request_type) {
+      query = query.eq('request_type', filters.request_type);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+    return (data || []) as GuestServiceRequest[];
+  }
+
+  async getGuestServiceRequestById(id: string): Promise<GuestServiceRequest | undefined> {
+    const { data, error } = await supabase
+      .from('guest_service_requests')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return undefined;
+      throw error;
+    }
+    return data as GuestServiceRequest;
+  }
+
+  async getGuestServiceRequestsByRoom(roomId: string): Promise<GuestServiceRequest[]> {
+    const { data, error } = await supabase
+      .from('guest_service_requests')
+      .select('*')
+      .eq('room_id', roomId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return (data || []) as GuestServiceRequest[];
+  }
+
+  async updateGuestServiceRequest(id: string, data: Partial<GuestServiceRequest>): Promise<GuestServiceRequest | undefined> {
+    const updateData = { ...data, updated_at: new Date().toISOString() };
+    const { data: updated, error } = await supabase
+      .from('guest_service_requests')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return undefined;
+      throw error;
+    }
+    return updated as GuestServiceRequest;
   }
 }
 

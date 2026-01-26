@@ -1514,6 +1514,216 @@ ${scheduledTasksFormatted}`;
     }
   });
 
+  // ----- GUEST QR CODE SYSTEM -----
+
+  // Generate new session token for room (on guest check-in)
+  app.post("/api/rooms/:id/checkin", requireHousekeepingAccess, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { guest_name, guest_count, guest_phone, guest_email, checkin_date, checkout_date } = req.body;
+
+      const room = await storage.getRoomById(id);
+      if (!room) {
+        return res.status(404).json({ error: "Room not found" });
+      }
+
+      // Generate unique session token
+      const crypto = await import('crypto');
+      const sessionToken = crypto.randomBytes(32).toString('hex');
+
+      // Update room with guest info and token
+      const updatedRoom = await storage.updateRoom(id, {
+        guest_name,
+        guest_count: guest_count || 1,
+        guest_phone,
+        guest_email,
+        checkin_date: checkin_date || new Date().toISOString(),
+        checkout_date,
+        occupancy_status: 'occupied',
+        guest_session_token: sessionToken,
+        token_created_at: new Date().toISOString(),
+      } as any);
+
+      res.json({
+        room: updatedRoom,
+        session_token: sessionToken,
+        qr_url: `/guest/${room.room_number}/${sessionToken}`
+      });
+    } catch (error) {
+      console.error("Error checking in guest:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Checkout guest and invalidate token
+  app.post("/api/rooms/:id/checkout", requireHousekeepingAccess, async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const room = await storage.getRoomById(id);
+      if (!room) {
+        return res.status(404).json({ error: "Room not found" });
+      }
+
+      // Clear guest info and invalidate token
+      const updatedRoom = await storage.updateRoom(id, {
+        guest_name: null,
+        guest_count: null,
+        guest_phone: null,
+        guest_email: null,
+        checkin_date: null,
+        checkout_date: null,
+        occupancy_status: 'checkout',
+        guest_session_token: null,
+        token_created_at: null,
+        status: 'dirty', // Mark room as needing cleaning
+      } as any);
+
+      res.json({ room: updatedRoom, message: "Guest checked out, QR code invalidated" });
+    } catch (error) {
+      console.error("Error checking out guest:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // PUBLIC: Validate room token and get room info (no auth required)
+  app.get("/api/public/room/:roomNumber/:token", async (req, res) => {
+    try {
+      const { roomNumber, token } = req.params;
+
+      const room = await storage.getRoomByNumber(roomNumber);
+      if (!room) {
+        return res.status(404).json({ error: "Room not found", valid: false });
+      }
+
+      // Check if token matches and room is occupied
+      if (!room.guest_session_token || room.guest_session_token !== token) {
+        return res.status(403).json({
+          error: "Invalid or expired QR code. Please contact the front desk.",
+          valid: false,
+          reason: "token_invalid"
+        });
+      }
+
+      if (room.occupancy_status !== 'occupied') {
+        return res.status(403).json({
+          error: "This room is not currently occupied. QR code is no longer valid.",
+          valid: false,
+          reason: "not_occupied"
+        });
+      }
+
+      // Return limited room info for guest
+      res.json({
+        valid: true,
+        room: {
+          room_number: room.room_number,
+          floor: room.floor,
+          category: room.category,
+          guest_name: room.guest_name,
+        }
+      });
+    } catch (error) {
+      console.error("Error validating room token:", error);
+      res.status(500).json({ error: "Internal server error", valid: false });
+    }
+  });
+
+  // PUBLIC: Submit guest service request (no auth required, but needs valid token)
+  app.post("/api/public/room/:roomNumber/:token/request", async (req, res) => {
+    try {
+      const { roomNumber, token } = req.params;
+      const { request_type, category, description, guest_name, guest_phone, priority, images } = req.body;
+
+      // Validate required fields
+      if (!request_type || !description) {
+        return res.status(400).json({ error: "Request type and description are required" });
+      }
+
+      const room = await storage.getRoomByNumber(roomNumber);
+      if (!room) {
+        return res.status(404).json({ error: "Room not found" });
+      }
+
+      // Validate token
+      if (!room.guest_session_token || room.guest_session_token !== token) {
+        return res.status(403).json({ error: "Invalid or expired QR code" });
+      }
+
+      if (room.occupancy_status !== 'occupied') {
+        return res.status(403).json({ error: "Room is not occupied" });
+      }
+
+      // Create guest service request
+      const request = await storage.createGuestServiceRequest({
+        room_id: room.id,
+        room_number: roomNumber,
+        session_token: token,
+        request_type,
+        category,
+        description,
+        guest_name: guest_name || room.guest_name,
+        guest_phone: guest_phone || room.guest_phone,
+        priority: priority || 'normal',
+        images,
+      });
+
+      // TODO: Send notification to relevant staff (operater for maintenance, sef_domacinstva for housekeeping)
+
+      res.status(201).json({
+        success: true,
+        message: "Your request has been submitted. Hotel staff will attend to it shortly.",
+        request_id: request.id
+      });
+    } catch (error) {
+      console.error("Error creating guest request:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get all guest service requests (staff only)
+  app.get("/api/guest-requests", requireAuth, async (req, res) => {
+    try {
+      const { status, room_id, request_type } = req.query;
+      const requests = await storage.getGuestServiceRequests({
+        status: status as string,
+        room_id: room_id as string,
+        request_type: request_type as string,
+      });
+      res.json({ requests });
+    } catch (error) {
+      console.error("Error fetching guest requests:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Update guest service request (staff only)
+  app.patch("/api/guest-requests/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const sessionUser = await storage.getUserById(req.session.userId);
+      if (!sessionUser) {
+        return res.status(401).json({ error: "Invalid session" });
+      }
+
+      const updateData = { ...req.body };
+      if (updateData.status === 'completed') {
+        updateData.resolved_at = new Date().toISOString();
+        updateData.resolved_by = sessionUser.id;
+      }
+
+      const request = await storage.updateGuestServiceRequest(id, updateData);
+      if (!request) {
+        return res.status(404).json({ error: "Request not found" });
+      }
+
+      res.json({ request });
+    } catch (error) {
+      console.error("Error updating guest request:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // ----- HOUSEKEEPING TASKS -----
 
   // Get all housekeeping tasks

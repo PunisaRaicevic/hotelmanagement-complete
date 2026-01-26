@@ -13,9 +13,8 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { getApiUrl } from '@/lib/apiUrl';
 import StatCard from '@/components/StatCard';
-import RoomStatusBadge, { OccupancyBadge } from '@/components/RoomStatusBadge';
-import RoomCard from '@/components/RoomCard';
 import RoomGridView from '@/components/RoomGridView';
+import RoomDetailDialog from '@/components/RoomDetailDialog';
 import {
   BedDouble,
   CheckCircle,
@@ -44,10 +43,20 @@ interface Room {
   assigned_housekeeper_id?: string;
   assigned_housekeeper_name?: string;
   guest_name?: string;
+  guest_count?: number;
+  guest_phone?: string;
+  guest_email?: string;
   checkout_date?: string;
   checkin_date?: string;
+  guest_session_token?: string;
+  token_created_at?: string;
   priority_score: number;
   needs_minibar_check: boolean;
+  last_cleaned_at?: string;
+  last_inspected_at?: string;
+  notes?: string;
+  bed_type?: string;
+  max_occupancy?: number;
 }
 
 interface HousekeepingTask {
@@ -96,7 +105,6 @@ export default function HousekeepingSupervisorDashboard() {
   const [isCreateTaskDialogOpen, setIsCreateTaskDialogOpen] = useState(false);
 
   // Form states
-  const [assignedHousekeeper, setAssignedHousekeeper] = useState<string>('');
   const [inspectionNotes, setInspectionNotes] = useState('');
   const [newTaskRoom, setNewTaskRoom] = useState<string>('');
   const [newTaskType, setNewTaskType] = useState<string>('daily');
@@ -163,37 +171,7 @@ export default function HousekeepingSupervisorDashboard() {
 
   const handleRoomClick = (room: Room) => {
     setSelectedRoom(room);
-    setAssignedHousekeeper(room.assigned_housekeeper_id || '');
     setIsRoomDialogOpen(true);
-  };
-
-  const handleUpdateRoom = async (status?: string) => {
-    if (!selectedRoom) return;
-
-    try {
-      const updateData: any = {};
-      if (status) updateData.status = status;
-      if (assignedHousekeeper) {
-        const hk = housekeepers.find((h) => h.id === assignedHousekeeper);
-        updateData.assigned_housekeeper_id = assignedHousekeeper;
-        updateData.assigned_housekeeper_name = hk?.full_name;
-      }
-
-      const response = await fetch(getApiUrl(`/api/rooms/${selectedRoom.id}`), {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        credentials: 'include',
-        body: JSON.stringify(updateData),
-      });
-
-      if (response.ok) {
-        toast({ title: 'Soba ažurirana', description: `Soba ${selectedRoom.room_number}` });
-        setIsRoomDialogOpen(false);
-        fetchData();
-      }
-    } catch (error) {
-      toast({ title: 'Greška', variant: 'destructive' });
-    }
   };
 
   const handleInspectTask = async (passed: boolean) => {
@@ -509,103 +487,12 @@ export default function HousekeepingSupervisorDashboard() {
       </Tabs>
 
       {/* Room Details Dialog */}
-      <Dialog open={isRoomDialogOpen} onOpenChange={setIsRoomDialogOpen}>
-        <DialogContent className="bg-white dark:bg-gray-900">
-          <DialogHeader>
-            <DialogTitle>Soba {selectedRoom?.room_number || 'N/A'}</DialogTitle>
-          </DialogHeader>
-
-          {!selectedRoom && (
-            <div className="py-4 text-center text-gray-500">
-              Ucitavanje podataka o sobi...
-            </div>
-          )}
-
-          {selectedRoom && (
-            <div className="space-y-4 py-4">
-              <div className="flex items-center gap-2">
-                <RoomStatusBadge status={selectedRoom.status} />
-                <OccupancyBadge status={selectedRoom.occupancy_status} />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Sprat:</span>
-                  <p className="font-medium">{selectedRoom.floor}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Kategorija:</span>
-                  <p className="font-medium capitalize">{selectedRoom.category}</p>
-                </div>
-                {selectedRoom.guest_name && (
-                  <div>
-                    <span className="text-muted-foreground">Gost:</span>
-                    <p className="font-medium">{selectedRoom.guest_name}</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label>Dodijeljena sobarica</Label>
-                <Select value={assignedHousekeeper} onValueChange={setAssignedHousekeeper}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Odaberi sobaricu" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">Nije dodijeljeno</SelectItem>
-                    {housekeepers.map((hk) => (
-                      <SelectItem key={hk.id} value={hk.id}>
-                        {hk.full_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Promijeni status</Label>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    variant={selectedRoom.status === 'dirty' ? 'default' : 'outline'}
-                    onClick={() => handleUpdateRoom('dirty')}
-                  >
-                    Prljava
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={selectedRoom.status === 'clean' ? 'default' : 'outline'}
-                    onClick={() => handleUpdateRoom('clean')}
-                  >
-                    Čista
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={selectedRoom.status === 'inspected' ? 'default' : 'outline'}
-                    onClick={() => handleUpdateRoom('inspected')}
-                  >
-                    Pregledana
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={selectedRoom.status === 'out_of_order' ? 'default' : 'outline'}
-                    onClick={() => handleUpdateRoom('out_of_order')}
-                  >
-                    Van funkcije
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsRoomDialogOpen(false)}>
-              Zatvori
-            </Button>
-            <Button onClick={() => handleUpdateRoom()}>Sačuvaj</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <RoomDetailDialog
+        room={selectedRoom}
+        open={isRoomDialogOpen}
+        onOpenChange={setIsRoomDialogOpen}
+        onRoomUpdated={fetchData}
+      />
 
       {/* Inspection Dialog */}
       <Dialog open={isTaskDialogOpen} onOpenChange={setIsTaskDialogOpen}>

@@ -13,6 +13,7 @@ import Dashboard from "@/pages/Dashboard";
 import TasksPage from "@/pages/TasksPage";
 import UsersPage from "@/pages/UsersPage";
 import NotFound from "@/pages/not-found";
+import GuestRequestPage from "@/pages/GuestRequestPage";
 import { IonApp, setupIonicReact } from "@ionic/react";
 import { Capacitor } from "@capacitor/core";
 import { useFCM } from "@/hooks/useFCM";
@@ -138,6 +139,19 @@ function Router() {
   );
 }
 
+// Public routes that don't require authentication
+function PublicRoutes() {
+  return (
+    <Switch>
+      <Route path="/guest/:roomNumber/:token" component={GuestRequestPage} />
+      <Route>
+        {/* Fall through to authenticated routes */}
+        <Router />
+      </Route>
+    </Switch>
+  );
+}
+
 export default function App() {
   return (
     <IonApp>
@@ -145,7 +159,7 @@ export default function App() {
         <AuthProvider>
           <ViewModeProvider>
             <TooltipProvider>
-              <Router />
+              <PublicRoutes />
               <Toaster />
             </TooltipProvider>
           </ViewModeProvider>
