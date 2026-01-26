@@ -95,10 +95,10 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
             </div>
 
             <h1 className="text-3xl font-bold text-gradient mb-2">
-              Hotel Park
+              Hotel Management
             </h1>
             <p className="text-lg font-medium text-emerald-800 mb-1">
-              {i18n.language === 'sr' ? 'Tehnička Služba' : 'Technical Service'}
+              {i18n.language === 'sr' ? 'Upravljanje hotelom' : 'Hotel Management System'}
             </p>
             <p className="text-muted-foreground text-sm">
               {i18n.language === 'sr' ? 'Prijavite se da nastavite' : 'Sign in to continue'}
@@ -202,7 +202,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
       {/* Footer */}
       <div className="pb-8 text-center relative z-10">
         <p className="text-xs text-emerald-600/70">
-          © 2025 Hotel Park • {i18n.language === 'sr' ? 'Sva prava zadržana' : 'All rights reserved'}
+          © 2025 Hotel Management • {i18n.language === 'sr' ? 'Sva prava zadržana' : 'All rights reserved'}
         </p>
       </div>
     </div>
