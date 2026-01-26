@@ -23,7 +23,6 @@ import {
   ClipboardList,
   Sparkles,
   AlertTriangle,
-  Plus,
   Search,
   Filter,
   Eye,
@@ -102,14 +101,9 @@ export default function HousekeepingSupervisorDashboard() {
   const [isRoomDialogOpen, setIsRoomDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<HousekeepingTask | null>(null);
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
-  const [isCreateTaskDialogOpen, setIsCreateTaskDialogOpen] = useState(false);
 
   // Form states
   const [inspectionNotes, setInspectionNotes] = useState('');
-  const [newTaskRoom, setNewTaskRoom] = useState<string>('');
-  const [newTaskType, setNewTaskType] = useState<string>('daily');
-  const [newTaskPriority, setNewTaskPriority] = useState<string>('normal');
-  const [newTaskHousekeeper, setNewTaskHousekeeper] = useState<string>('');
 
   const getAuthHeaders = () => {
     const token = localStorage.getItem('authToken');
@@ -203,53 +197,6 @@ export default function HousekeepingSupervisorDashboard() {
     }
   };
 
-  const handleCreateTask = async () => {
-    if (!newTaskRoom) {
-      toast({ title: 'Odaberite sobu', variant: 'destructive' });
-      return;
-    }
-
-    const room = rooms.find((r) => r.id === newTaskRoom);
-    if (!room) return;
-
-    try {
-      const hk = housekeepers.find((h) => h.id === newTaskHousekeeper);
-
-      const response = await fetch(getApiUrl('/api/housekeeping/tasks'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        credentials: 'include',
-        body: JSON.stringify({
-          room_id: newTaskRoom,
-          room_number: room.room_number,
-          cleaning_type: newTaskType,
-          priority: newTaskPriority,
-          scheduled_date: new Date().toISOString(),
-          assigned_to: newTaskHousekeeper || null,
-          assigned_to_name: hk?.full_name || null,
-          supervisor_id: user?.id,
-          supervisor_name: user?.fullName,
-        }),
-      });
-
-      if (response.ok) {
-        toast({ title: 'Zadatak kreiran', description: `Soba ${room.room_number}` });
-        setIsCreateTaskDialogOpen(false);
-        resetCreateTaskForm();
-        fetchData();
-      }
-    } catch (error) {
-      toast({ title: 'Greška', variant: 'destructive' });
-    }
-  };
-
-  const resetCreateTaskForm = () => {
-    setNewTaskRoom('');
-    setNewTaskType('daily');
-    setNewTaskPriority('normal');
-    setNewTaskHousekeeper('');
-  };
-
   const getCleaningTypeLabel = (type: string) => {
     const labels: Record<string, string> = {
       daily: 'Dnevno',
@@ -280,16 +227,10 @@ export default function HousekeepingSupervisorDashboard() {
           </h1>
           <p className="text-muted-foreground">{user?.fullName} - Šef domaćinstva</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={fetchData}>
-            <RefreshCw className="w-4 h-4 mr-1" />
-            Osvježi
-          </Button>
-          <Button size="sm" onClick={() => setIsCreateTaskDialogOpen(true)}>
-            <Plus className="w-4 h-4 mr-1" />
-            Novi zadatak
-          </Button>
-        </div>
+        <Button variant="outline" size="sm" onClick={fetchData}>
+          <RefreshCw className="w-4 h-4 mr-1" />
+          Osvježi
+        </Button>
       </div>
 
       {/* Stats */}
@@ -562,86 +503,6 @@ export default function HousekeepingSupervisorDashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Create Task Dialog */}
-      <Dialog open={isCreateTaskDialogOpen} onOpenChange={setIsCreateTaskDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Kreiraj novi zadatak</DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Soba *</Label>
-              <Select value={newTaskRoom} onValueChange={setNewTaskRoom}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Odaberi sobu" />
-                </SelectTrigger>
-                <SelectContent>
-                  {rooms.map((room) => (
-                    <SelectItem key={room.id} value={room.id}>
-                      {room.room_number} - Sprat {room.floor}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Vrsta čišćenja</Label>
-              <Select value={newTaskType} onValueChange={setNewTaskType}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="daily">Dnevno čišćenje</SelectItem>
-                  <SelectItem value="checkout">Check-out čišćenje</SelectItem>
-                  <SelectItem value="deep_clean">Generalno čišćenje</SelectItem>
-                  <SelectItem value="turndown">Večernje sređivanje</SelectItem>
-                  <SelectItem value="touch_up">Brzo sređivanje</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Prioritet</Label>
-              <Select value={newTaskPriority} onValueChange={setNewTaskPriority}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="urgent">Hitno</SelectItem>
-                  <SelectItem value="normal">Normalno</SelectItem>
-                  <SelectItem value="can_wait">Može čekati</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Dodijeli sobarici</Label>
-              <Select value={newTaskHousekeeper} onValueChange={setNewTaskHousekeeper}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Opcionalno" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Nije dodijeljeno</SelectItem>
-                  {housekeepers.map((hk) => (
-                    <SelectItem key={hk.id} value={hk.id}>
-                      {hk.full_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreateTaskDialogOpen(false)}>
-              Otkaži
-            </Button>
-            <Button onClick={handleCreateTask}>Kreiraj zadatak</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

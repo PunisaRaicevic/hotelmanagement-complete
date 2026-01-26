@@ -136,7 +136,7 @@ const formatDateTime = (dateString?: string) => {
 };
 
 export default function RoomDetailDialog({
-  room,
+  room: roomProp,
   open,
   onOpenChange,
   onRoomUpdated,
@@ -145,6 +145,9 @@ export default function RoomDetailDialog({
   const [activeTab, setActiveTab] = useState('info');
   const [isLoading, setIsLoading] = useState(false);
   const [guestRequests, setGuestRequests] = useState<GuestServiceRequest[]>([]);
+
+  // Local room state that can be updated after check-in
+  const [room, setRoom] = useState<Room | null>(roomProp);
 
   // Check-in form state
   const [checkInData, setCheckInData] = useState({
@@ -155,6 +158,11 @@ export default function RoomDetailDialog({
     checkin_date: new Date().toISOString().split('T')[0],
     checkout_date: '',
   });
+
+  // Sync local room state with prop
+  useEffect(() => {
+    setRoom(roomProp);
+  }, [roomProp]);
 
   // Reset form when room changes
   useEffect(() => {
@@ -176,7 +184,7 @@ export default function RoomDetailDialog({
   const fetchGuestRequests = async () => {
     if (!room) return;
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('authToken');
       const response = await fetch(`/api/guest-requests?room_id=${room.id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -198,7 +206,9 @@ export default function RoomDetailDialog({
 
     setIsLoading(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('authToken');
+      console.log('Starting check-in for room:', room.id);
+
       const response = await fetch(`/api/rooms/${room.id}/checkin`, {
         method: 'POST',
         headers: {
@@ -208,17 +218,33 @@ export default function RoomDetailDialog({
         body: JSON.stringify(checkInData),
       });
 
+      console.log('Check-in response status:', response.status);
+
       if (response.ok) {
         const data = await response.json();
+        console.log('Check-in response data:', data);
+        // Update local room state with the response data (includes session_token)
+        if (data.room) {
+          setRoom(data.room);
+        }
         toast({ title: 'Uspješno', description: 'Gost je prijavljen' });
         onRoomUpdated();
         setActiveTab('qrcode');
       } else {
-        const error = await response.json();
-        toast({ title: 'Greška', description: error.error, variant: 'destructive' });
+        const errorText = await response.text();
+        console.error('Check-in error response:', errorText);
+        try {
+          const error = JSON.parse(errorText);
+          toast({ title: 'Greška', description: error.error || 'Nepoznata greška', variant: 'destructive' });
+        } catch {
+          toast({ title: 'Greška', description: errorText || 'Nepoznata greška', variant: 'destructive' });
+        }
       }
-    } catch (error) {
-      toast({ title: 'Greška', description: 'Došlo je do greške', variant: 'destructive' });
+    } catch (error: any) {
+      console.error('Check-in exception:', error);
+      console.error('Error message:', error?.message);
+      console.error('Error stack:', error?.stack);
+      toast({ title: 'Greška', description: error?.message || 'Došlo je do greške pri prijavi gosta', variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
@@ -229,7 +255,7 @@ export default function RoomDetailDialog({
 
     setIsLoading(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('authToken');
       const response = await fetch(`/api/rooms/${room.id}/checkout`, {
         method: 'POST',
         headers: {
@@ -239,6 +265,11 @@ export default function RoomDetailDialog({
       });
 
       if (response.ok) {
+        const data = await response.json();
+        // Update local room state with the response data (token cleared)
+        if (data.room) {
+          setRoom(data.room);
+        }
         toast({ title: 'Uspješno', description: 'Gost je odjavljen, QR kod je nevažeći' });
         onRoomUpdated();
         setActiveTab('info');
