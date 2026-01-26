@@ -17,18 +17,43 @@ return;
 try {
 const projectId = process.env.FIREBASE_PROJECT_ID;
 const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+let privateKey = process.env.FIREBASE_PRIVATE_KEY;
 
 if (!projectId || !clientEmail || !privateKey) {
 console.warn('⚠️ Firebase credentials nisu postavljeni - FCM push notifikacije neće raditi!');
 return;
 }
 
+// Debug: Log key format info
+console.log('[FIREBASE] Private key length:', privateKey.length);
+console.log('[FIREBASE] Key starts with BEGIN:', privateKey.includes('-----BEGIN'));
+console.log('[FIREBASE] Contains literal \\n:', privateKey.includes('\\n'));
+console.log('[FIREBASE] Contains actual newlines:', privateKey.includes('\n') && !privateKey.includes('\\n'));
+
+// Handle different formats of the private key
+// 1. If key has literal \n (as two characters), replace with actual newlines
+if (privateKey.includes('\\n')) {
+  privateKey = privateKey.replace(/\\n/g, '\n');
+}
+
+// 2. If key is wrapped in quotes, remove them
+if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
+  privateKey = privateKey.slice(1, -1);
+  privateKey = privateKey.replace(/\\n/g, '\n');
+}
+
+// 3. Ensure proper PEM format
+if (!privateKey.startsWith('-----BEGIN')) {
+  console.error('[FIREBASE] Private key does not start with -----BEGIN PRIVATE KEY-----');
+  console.error('[FIREBASE] First 50 chars:', privateKey.substring(0, 50));
+  return;
+}
+
 admin.initializeApp({
 credential: admin.credential.cert({
 projectId,
 clientEmail,
-privateKey: privateKey.replace(/\\n/g, '\n'),
+privateKey,
 }),
 });
 
