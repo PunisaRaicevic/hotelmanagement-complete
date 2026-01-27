@@ -40,11 +40,16 @@ if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32) {
 }
 
 // Session store setup
+import pg from "pg";
+const sessionPool = new pg.Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+});
 const PgSession = ConnectPgSimple(session);
 app.use(
   session({
     store: new PgSession({
-      conString: process.env.DATABASE_URL,
+      pool: sessionPool,
       createTableIfMissing: true,
     }),
     secret: process.env.SESSION_SECRET || "default-dev-secret",
