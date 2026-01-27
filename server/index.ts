@@ -1,4 +1,10 @@
 import 'dotenv/config';
+
+// Allow Supabase pooler SSL connections (self-signed certificate)
+if (process.env.NODE_ENV === 'production') {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+}
+
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import ConnectPgSimple from "connect-pg-simple";
