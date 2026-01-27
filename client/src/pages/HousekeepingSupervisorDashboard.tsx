@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { getApiUrl } from '@/lib/apiUrl';
 import StatCard from '@/components/StatCard';
@@ -149,7 +150,10 @@ export default function HousekeepingSupervisorDashboard() {
   const checkoutRooms = rooms.filter((r) => r.occupancy_status === 'checkout');
 
   const pendingTasks = tasks.filter((t) => t.status === 'pending');
+  const inProgressTasks = tasks.filter((t) => t.status === 'in_progress');
   const completedTasks = tasks.filter((t) => t.status === 'completed');
+  const needsReworkTasks = tasks.filter((t) => t.status === 'needs_rework');
+  const inspectedTasks = tasks.filter((t) => t.status === 'inspected');
   const needsInspection = tasks.filter((t) => t.status === 'completed' && !t.inspection_passed);
 
   // Filtered rooms
@@ -208,6 +212,28 @@ export default function HousekeepingSupervisorDashboard() {
     return labels[type] || type;
   };
 
+  const getTaskStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending': return 'border-l-gray-400';
+      case 'in_progress': return 'border-l-yellow-500';
+      case 'completed': return 'border-l-green-500';
+      case 'inspected': return 'border-l-blue-500';
+      case 'needs_rework': return 'border-l-red-500';
+      default: return 'border-l-gray-300';
+    }
+  };
+
+  const getTaskStatusDotColor = (status: string) => {
+    switch (status) {
+      case 'pending': return 'bg-gray-400';
+      case 'in_progress': return 'bg-yellow-500';
+      case 'completed': return 'bg-green-500';
+      case 'inspected': return 'bg-blue-500';
+      case 'needs_rework': return 'bg-red-500';
+      default: return 'bg-gray-300';
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -216,14 +242,63 @@ export default function HousekeepingSupervisorDashboard() {
     );
   }
 
+  const renderTaskSection = (sectionTasks: HousekeepingTask[], label: string, dotColor: string, pulse?: boolean) => {
+    if (sectionTasks.length === 0) return null;
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <div className={`w-2.5 h-2.5 rounded-full ${dotColor} ${pulse ? 'animate-pulse' : ''}`} />
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
+          <span className="text-xs text-muted-foreground">({sectionTasks.length})</span>
+          <div className="flex-1 border-t border-muted-foreground/20" />
+        </div>
+        {sectionTasks.map((task) => (
+          <Card key={task.id} className={`p-3 border-l-4 ${getTaskStatusColor(task.status)} hover-elevate transition-all`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="font-bold">{task.room_number}</span>
+                <Badge variant="outline" className="text-xs">
+                  {getCleaningTypeLabel(task.cleaning_type)}
+                </Badge>
+                <Badge
+                  variant={
+                    task.status === 'completed'
+                      ? 'default'
+                      : task.status === 'in_progress'
+                      ? 'secondary'
+                      : task.status === 'needs_rework'
+                      ? 'destructive'
+                      : 'outline'
+                  }
+                  className="text-xs"
+                >
+                  {task.status === 'pending' && 'Čeka'}
+                  {task.status === 'in_progress' && 'U toku'}
+                  {task.status === 'completed' && 'Završeno'}
+                  {task.status === 'inspected' && 'Pregledano'}
+                  {task.status === 'needs_rework' && 'Ponovi'}
+                </Badge>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {task.assigned_to_name || 'Nije dodijeljeno'}
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Sparkles className="w-6 h-6 text-primary" />
-            Domaćinstvo
+          <h1 className="text-3xl font-medium flex items-center gap-2">
+            <div className="p-2 rounded-xl bg-primary/10">
+              <Sparkles className="w-6 h-6 text-primary" />
+            </div>
+            <span className="text-gradient">Domaćinstvo</span>
           </h1>
           <p className="text-muted-foreground">{user?.fullName} - Šef domaćinstva</p>
         </div>
@@ -234,42 +309,89 @@ export default function HousekeepingSupervisorDashboard() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <StatCard title="Prljave sobe" value={dirtyRooms.length} icon={BedDouble} iconColor="text-red-500" />
-        <StatCard title="U čišćenju" value={inCleaningRooms.length} icon={Clock} iconColor="text-yellow-500" />
-        <StatCard title="Čiste" value={cleanRooms.length} icon={CheckCircle} iconColor="text-green-500" />
-        <StatCard title="Pregledane" value={inspectedRooms.length} icon={Eye} iconColor="text-blue-500" />
-        <StatCard title="Check-out" value={checkoutRooms.length} icon={AlertTriangle} iconColor="text-orange-500" />
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <StatCard
+          title="Prljave sobe"
+          value={dirtyRooms.length}
+          icon={BedDouble}
+          iconColor="text-red-500"
+          bgColorClass="bg-red-50 dark:bg-red-950/20"
+        />
+        <StatCard
+          title="U čišćenju"
+          value={inCleaningRooms.length}
+          icon={Clock}
+          iconColor="text-yellow-500"
+          bgColorClass="bg-yellow-50 dark:bg-yellow-950/20"
+        />
+        <StatCard
+          title="Čiste"
+          value={cleanRooms.length}
+          icon={CheckCircle}
+          iconColor="text-green-500"
+          bgColorClass="bg-green-50 dark:bg-green-950/20"
+        />
+        <StatCard
+          title="Pregledane"
+          value={inspectedRooms.length}
+          icon={Eye}
+          iconColor="text-blue-500"
+          bgColorClass="bg-blue-50 dark:bg-blue-950/20"
+        />
+        <StatCard
+          title="Check-out"
+          value={checkoutRooms.length}
+          icon={AlertTriangle}
+          iconColor="text-orange-500"
+          bgColorClass="bg-orange-50 dark:bg-orange-950/20"
+        />
       </div>
 
       {/* Main Content */}
       <Tabs defaultValue="rooms">
-        <TabsList>
-          <TabsTrigger value="rooms" className="gap-1">
+        <TabsList className="grid w-full grid-cols-4 h-12 p-1 bg-muted/50">
+          <TabsTrigger
+            value="rooms"
+            className="gap-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md"
+          >
             <Building className="w-4 h-4" />
-            Sobe ({rooms.length})
+            Sobe
+            <Badge variant="secondary" className="ml-1 text-[10px] px-1.5">{rooms.length}</Badge>
           </TabsTrigger>
-          <TabsTrigger value="tasks" className="gap-1">
+          <TabsTrigger
+            value="tasks"
+            className="gap-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md"
+          >
             <ClipboardList className="w-4 h-4" />
-            Zadaci ({tasks.length})
+            Zadaci
+            <Badge variant="secondary" className="ml-1 text-[10px] px-1.5">{tasks.length}</Badge>
           </TabsTrigger>
-          <TabsTrigger value="inspection" className="gap-1">
+          <TabsTrigger
+            value="inspection"
+            className="gap-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md"
+          >
             <Eye className="w-4 h-4" />
-            Inspekcija ({needsInspection.length})
+            Inspekcija
+            <Badge
+              variant={needsInspection.length > 0 ? 'destructive' : 'secondary'}
+              className="ml-1 text-[10px] px-1.5"
+            >
+              {needsInspection.length}
+            </Badge>
           </TabsTrigger>
-          <TabsTrigger value="team" className="gap-1">
+          <TabsTrigger
+            value="team"
+            className="gap-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md"
+          >
             <Users className="w-4 h-4" />
-            Tim ({housekeepers.length})
+            Tim
+            <Badge variant="secondary" className="ml-1 text-[10px] px-1.5">{housekeepers.length}</Badge>
           </TabsTrigger>
         </TabsList>
 
         {/* Rooms Tab */}
         <TabsContent value="rooms" className="mt-4">
-          <Card>
-            <CardContent className="pt-6">
-              <RoomGridView rooms={rooms} tasks={tasks} onRoomClick={handleRoomClick} />
-            </CardContent>
-          </Card>
+          <RoomGridView rooms={rooms} tasks={tasks} onRoomClick={handleRoomClick} />
         </TabsContent>
 
         {/* Tasks Tab */}
@@ -279,40 +401,16 @@ export default function HousekeepingSupervisorDashboard() {
               <CardTitle className="text-lg">Zadaci za danas</CardTitle>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="h-[500px]">
-                <div className="space-y-2 pr-4">
+              <ScrollArea className="h-[600px]">
+                <div className="space-y-4 pr-4">
                   {tasks.length > 0 ? (
-                    tasks.map((task) => (
-                      <Card key={task.id} className="p-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <span className="font-bold">{task.room_number}</span>
-                            <Badge variant="outline" className="text-xs">
-                              {getCleaningTypeLabel(task.cleaning_type)}
-                            </Badge>
-                            <Badge
-                              variant={
-                                task.status === 'completed'
-                                  ? 'default'
-                                  : task.status === 'in_progress'
-                                  ? 'secondary'
-                                  : 'outline'
-                              }
-                              className="text-xs"
-                            >
-                              {task.status === 'pending' && 'Čeka'}
-                              {task.status === 'in_progress' && 'U toku'}
-                              {task.status === 'completed' && 'Završeno'}
-                              {task.status === 'inspected' && 'Pregledano'}
-                              {task.status === 'needs_rework' && 'Ponovi'}
-                            </Badge>
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {task.assigned_to_name || 'Nije dodijeljeno'}
-                          </div>
-                        </div>
-                      </Card>
-                    ))
+                    <>
+                      {renderTaskSection(pendingTasks, 'Čeka', 'bg-gray-400')}
+                      {renderTaskSection(inProgressTasks, 'U toku', 'bg-yellow-500', true)}
+                      {renderTaskSection(completedTasks, 'Završeno', 'bg-green-500')}
+                      {renderTaskSection(needsReworkTasks, 'Potrebno ponoviti', 'bg-red-500')}
+                      {renderTaskSection(inspectedTasks, 'Pregledano', 'bg-blue-500')}
+                    </>
                   ) : (
                     <div className="text-center py-8 text-muted-foreground">
                       <ClipboardList className="w-12 h-12 mx-auto mb-3 opacity-50" />
@@ -338,7 +436,7 @@ export default function HousekeepingSupervisorDashboard() {
                     needsInspection.map((task) => (
                       <Card
                         key={task.id}
-                        className="p-4 cursor-pointer hover:shadow-md"
+                        className="p-4 cursor-pointer hover-elevate transition-all border-l-4 border-l-amber-400"
                         onClick={() => {
                           setSelectedTask(task);
                           setIsTaskDialogOpen(true);
@@ -360,7 +458,7 @@ export default function HousekeepingSupervisorDashboard() {
                           </Button>
                         </div>
                         {task.issues_found && (
-                          <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-950 rounded text-sm">
+                          <div className="mt-2 p-3 bg-yellow-50 dark:bg-yellow-950 rounded-lg border border-yellow-200 dark:border-yellow-800 text-sm">
                             <span className="font-medium">Problem: </span>
                             {task.issues_found}
                           </div>
@@ -392,24 +490,31 @@ export default function HousekeepingSupervisorDashboard() {
                   const completedCount = assignedTasks.filter(
                     (t) => t.status === 'completed' || t.status === 'inspected'
                   ).length;
+                  const completionPercent = assignedTasks.length > 0
+                    ? Math.round((completedCount / assignedTasks.length) * 100)
+                    : 0;
+                  const firstLetter = hk.full_name.charAt(0).toUpperCase();
 
                   return (
-                    <Card key={hk.id} className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                            <Users className="w-5 h-5 text-primary" />
-                          </div>
-                          <div>
-                            <p className="font-medium">{hk.full_name}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {assignedTasks.length} zadataka dodijeljeno
-                            </p>
-                          </div>
+                    <Card key={hk.id} className="p-5 hover-elevate transition-all">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                          <span className="text-lg font-semibold text-primary">{firstLetter}</span>
                         </div>
-                        <div className="text-right">
-                          <p className="text-lg font-bold text-green-600">{completedCount}</p>
-                          <p className="text-xs text-muted-foreground">završeno</p>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium">{hk.full_name}</p>
+                            <span className="text-sm font-semibold text-muted-foreground">{completionPercent}%</span>
+                          </div>
+                          <Progress value={completionPercent} className="h-2 mt-1.5" />
+                          <div className="flex items-center justify-between mt-1.5">
+                            <span className="text-xs text-muted-foreground">
+                              {assignedTasks.length} zadataka
+                            </span>
+                            <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                              {completedCount} završeno
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </Card>
@@ -445,7 +550,7 @@ export default function HousekeepingSupervisorDashboard() {
           {selectedTask && (
             <div className="space-y-4 py-4">
               <div className="grid grid-cols-2 gap-2 text-sm">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
                   {selectedTask.linens_changed ? (
                     <CheckCircle className="w-4 h-4 text-green-500" />
                   ) : (
@@ -453,7 +558,7 @@ export default function HousekeepingSupervisorDashboard() {
                   )}
                   <span>Posteljina</span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
                   {selectedTask.towels_changed ? (
                     <CheckCircle className="w-4 h-4 text-green-500" />
                   ) : (
@@ -461,7 +566,7 @@ export default function HousekeepingSupervisorDashboard() {
                   )}
                   <span>Peškiri</span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
                   {selectedTask.amenities_restocked ? (
                     <CheckCircle className="w-4 h-4 text-green-500" />
                   ) : (
@@ -472,7 +577,7 @@ export default function HousekeepingSupervisorDashboard() {
               </div>
 
               {selectedTask.issues_found && (
-                <div className="p-3 bg-yellow-50 dark:bg-yellow-950 rounded">
+                <div className="p-3 bg-yellow-50 dark:bg-yellow-950 rounded-lg border border-yellow-200 dark:border-yellow-800">
                   <p className="text-sm font-medium">Prijavljeni problemi:</p>
                   <p className="text-sm">{selectedTask.issues_found}</p>
                 </div>
@@ -495,7 +600,7 @@ export default function HousekeepingSupervisorDashboard() {
               <XCircle className="w-4 h-4 mr-1" />
               Ponovi čišćenje
             </Button>
-            <Button onClick={() => handleInspectTask(true)}>
+            <Button className="btn-gradient" onClick={() => handleInspectTask(true)}>
               <CheckCircle className="w-4 h-4 mr-1" />
               Prošla inspekciju
             </Button>

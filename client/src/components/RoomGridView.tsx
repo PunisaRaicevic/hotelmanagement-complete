@@ -116,12 +116,12 @@ const statusConfig = {
 };
 
 const occupancyConfig = {
-  occupied: { label: 'Zauzeta', color: 'text-orange-600 bg-orange-100', icon: User },
-  vacant: { label: 'Prazna', color: 'text-green-600 bg-green-100', icon: CheckCircle2 },
-  checkout: { label: 'Check-out', color: 'text-red-600 bg-red-100', icon: CalendarX },
-  checkin: { label: 'Check-in', color: 'text-blue-600 bg-blue-100', icon: CalendarCheck },
-  checkin_expected: { label: 'Dolazak', color: 'text-blue-600 bg-blue-100', icon: CalendarCheck },
-  checkout_expected: { label: 'Odlazak', color: 'text-amber-600 bg-amber-100', icon: CalendarX },
+  occupied: { label: 'Zauzeta', color: 'text-orange-600 bg-orange-100 dark:bg-orange-950/30 dark:text-orange-300', icon: User },
+  vacant: { label: 'Prazna', color: 'text-green-600 bg-green-100 dark:bg-green-950/30 dark:text-green-300', icon: CheckCircle2 },
+  checkout: { label: 'Check-out', color: 'text-red-600 bg-red-100 dark:bg-red-950/30 dark:text-red-300', icon: CalendarX },
+  checkin: { label: 'Check-in', color: 'text-blue-600 bg-blue-100 dark:bg-blue-950/30 dark:text-blue-300', icon: CalendarCheck },
+  checkin_expected: { label: 'Dolazak', color: 'text-blue-600 bg-blue-100 dark:bg-blue-950/30 dark:text-blue-300', icon: CalendarCheck },
+  checkout_expected: { label: 'Odlazak', color: 'text-amber-600 bg-amber-100 dark:bg-amber-950/30 dark:text-amber-300', icon: CalendarX },
 };
 
 const cleaningTypeLabels: Record<string, string> = {
@@ -200,6 +200,14 @@ export default function RoomGridView({ rooms, tasks = [], onRoomClick }: RoomGri
     inspected: rooms.filter((r) => r.status === 'inspected').length,
   };
 
+  // Floor status counts helper
+  const getFloorStatusCounts = (floorRooms: Room[]) => ({
+    dirty: floorRooms.filter((r) => r.status === 'dirty').length,
+    in_cleaning: floorRooms.filter((r) => r.status === 'in_cleaning').length,
+    clean: floorRooms.filter((r) => r.status === 'clean').length,
+    inspected: floorRooms.filter((r) => r.status === 'inspected').length,
+  });
+
   // Get task for room
   const getTaskForRoom = (roomId: string) => {
     return tasks.find((t) => t.room_id === roomId && ['pending', 'in_progress'].includes(t.status));
@@ -218,10 +226,10 @@ export default function RoomGridView({ rooms, tasks = [], onRoomClick }: RoomGri
           <TooltipTrigger asChild>
             <Card
               className={`
-                relative p-3 cursor-pointer transition-all hover:scale-[1.02] hover:shadow-lg
+                relative p-3 cursor-pointer transition-all hover-elevate
                 border-l-4 ${config.borderColor} ${config.bgColor}
                 ${isUrgent ? 'ring-2 ring-red-400 ring-offset-1' : ''}
-                w-full h-[200px] flex flex-col overflow-hidden
+                w-full min-h-[140px] flex flex-col overflow-hidden
               `}
               onClick={() => onRoomClick(room)}
             >
@@ -243,7 +251,7 @@ export default function RoomGridView({ rooms, tasks = [], onRoomClick }: RoomGri
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-1">
-                  <div className={`w-3 h-3 rounded-full ${config.color}`} title={config.label} />
+                  <div className={`w-3.5 h-3.5 rounded-full ${config.color} ring-2 ring-white dark:ring-gray-900`} title={config.label} />
                   {room.max_occupancy && room.max_occupancy > 2 && (
                     <div className="flex items-center text-xs text-muted-foreground">
                       <Users className="w-3 h-3 mr-0.5" />
@@ -255,7 +263,7 @@ export default function RoomGridView({ rooms, tasks = [], onRoomClick }: RoomGri
 
               {/* Occupancy Badge */}
               {occConfig && (
-                <Badge className={`text-[10px] px-1.5 py-0 ${occConfig.color} border-0 mb-2`}>
+                <Badge className={`text-[11px] px-1.5 py-0 rounded-full ${occConfig.color} border-0 mb-2`}>
                   <OccIcon className="w-3 h-3 mr-1" />
                   {occConfig.label}
                 </Badge>
@@ -263,13 +271,13 @@ export default function RoomGridView({ rooms, tasks = [], onRoomClick }: RoomGri
 
               {/* Guest Info */}
               {room.guest_name && (
-                <div className="bg-white/60 dark:bg-black/20 rounded p-1.5 mb-2">
+                <div className="bg-white/60 dark:bg-black/20 rounded-lg p-2 mb-2">
                   <div className="flex items-center gap-1 text-xs font-medium">
                     <User className="w-3 h-3 text-blue-600" />
                     <span className="truncate">{room.guest_name}</span>
                   </div>
                   {(room.checkin_date || room.checkout_date) && (
-                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
+                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
                       {room.checkin_date && (
                         <span className="flex items-center gap-0.5">
                           <CalendarCheck className="w-3 h-3 text-green-600" />
@@ -302,19 +310,19 @@ export default function RoomGridView({ rooms, tasks = [], onRoomClick }: RoomGri
                     )}
                   </div>
                   {task.assigned_to_name && (
-                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-0.5">
+                    <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
                       <UserCog className="w-3 h-3" />
                       <span>{task.assigned_to_name}</span>
                     </div>
                   )}
                   {task.guest_requests && (
-                    <div className="flex items-start gap-1 text-[10px] text-blue-600 mt-0.5">
+                    <div className="flex items-start gap-1 text-[11px] text-blue-600 mt-0.5">
                       <Info className="w-3 h-3 flex-shrink-0 mt-0.5" />
                       <span className="line-clamp-1">{task.guest_requests}</span>
                     </div>
                   )}
                   {task.issues_found && (
-                    <div className="flex items-start gap-1 text-[10px] text-red-600 mt-0.5">
+                    <div className="flex items-start gap-1 text-[11px] text-red-600 mt-0.5">
                       <MessageSquareWarning className="w-3 h-3 flex-shrink-0 mt-0.5" />
                       <span className="line-clamp-1">{task.issues_found}</span>
                     </div>
@@ -327,32 +335,6 @@ export default function RoomGridView({ rooms, tasks = [], onRoomClick }: RoomGri
                 <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
                   <BedDouble className="w-3 h-3" />
                   <span className="truncate">{room.assigned_housekeeper_name}</span>
-                </div>
-              )}
-
-              {/* Last Cleaned/Inspected Info */}
-              {(room.last_cleaned_at || room.last_inspected_at) && (
-                <div className="text-[10px] text-muted-foreground space-y-0.5 mb-2">
-                  {room.last_cleaned_at && (
-                    <div className="flex items-center gap-1">
-                      <Sparkles className="w-3 h-3" />
-                      <span>Čišćeno: {formatDateTime(room.last_cleaned_at)}</span>
-                    </div>
-                  )}
-                  {room.last_inspected_at && (
-                    <div className="flex items-center gap-1">
-                      <Eye className="w-3 h-3" />
-                      <span>Pregled: {formatDateTime(room.last_inspected_at)}</span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Notes */}
-              {room.notes && (
-                <div className="text-[10px] text-muted-foreground bg-gray-100 dark:bg-gray-800 rounded p-1 mb-2 line-clamp-2">
-                  <Info className="w-3 h-3 inline mr-1" />
-                  {room.notes}
                 </div>
               )}
 
@@ -409,6 +391,28 @@ export default function RoomGridView({ rooms, tasks = [], onRoomClick }: RoomGri
                   {room.checkout_date && <p className="text-xs text-muted-foreground">Check-out: {formatDate(room.checkout_date)}</p>}
                 </div>
               )}
+              {(room.last_cleaned_at || room.last_inspected_at) && (
+                <div className="pt-1 border-t text-xs text-muted-foreground space-y-0.5">
+                  {room.last_cleaned_at && (
+                    <div className="flex items-center gap-1">
+                      <Sparkles className="w-3 h-3" />
+                      <span>Čišćeno: {formatDateTime(room.last_cleaned_at)}</span>
+                    </div>
+                  )}
+                  {room.last_inspected_at && (
+                    <div className="flex items-center gap-1">
+                      <Eye className="w-3 h-3" />
+                      <span>Pregled: {formatDateTime(room.last_inspected_at)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+              {room.notes && (
+                <div className="pt-1 border-t text-xs text-muted-foreground">
+                  <Info className="w-3 h-3 inline mr-1" />
+                  {room.notes}
+                </div>
+              )}
               {task && (
                 <div className="pt-1 border-t">
                   <p className="text-sm font-medium">Aktivan zadatak:</p>
@@ -425,117 +429,120 @@ export default function RoomGridView({ rooms, tasks = [], onRoomClick }: RoomGri
   return (
     <div className="space-y-4">
       {/* Filters & Controls */}
-      <div className="flex flex-wrap items-center gap-3">
-        {/* Search */}
-        <div className="relative">
-          <Search className="w-4 h-4 absolute left-2.5 top-2.5 text-muted-foreground" />
-          <Input
-            placeholder="Traži sobu..."
-            className="pl-8 h-9 w-40"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+      <div className="p-3 bg-muted/30 rounded-xl">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Search */}
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-2.5 top-3 text-muted-foreground" />
+            <Input
+              placeholder="Traži sobu..."
+              className="pl-8 h-10 w-48 rounded-lg"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
+          {/* Status Filters */}
+          <div className="flex gap-1 flex-wrap">
+            <Button
+              size="sm"
+              variant={statusFilter === null ? 'default' : 'outline'}
+              className="h-9 text-xs"
+              onClick={() => setStatusFilter(null)}
+            >
+              Sve ({rooms.length})
+            </Button>
+            <Button
+              size="sm"
+              variant={statusFilter === 'dirty' ? 'default' : 'outline'}
+              className="h-9 text-xs bg-red-50 hover:bg-red-100 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:border-red-800 dark:hover:bg-red-950/50"
+              onClick={() => setStatusFilter(statusFilter === 'dirty' ? null : 'dirty')}
+            >
+              <div className="w-2 h-2 rounded-full bg-red-500 mr-1.5" />
+              Prljave ({statusCounts.dirty})
+            </Button>
+            <Button
+              size="sm"
+              variant={statusFilter === 'in_cleaning' ? 'default' : 'outline'}
+              className="h-9 text-xs bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-950/30 dark:text-yellow-300 dark:border-yellow-800 dark:hover:bg-yellow-950/50"
+              onClick={() => setStatusFilter(statusFilter === 'in_cleaning' ? null : 'in_cleaning')}
+            >
+              <div className="w-2 h-2 rounded-full bg-yellow-500 mr-1.5" />
+              U čišćenju ({statusCounts.in_cleaning})
+            </Button>
+            <Button
+              size="sm"
+              variant={statusFilter === 'clean' ? 'default' : 'outline'}
+              className="h-9 text-xs bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-300 dark:border-green-800 dark:hover:bg-green-950/50"
+              onClick={() => setStatusFilter(statusFilter === 'clean' ? null : 'clean')}
+            >
+              <div className="w-2 h-2 rounded-full bg-green-500 mr-1.5" />
+              Čiste ({statusCounts.clean})
+            </Button>
+            <Button
+              size="sm"
+              variant={statusFilter === 'inspected' ? 'default' : 'outline'}
+              className="h-9 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-800 dark:hover:bg-blue-950/50"
+              onClick={() => setStatusFilter(statusFilter === 'inspected' ? null : 'inspected')}
+            >
+              <div className="w-2 h-2 rounded-full bg-blue-500 mr-1.5" />
+              Pregledane ({statusCounts.inspected})
+            </Button>
+          </div>
+
+          {/* View Mode Toggle */}
+          <div className="flex gap-1 ml-auto">
+            <Button
+              size="sm"
+              variant={viewMode === 'floor' ? 'default' : 'outline'}
+              className="h-9"
+              onClick={() => setViewMode('floor')}
+            >
+              <Building2 className="w-4 h-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant={viewMode === 'grid' ? 'default' : 'outline'}
+              className="h-9"
+              onClick={() => setViewMode('grid')}
+            >
+              <Grid3X3 className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
 
-        {/* Status Filters */}
-        <div className="flex gap-1 flex-wrap">
-          <Button
-            size="sm"
-            variant={statusFilter === null ? 'default' : 'outline'}
-            className="h-8 text-xs"
-            onClick={() => setStatusFilter(null)}
+        {/* Occupancy Quick Filters */}
+        <div className="flex gap-2 flex-wrap mt-3">
+          <span className="text-xs font-medium text-muted-foreground self-center">Zauzetost:</span>
+          <Badge
+            variant={occupancyFilter === null ? 'default' : 'outline'}
+            className="cursor-pointer hover:opacity-80"
+            onClick={() => setOccupancyFilter(null)}
           >
-            Sve ({rooms.length})
-          </Button>
-          <Button
-            size="sm"
-            variant={statusFilter === 'dirty' ? 'default' : 'outline'}
-            className="h-8 text-xs bg-red-50 hover:bg-red-100 text-red-700 border-red-200"
-            onClick={() => setStatusFilter(statusFilter === 'dirty' ? null : 'dirty')}
+            Svi statusi
+          </Badge>
+          <Badge
+            variant={occupancyFilter === 'occupied' ? 'default' : 'outline'}
+            className="cursor-pointer hover:opacity-80 bg-orange-100 text-orange-700 dark:bg-orange-950/30 dark:text-orange-300"
+            onClick={() => setOccupancyFilter(occupancyFilter === 'occupied' ? null : 'occupied')}
           >
-            <div className="w-2 h-2 rounded-full bg-red-500 mr-1.5" />
-            Prljave ({statusCounts.dirty})
-          </Button>
-          <Button
-            size="sm"
-            variant={statusFilter === 'in_cleaning' ? 'default' : 'outline'}
-            className="h-8 text-xs bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border-yellow-200"
-            onClick={() => setStatusFilter(statusFilter === 'in_cleaning' ? null : 'in_cleaning')}
+            Zauzete
+          </Badge>
+          <Badge
+            variant={occupancyFilter === 'vacant' ? 'default' : 'outline'}
+            className="cursor-pointer hover:opacity-80 bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-300"
+            onClick={() => setOccupancyFilter(occupancyFilter === 'vacant' ? null : 'vacant')}
           >
-            <div className="w-2 h-2 rounded-full bg-yellow-500 mr-1.5" />
-            U čišćenju ({statusCounts.in_cleaning})
-          </Button>
-          <Button
-            size="sm"
-            variant={statusFilter === 'clean' ? 'default' : 'outline'}
-            className="h-8 text-xs bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
-            onClick={() => setStatusFilter(statusFilter === 'clean' ? null : 'clean')}
+            Prazne
+          </Badge>
+          <Badge
+            variant={occupancyFilter === 'checkout' ? 'default' : 'outline'}
+            className="cursor-pointer hover:opacity-80 bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-300"
+            onClick={() => setOccupancyFilter(occupancyFilter === 'checkout' ? null : 'checkout')}
           >
-            <div className="w-2 h-2 rounded-full bg-green-500 mr-1.5" />
-            Čiste ({statusCounts.clean})
-          </Button>
-          <Button
-            size="sm"
-            variant={statusFilter === 'inspected' ? 'default' : 'outline'}
-            className="h-8 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
-            onClick={() => setStatusFilter(statusFilter === 'inspected' ? null : 'inspected')}
-          >
-            <div className="w-2 h-2 rounded-full bg-blue-500 mr-1.5" />
-            Pregledane ({statusCounts.inspected})
-          </Button>
+            Check-out
+          </Badge>
         </div>
-
-        {/* View Mode Toggle */}
-        <div className="flex gap-1 ml-auto">
-          <Button
-            size="sm"
-            variant={viewMode === 'floor' ? 'default' : 'outline'}
-            className="h-8"
-            onClick={() => setViewMode('floor')}
-          >
-            <Building2 className="w-4 h-4" />
-          </Button>
-          <Button
-            size="sm"
-            variant={viewMode === 'grid' ? 'default' : 'outline'}
-            className="h-8"
-            onClick={() => setViewMode('grid')}
-          >
-            <Grid3X3 className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
-
-      {/* Occupancy Quick Filters */}
-      <div className="flex gap-2 flex-wrap">
-        <Badge
-          variant={occupancyFilter === null ? 'default' : 'outline'}
-          className="cursor-pointer hover:opacity-80"
-          onClick={() => setOccupancyFilter(null)}
-        >
-          Svi statusi
-        </Badge>
-        <Badge
-          variant={occupancyFilter === 'occupied' ? 'default' : 'outline'}
-          className="cursor-pointer hover:opacity-80 bg-orange-100 text-orange-700"
-          onClick={() => setOccupancyFilter(occupancyFilter === 'occupied' ? null : 'occupied')}
-        >
-          Zauzete
-        </Badge>
-        <Badge
-          variant={occupancyFilter === 'vacant' ? 'default' : 'outline'}
-          className="cursor-pointer hover:opacity-80 bg-green-100 text-green-700"
-          onClick={() => setOccupancyFilter(occupancyFilter === 'vacant' ? null : 'vacant')}
-        >
-          Prazne
-        </Badge>
-        <Badge
-          variant={occupancyFilter === 'checkout' ? 'default' : 'outline'}
-          className="cursor-pointer hover:opacity-80 bg-red-100 text-red-700"
-          onClick={() => setOccupancyFilter(occupancyFilter === 'checkout' ? null : 'checkout')}
-        >
-          Check-out
-        </Badge>
       </div>
 
       {/* Room Display */}
@@ -545,20 +552,49 @@ export default function RoomGridView({ rooms, tasks = [], onRoomClick }: RoomGri
           {floors.map((floor) => {
             const floorRooms = roomsByFloor[floor] || [];
             if (floorRooms.length === 0) return null;
+            const floorCounts = getFloorStatusCounts(floorRooms);
 
             return (
               <div key={floor}>
                 {/* Floor Header */}
-                <div className="flex items-center gap-2 mb-3 pb-2 border-b">
-                  <Building2 className="w-5 h-5 text-primary" />
+                <div className="flex items-center gap-2 mb-3 pb-2 border-b-2 border-primary/20">
+                  <div className="p-1.5 rounded-lg bg-primary/10">
+                    <Building2 className="w-5 h-5 text-primary" />
+                  </div>
                   <h3 className="font-semibold text-lg">Sprat {floor}</h3>
                   <Badge variant="secondary" className="ml-2">
                     {floorRooms.length} soba
                   </Badge>
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    {floorCounts.dirty > 0 && (
+                      <div className="flex items-center gap-1">
+                        <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                        <span className="text-xs text-muted-foreground">{floorCounts.dirty}</span>
+                      </div>
+                    )}
+                    {floorCounts.in_cleaning > 0 && (
+                      <div className="flex items-center gap-1">
+                        <div className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
+                        <span className="text-xs text-muted-foreground">{floorCounts.in_cleaning}</span>
+                      </div>
+                    )}
+                    {floorCounts.clean > 0 && (
+                      <div className="flex items-center gap-1">
+                        <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
+                        <span className="text-xs text-muted-foreground">{floorCounts.clean}</span>
+                      </div>
+                    )}
+                    {floorCounts.inspected > 0 && (
+                      <div className="flex items-center gap-1">
+                        <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                        <span className="text-xs text-muted-foreground">{floorCounts.inspected}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Floor Rooms Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
                   {floorRooms.map((room) => (
                     <RoomTile key={room.id} room={room} />
                   ))}
@@ -569,7 +605,7 @@ export default function RoomGridView({ rooms, tasks = [], onRoomClick }: RoomGri
         </div>
       ) : (
         // Simple grid view
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
           {filteredRooms
             .sort((a, b) => a.room_number.localeCompare(b.room_number, undefined, { numeric: true }))
             .map((room) => (
@@ -587,8 +623,11 @@ export default function RoomGridView({ rooms, tasks = [], onRoomClick }: RoomGri
       )}
 
       {/* Legend */}
-      <Card className="p-4 bg-muted/50">
-        <h4 className="font-medium text-sm mb-3">Legenda</h4>
+      <Card className="p-4 bg-muted/30 border-dashed">
+        <h4 className="font-medium text-sm mb-3 flex items-center gap-1.5">
+          <Info className="w-4 h-4 text-muted-foreground" />
+          Legenda
+        </h4>
         <div className="flex flex-wrap gap-4">
           <div className="space-y-1">
             <p className="text-xs font-medium text-muted-foreground mb-1">Status čistoće:</p>
