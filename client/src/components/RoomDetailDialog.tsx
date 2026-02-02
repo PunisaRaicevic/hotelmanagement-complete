@@ -29,6 +29,7 @@ import {
   Download,
   Loader2,
   MessageSquare,
+  Monitor,
 } from 'lucide-react';
 
 interface Room {
@@ -144,6 +145,7 @@ export default function RoomDetailDialog({
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('info');
   const [isLoading, setIsLoading] = useState(false);
+  const [isSendingToDisplay, setIsSendingToDisplay] = useState(false);
   const [guestRequests, setGuestRequests] = useState<GuestServiceRequest[]>([]);
 
   // Local room state that can be updated after check-in
@@ -281,6 +283,45 @@ export default function RoomDetailDialog({
       toast({ title: 'Greška', description: 'Došlo je do greške', variant: 'destructive' });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Pošalji QR kod na Guest Display ekran
+  const handleSendToDisplay = async () => {
+    if (!room) return;
+
+    setIsSendingToDisplay(true);
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`/api/rooms/${room.id}/show-qr-to-display`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        toast({
+          title: 'Uspješno',
+          description: 'QR kod je prikazan na guest display-u'
+        });
+      } else {
+        const error = await response.json();
+        toast({
+          title: 'Greška',
+          description: error.error || 'Nije moguće poslati QR na display',
+          variant: 'destructive'
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Greška',
+        description: 'Nije moguće povezati se sa serverom',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsSendingToDisplay(false);
     }
   };
 
@@ -583,7 +624,7 @@ export default function RoomDetailDialog({
                   Kreirano: {formatDateTime(room.token_created_at)}
                 </p>
 
-                <div className="flex gap-2 justify-center">
+                <div className="flex gap-2 justify-center flex-wrap">
                   <Button variant="outline" onClick={copyQRLink}>
                     <Clipboard className="w-4 h-4 mr-2" />
                     Kopiraj link
@@ -592,6 +633,25 @@ export default function RoomDetailDialog({
                     <Download className="w-4 h-4 mr-2" />
                     Preuzmi QR
                   </Button>
+                </div>
+
+                {/* Dugme za prikaz na Guest Display ekranu */}
+                <div className="mt-4">
+                  <Button
+                    className="w-full"
+                    onClick={handleSendToDisplay}
+                    disabled={isSendingToDisplay}
+                  >
+                    {isSendingToDisplay ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Monitor className="w-4 h-4 mr-2" />
+                    )}
+                    Prikaži QR gostu
+                  </Button>
+                  <p className="text-xs text-muted-foreground mt-1 text-center">
+                    Prikazuje QR kod na ekranu okrenutom prema gostu
+                  </p>
                 </div>
 
                 <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950/30 rounded text-sm text-left">

@@ -14,6 +14,7 @@ import TasksPage from "@/pages/TasksPage";
 import UsersPage from "@/pages/UsersPage";
 import NotFound from "@/pages/not-found";
 import GuestRequestPage from "@/pages/GuestRequestPage";
+import GuestDisplayPage from "@/pages/GuestDisplayPage";
 import { IonApp, setupIonicReact } from "@ionic/react";
 import { Capacitor } from "@capacitor/core";
 import { useFCM } from "@/hooks/useFCM";
@@ -144,6 +145,7 @@ function PublicRoutes() {
   return (
     <Switch>
       <Route path="/guest/:roomNumber/:token" component={GuestRequestPage} />
+      <Route path="/guest-display" component={GuestDisplayPage} />
       <Route>
         {/* Fall through to authenticated routes */}
         <Router />

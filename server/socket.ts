@@ -37,6 +37,19 @@ export function initializeSocket(server: Server): SocketIOServer {
     socket.on('disconnect', () => {
       console.log(`[SOCKET.IO] Client disconnected: ${socket.id}`);
     });
+
+    // Guest Display: recepcioner povezuje svoj display ekran
+    socket.on('display:join', (receptionistId: string) => {
+      console.log(`[SOCKET.IO] Guest display joined for receptionist: ${receptionistId}`);
+      socket.join(`display:${receptionistId}`);
+      socket.emit('display:paired', { success: true, receptionistId });
+    });
+
+    // Guest Display: recepcioner odspaja display
+    socket.on('display:leave', (receptionistId: string) => {
+      console.log(`[SOCKET.IO] Guest display left for receptionist: ${receptionistId}`);
+      socket.leave(`display:${receptionistId}`);
+    });
   });
 
   console.log('[SOCKET.IO] Server initialized and ready');
@@ -204,4 +217,61 @@ export function notifyTaskUpdate(task: Record<string, any>) {
     recurrence_end_date: task.recurrence_end_date,
     timestamp: new Date().toISOString()
   });
+}
+
+// ============================================================
+// GUEST DISPLAY FUNCTIONS - Za prikaz QR koda na ekranu recepcije
+// ============================================================
+
+export interface GuestDisplayQRData {
+  room_number: string;
+  guest_name: string;
+  qr_url: string;
+  token: string;
+}
+
+/**
+ * Pošalji QR kod na guest display ekran
+ * @param receptionistId - ID recepcionera čiji display treba da prikaže QR
+ * @param qrData - Podaci za QR kod
+ */
+export function notifyGuestDisplay(receptionistId: string, qrData: GuestDisplayQRData) {
+  if (!io) {
+    console.error('[SOCKET.IO] ERROR: Not initialized, cannot send to guest display');
+    return;
+  }
+
+  const room = `display:${receptionistId}`;
+  console.log(`[SOCKET.IO] Sending QR to guest display: ${room}`, qrData.room_number);
+
+  io.to(room).emit('guest-display:show-qr', qrData);
+}
+
+/**
+ * Sakrij QR kod sa guest display ekrana
+ * @param receptionistId - ID recepcionera čiji display treba da sakrije QR
+ */
+export function hideGuestDisplay(receptionistId: string) {
+  if (!io) {
+    console.error('[SOCKET.IO] ERROR: Not initialized, cannot hide guest display');
+    return;
+  }
+
+  const room = `display:${receptionistId}`;
+  console.log(`[SOCKET.IO] Hiding QR from guest display: ${room}`);
+
+  io.to(room).emit('guest-display:hide-qr');
+}
+
+/**
+ * Sakrij QR kod sa svih display-a koji prikazuju određeni token
+ * Koristi se kada gost pristupi portalu
+ * @param token - Session token koji je gost iskoristio
+ */
+export function hideGuestDisplayByToken(token: string) {
+  if (!io) return;
+
+  // Broadcast svim display-ima da sakriju ako prikazuju ovaj token
+  console.log(`[SOCKET.IO] Broadcasting hide-qr for token: ${token.substring(0, 8)}...`);
+  io.emit('guest-display:hide-qr-if-token', { token });
 }

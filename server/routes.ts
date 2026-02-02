@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import bcrypt from "bcryptjs";
 import { processRecurringTasks, ensureChildTasksExist } from "./services/recurringTaskProcessor";
-import { initializeSocket, notifyWorkers, notifyTaskUpdate } from "./socket";
+import { initializeSocket, notifyWorkers, notifyTaskUpdate, notifyGuestDisplay, hideGuestDisplayByToken } from "./socket";
 import { z } from "zod";
 import { generateToken, verifyToken, extractTokenFromHeader } from "./auth";
 // Firebase Cloud Messaging for push notifications
@@ -1586,6 +1586,77 @@ ${scheduledTasksFormatted}`;
     }
   });
 
+  // ============================================================
+  // GUEST DISPLAY - QR kod na ekranu recepcije za goste
+  // ============================================================
+
+  // In-memory mapa za praćenje koji recepcioner je prikazao koji token
+  // Koristi se za automatsko brisanje QR-a kada gost pristupi portalu
+  const activeDisplayTokens = new Map<string, string>(); // token -> receptionistId
+
+  // POST /api/rooms/:id/show-qr-to-display - Pošalji QR kod na guest display
+  app.post("/api/rooms/:id/show-qr-to-display", requireHousekeepingAccess, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const sessionUser = await storage.getUserById(req.session.userId);
+
+      if (!sessionUser) {
+        return res.status(401).json({ error: "Invalid session" });
+      }
+
+      // Samo recepcioner i admin mogu slati QR na display
+      if (sessionUser.role !== 'recepcioner' && sessionUser.role !== 'admin' && sessionUser.role !== 'sef_domacinstva') {
+        return res.status(403).json({ error: "Only receptionist, admin or housekeeping supervisor can send QR to display" });
+      }
+
+      const room = await storage.getRoomById(id);
+      if (!room) {
+        return res.status(404).json({ error: "Room not found" });
+      }
+
+      if (!room.guest_session_token) {
+        return res.status(400).json({ error: "Room has no active QR code. Please check-in a guest first." });
+      }
+
+      // Konstruiši punu URL adresu
+      const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+      const host = req.headers['x-forwarded-host'] || req.get('host');
+      const qrUrl = `${protocol}://${host}/guest/${room.room_number}/${room.guest_session_token}`;
+
+      // Sačuvaj mapiranje token -> receptionist za automatsko brisanje
+      activeDisplayTokens.set(room.guest_session_token, sessionUser.id);
+
+      // Pošalji QR na display preko Socket.IO
+      notifyGuestDisplay(sessionUser.id, {
+        room_number: room.room_number,
+        guest_name: room.guest_name || 'Gost',
+        qr_url: qrUrl,
+        token: room.guest_session_token
+      });
+
+      console.log(`[GUEST DISPLAY] QR sent to display for room ${room.room_number} by ${sessionUser.full_name}`);
+
+      res.json({
+        success: true,
+        message: "QR kod je poslat na guest display",
+        room_number: room.room_number
+      });
+    } catch (error) {
+      console.error("Error sending QR to display:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Funkcija za brisanje QR-a sa display-a kada gost pristupi
+  function clearDisplayForToken(token: string) {
+    const receptionistId = activeDisplayTokens.get(token);
+    if (receptionistId) {
+      hideGuestDisplayByToken(token);
+      activeDisplayTokens.delete(token);
+      console.log(`[GUEST DISPLAY] QR cleared for token ${token.substring(0, 8)}...`);
+    }
+  }
+
   // PUBLIC: Validate room token and get room info (no auth required)
   app.get("/api/public/room/:roomNumber/:token", async (req, res) => {
     try {
@@ -1612,6 +1683,9 @@ ${scheduledTasksFormatted}`;
           reason: "not_occupied"
         });
       }
+
+      // Gost je uspješno pristupio - sakrij QR sa guest display-a
+      clearDisplayForToken(token);
 
       // Return limited room info for guest
       res.json({

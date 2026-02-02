@@ -1,0 +1,242 @@
+import { useState, useEffect, useRef } from 'react';
+import { io, Socket } from 'socket.io-client';
+import { QRCodeSVG } from 'qrcode.react';
+import { useAuth } from '@/contexts/AuthContext';
+import { Hotel, Wifi, WifiOff } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
+
+interface QRData {
+  room_number: string;
+  guest_name: string;
+  qr_url: string;
+  token: string;
+}
+
+export default function GuestDisplayPage() {
+  const { user, loading } = useAuth();
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [qrData, setQrData] = useState<QRData | null>(null);
+  const [connected, setConnected] = useState(false);
+  const currentTokenRef = useRef<string | null>(null);
+
+  const isAuthenticated = !!user;
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    // Dinamička URL selekcija za mobile vs web
+    let socketUrl: string;
+    if (Capacitor.isNativePlatform()) {
+      socketUrl = import.meta.env.VITE_API_URL || 'https://hotelpark-tehnika-production.up.railway.app';
+    } else {
+      socketUrl = window.location.origin;
+    }
+
+    console.log('[GUEST DISPLAY] Connecting to Socket.IO:', socketUrl);
+
+    const newSocket = io(socketUrl, {
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: Infinity,
+      reconnectionDelayMax: 5000,
+      timeout: 20000,
+      path: '/socket.io',
+      autoConnect: true
+    });
+
+    newSocket.on('connect', () => {
+      console.log('[GUEST DISPLAY] Connected:', newSocket.id);
+      setConnected(true);
+      // Pridruži se sobi za ovog recepcionera
+      newSocket.emit('display:join', user.id);
+    });
+
+    newSocket.on('display:paired', (data) => {
+      console.log('[GUEST DISPLAY] Paired successfully:', data);
+    });
+
+    newSocket.on('disconnect', (reason) => {
+      console.warn('[GUEST DISPLAY] Disconnected:', reason);
+      setConnected(false);
+    });
+
+    newSocket.on('connect_error', (error) => {
+      console.error('[GUEST DISPLAY] Connection error:', error.message);
+      setConnected(false);
+    });
+
+    // Prikaži QR kod
+    newSocket.on('guest-display:show-qr', (data: QRData) => {
+      console.log('[GUEST DISPLAY] Received QR data:', data.room_number);
+      setQrData(data);
+      currentTokenRef.current = data.token;
+    });
+
+    // Sakrij QR kod
+    newSocket.on('guest-display:hide-qr', () => {
+      console.log('[GUEST DISPLAY] Hiding QR');
+      setQrData(null);
+      currentTokenRef.current = null;
+    });
+
+    // Sakrij QR ako se podudara token
+    newSocket.on('guest-display:hide-qr-if-token', ({ token }: { token: string }) => {
+      console.log('[GUEST DISPLAY] Hide if token matches:', token.substring(0, 8));
+      if (currentTokenRef.current === token) {
+        console.log('[GUEST DISPLAY] Token matched, hiding QR');
+        setQrData(null);
+        currentTokenRef.current = null;
+      }
+    });
+
+    setSocket(newSocket);
+
+    return () => {
+      console.log('[GUEST DISPLAY] Cleanup, disconnecting');
+      newSocket.emit('display:leave', user.id);
+      newSocket.disconnect();
+    };
+  }, [user?.id, isAuthenticated]);
+
+  // Ako korisnik nije ulogovan, prikaži poruku
+  if (!isAuthenticated || !user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-700 flex items-center justify-center p-4">
+        <div className="text-center text-white">
+          <Hotel className="w-20 h-20 mx-auto mb-6 opacity-50" />
+          <h1 className="text-3xl font-bold mb-2">Guest Display</h1>
+          <p className="text-xl opacity-70">Molimo prijavite se kao recepcioner</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Provjeri da li je korisnik recepcioner/admin
+  const allowedRoles = ['recepcioner', 'admin', 'sef_domacinstva'];
+  if (!allowedRoles.includes(user.role)) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-700 flex items-center justify-center p-4">
+        <div className="text-center text-white">
+          <Hotel className="w-20 h-20 mx-auto mb-6 opacity-50" />
+          <h1 className="text-3xl font-bold mb-2">Pristup odbijen</h1>
+          <p className="text-xl opacity-70">Samo recepcioneri mogu koristiti guest display</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-600 flex flex-col items-center justify-center p-4 relative overflow-hidden">
+      {/* Background decoration */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-white/5 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-white/5 rounded-full blur-3xl" />
+      </div>
+
+      {/* Connection status indicator */}
+      <div className="absolute top-4 right-4 flex items-center gap-2 text-white/70 text-sm">
+        {connected ? (
+          <>
+            <Wifi className="w-4 h-4 text-green-400" />
+            <span>Povezano</span>
+          </>
+        ) : (
+          <>
+            <WifiOff className="w-4 h-4 text-red-400 animate-pulse" />
+            <span>Povezivanje...</span>
+          </>
+        )}
+      </div>
+
+      {/* Main content */}
+      <div className="relative z-10 text-center">
+        {!qrData ? (
+          // IDLE STATE - Dobrodošli poruka
+          <div className="text-white animate-fade-in">
+            <Hotel className="w-24 h-24 mx-auto mb-8 opacity-90" />
+            <h1 className="text-6xl md:text-7xl font-bold mb-4 tracking-tight">
+              Dobrodošli
+            </h1>
+            <p className="text-2xl md:text-3xl opacity-80 mb-2">
+              Welcome
+            </p>
+            <p className="text-xl opacity-60 mt-8">
+              Willkommen | Benvenuti | Bienvenue
+            </p>
+
+            {/* Subtle pulse indicator */}
+            <div className="mt-12 flex justify-center gap-2">
+              <div className="w-2 h-2 bg-white/40 rounded-full animate-pulse" />
+              <div className="w-2 h-2 bg-white/40 rounded-full animate-pulse delay-100" />
+              <div className="w-2 h-2 bg-white/40 rounded-full animate-pulse delay-200" />
+            </div>
+          </div>
+        ) : (
+          // QR CODE STATE - Prikaži QR kod
+          <div className="animate-scale-in">
+            <div className="bg-white rounded-3xl p-8 md:p-12 shadow-2xl max-w-md mx-auto">
+              <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">
+                Skenirajte QR kod
+              </h2>
+              <p className="text-lg text-gray-600 mb-6">
+                Soba {qrData.room_number}
+                {qrData.guest_name && qrData.guest_name !== 'Gost' && (
+                  <span className="block text-base mt-1">{qrData.guest_name}</span>
+                )}
+              </p>
+
+              <div className="bg-white p-4 rounded-2xl inline-block shadow-inner border-4 border-gray-100">
+                <QRCodeSVG
+                  value={qrData.qr_url}
+                  size={280}
+                  level="H"
+                  includeMargin={false}
+                />
+              </div>
+
+              <p className="mt-6 text-sm text-gray-500">
+                Scan to access guest portal
+              </p>
+            </div>
+
+            {/* Room number badge */}
+            <div className="mt-6 inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm text-white px-6 py-3 rounded-full">
+              <Hotel className="w-5 h-5" />
+              <span className="text-xl font-semibold">Soba {qrData.room_number}</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="absolute bottom-4 left-0 right-0 text-center text-white/40 text-sm">
+        Guest Display | {user.fullName}
+      </div>
+
+      {/* CSS animations */}
+      <style>{`
+        @keyframes fade-in {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes scale-in {
+          from { opacity: 0; transform: scale(0.9); }
+          to { opacity: 1; transform: scale(1); }
+        }
+        .animate-fade-in {
+          animation: fade-in 0.5s ease-out;
+        }
+        .animate-scale-in {
+          animation: scale-in 0.4s ease-out;
+        }
+        .delay-100 {
+          animation-delay: 0.1s;
+        }
+        .delay-200 {
+          animation-delay: 0.2s;
+        }
+      `}</style>
+    </div>
+  );
+}
