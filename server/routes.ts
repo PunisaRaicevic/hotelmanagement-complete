@@ -1659,11 +1659,15 @@ ${scheduledTasksFormatted}`;
   app.get("/api/public/room/:roomNumber/:token", async (req, res) => {
     try {
       const { roomNumber, token } = req.params;
+      console.log(`[GUEST PORTAL] Validating token for room: ${roomNumber}, token: ${token?.substring(0, 8)}...`);
 
       const room = await storage.getRoomByNumber(roomNumber);
       if (!room) {
+        console.log(`[GUEST PORTAL] Room ${roomNumber} not found`);
         return res.status(404).json({ error: "Room not found", valid: false });
       }
+
+      console.log(`[GUEST PORTAL] Room found: ${room.room_number}, occupancy: ${room.occupancy_status}, has_token: ${!!room.guest_session_token}`);
 
       // Check if token matches and room is occupied
       if (!room.guest_session_token || room.guest_session_token !== token) {
@@ -1695,8 +1699,9 @@ ${scheduledTasksFormatted}`;
           guest_name: room.guest_name,
         }
       });
-    } catch (error) {
-      console.error("Error validating room token:", error);
+    } catch (error: any) {
+      console.error("[GUEST PORTAL] Error validating room token:", error?.message || error);
+      console.error("[GUEST PORTAL] Stack:", error?.stack);
       res.status(500).json({ error: "Internal server error", valid: false });
     }
   });
