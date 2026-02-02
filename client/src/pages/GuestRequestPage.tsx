@@ -196,8 +196,8 @@ export default function GuestRequestPage() {
 
   // Valid token - show form
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white p-4">
-      <div className="max-w-lg mx-auto">
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white p-4 overflow-y-auto">
+      <div className="max-w-lg mx-auto pb-8">
         {/* Header */}
         <div className="text-center mb-6">
           <Hotel className="w-12 h-12 mx-auto text-blue-600 mb-2" />
@@ -326,10 +326,17 @@ export default function GuestRequestPage() {
         </Button>
 
         {/* Footer */}
-        <p className="text-center text-xs text-muted-foreground mt-4">
+        <p className="text-center text-xs text-muted-foreground mt-4 pb-safe">
           Hvala što koristite našu uslugu. Osoblje će biti obaviješteno odmah.
         </p>
       </div>
+
+      {/* CSS for mobile scrolling and safe areas */}
+      <style>{`
+        .pb-safe {
+          padding-bottom: env(safe-area-inset-bottom, 16px);
+        }
+      `}</style>
     </div>
   );
 }

@@ -431,6 +431,7 @@ export const housekeeping_tasks = pgTable("housekeeping_tasks", {
   issues_found: text("issues_found"),
   images: text("images").array(),
   time_spent_minutes: integer("time_spent_minutes").notNull().default(0),
+  notification_sent_at: timestamp("notification_sent_at", { withTimezone: true }),
   created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
