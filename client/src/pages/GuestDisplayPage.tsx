@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { QRCodeSVG } from 'qrcode.react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Hotel, Wifi, WifiOff } from 'lucide-react';
+import { Hotel, Wifi, WifiOff, LogOut, ChevronDown } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 
 interface QRData {
@@ -13,13 +13,40 @@ interface QRData {
 }
 
 export default function GuestDisplayPage() {
-  const { user, loading } = useAuth();
+  const { user, loading, logout } = useAuth();
   const [socket, setSocket] = useState<Socket | null>(null);
   const [qrData, setQrData] = useState<QRData | null>(null);
   const [connected, setConnected] = useState(false);
+  const [headerVisible, setHeaderVisible] = useState(false);
   const currentTokenRef = useRef<string | null>(null);
+  const headerTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const isAuthenticated = !!user;
+
+  // Auto-hide header after 5 seconds
+  useEffect(() => {
+    if (headerVisible) {
+      if (headerTimeoutRef.current) {
+        clearTimeout(headerTimeoutRef.current);
+      }
+      headerTimeoutRef.current = setTimeout(() => {
+        setHeaderVisible(false);
+      }, 5000);
+    }
+    return () => {
+      if (headerTimeoutRef.current) {
+        clearTimeout(headerTimeoutRef.current);
+      }
+    };
+  }, [headerVisible]);
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
 
   useEffect(() => {
     if (!user?.id) return;
@@ -134,19 +161,62 @@ export default function GuestDisplayPage() {
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-white/5 rounded-full blur-3xl" />
       </div>
 
-      {/* Connection status indicator */}
-      <div className="absolute top-4 right-4 flex items-center gap-2 text-white/70 text-sm">
-        {connected ? (
-          <>
-            <Wifi className="w-4 h-4 text-green-400" />
-            <span>Povezano</span>
-          </>
-        ) : (
-          <>
-            <WifiOff className="w-4 h-4 text-red-400 animate-pulse" />
-            <span>Povezivanje...</span>
-          </>
-        )}
+      {/* Invisible trigger zone at top of screen */}
+      <div
+        className="absolute top-0 left-0 right-0 h-16 z-50 cursor-pointer"
+        onClick={() => setHeaderVisible(true)}
+      />
+
+      {/* Pull-down Header - hidden by default */}
+      <div
+        className={`absolute top-0 left-0 right-0 z-40 transition-transform duration-300 ease-in-out ${
+          headerVisible ? 'translate-y-0' : '-translate-y-full'
+        }`}
+      >
+        <div className="bg-black/80 backdrop-blur-md text-white px-6 py-4">
+          <div className="flex items-center justify-between max-w-4xl mx-auto">
+            {/* Left side - User info */}
+            <div className="flex items-center gap-3">
+              <Hotel className="w-6 h-6" />
+              <div>
+                <p className="font-semibold">{user.fullName}</p>
+                <p className="text-xs text-white/60">Guest Display</p>
+              </div>
+            </div>
+
+            {/* Center - Connection status */}
+            <div className="flex items-center gap-2 text-sm">
+              {connected ? (
+                <>
+                  <Wifi className="w-4 h-4 text-green-400" />
+                  <span className="text-green-400">Povezano</span>
+                </>
+              ) : (
+                <>
+                  <WifiOff className="w-4 h-4 text-red-400 animate-pulse" />
+                  <span className="text-red-400">Nije povezano</span>
+                </>
+              )}
+            </div>
+
+            {/* Right side - Logout button */}
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Odjava</span>
+            </button>
+          </div>
+
+          {/* Pull indicator */}
+          <div
+            className="flex justify-center mt-2 cursor-pointer"
+            onClick={() => setHeaderVisible(false)}
+          >
+            <ChevronDown className="w-5 h-5 text-white/40 animate-bounce" />
+          </div>
+        </div>
       </div>
 
       {/* Main content */}
@@ -209,9 +279,9 @@ export default function GuestDisplayPage() {
         )}
       </div>
 
-      {/* Footer */}
-      <div className="absolute bottom-4 left-0 right-0 text-center text-white/40 text-sm">
-        Guest Display | {user.fullName}
+      {/* Footer - minimal, no user info (it's in header now) */}
+      <div className="absolute bottom-4 left-0 right-0 text-center text-white/20 text-xs">
+        Tapnite na vrh ekrana za opcije
       </div>
 
       {/* CSS animations */}
