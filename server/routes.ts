@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import bcrypt from "bcryptjs";
 import { processRecurringTasks, ensureChildTasksExist } from "./services/recurringTaskProcessor";
-import { initializeSocket, notifyWorkers, notifyTaskUpdate, notifyGuestDisplay, hideGuestDisplayByToken } from "./socket";
+import { initializeSocket, notifyWorkers, notifyTaskUpdate, notifyGuestDisplay, hideGuestDisplay, hideGuestDisplayByToken } from "./socket";
 import { z } from "zod";
 import { generateToken, verifyToken, extractTokenFromHeader } from "./auth";
 // Firebase Cloud Messaging for push notifications
