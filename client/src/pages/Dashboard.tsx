@@ -1,5 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
 import AdminModuleSelector from './AdminModuleSelector';
+import ReceptionistModuleSelector from './ReceptionistModuleSelector';
 import OperatorDashboard from './OperatorDashboard';
 import SupervisorDashboard from './SupervisorDashboard';
 import WorkerDashboard from './WorkerDashboard';
@@ -34,8 +35,10 @@ export default function Dashboard() {
       return <HousekeeperDashboard />;
     case 'sef_domacinstva':
       return <HousekeepingSupervisorDashboard />;
+    case 'recepcioner':
+      return <ReceptionistModuleSelector />;
     default:
-      // All other roles (recepcioner, etc.) use complaint submission dashboard
+      // All other roles use complaint submission dashboard
       return <ComplaintSubmissionDashboard />;
   }
 }
