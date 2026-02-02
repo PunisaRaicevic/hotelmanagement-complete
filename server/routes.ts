@@ -1781,6 +1781,33 @@ ${scheduledTasksFormatted}`;
         await storage.updateRoom(validationResult.data.room_id, { status: 'dirty' });
       }
 
+      // 🔥 SLANJE PUSH NOTIFIKACIJE KADA SE KREIRA HOUSEKEEPING TASK SA DODELJENOM SOBARICOM
+      if (validationResult.data.assigned_to) {
+        const cleaningTypeLabels: Record<string, string> = {
+          'daily': 'Dnevno čišćenje',
+          'checkout': 'Checkout čišćenje',
+          'deep_clean': 'Dubinsko čišćenje',
+          'turndown': 'Turndown servis',
+          'touch_up': 'Brzo sređivanje'
+        };
+        const cleaningLabel = cleaningTypeLabels[validationResult.data.cleaning_type] || validationResult.data.cleaning_type;
+        const priorityLabel = validationResult.data.priority === 'urgent' ? ' - HITNO!' : '';
+
+        console.log(`📱 [POST /api/housekeeping/tasks] Šaljem push notifikaciju sobarici: ${validationResult.data.assigned_to}`);
+
+        sendPushToAllUserDevices(
+          validationResult.data.assigned_to,
+          `Nova cleaning task - Soba ${validationResult.data.room_number}`,
+          `${cleaningLabel}${priorityLabel}`,
+          task.id,
+          validationResult.data.priority as 'urgent' | 'normal' | 'can_wait'
+        ).then((result) => {
+          console.log(`✅ [POST /api/housekeeping/tasks] Push poslat sobarici:`, result);
+        }).catch((error) => {
+          console.error(`⚠️ [POST /api/housekeeping/tasks] Greška pri slanju push-a:`, error);
+        });
+      }
+
       res.status(201).json({ task });
     } catch (error) {
       console.error("Error creating housekeeping task:", error);
@@ -1838,6 +1865,54 @@ ${scheduledTasksFormatted}`;
           // Room stays in cleaning state
           await storage.updateRoom(currentTask.room_id, { status: 'dirty' });
         }
+      }
+
+      // 🔥 SLANJE PUSH NOTIFIKACIJE ZA HOUSEKEEPING TASK UPDATES
+      const cleaningTypeLabels: Record<string, string> = {
+        'daily': 'Dnevno čišćenje',
+        'checkout': 'Checkout čišćenje',
+        'deep_clean': 'Dubinsko čišćenje',
+        'turndown': 'Turndown servis',
+        'touch_up': 'Brzo sređivanje'
+      };
+
+      // Notifikacija kada se task dodijeli novoj sobarici
+      if (updateData.assigned_to && updateData.assigned_to !== currentTask.assigned_to) {
+        const cleaningLabel = cleaningTypeLabels[currentTask.cleaning_type] || currentTask.cleaning_type;
+        const priorityLabel = (updateData.priority || currentTask.priority) === 'urgent' ? ' - HITNO!' : '';
+
+        console.log(`📱 [PATCH /api/housekeeping/tasks] Nova dodjela - šaljem push sobarici: ${updateData.assigned_to}`);
+
+        sendPushToAllUserDevices(
+          updateData.assigned_to,
+          `Nova cleaning task - Soba ${currentTask.room_number}`,
+          `${cleaningLabel}${priorityLabel}`,
+          id,
+          (updateData.priority || currentTask.priority) as 'urgent' | 'normal' | 'can_wait'
+        ).then((result) => {
+          console.log(`✅ [PATCH /api/housekeeping/tasks] Push poslat novoj sobarici:`, result);
+        }).catch((error) => {
+          console.error(`⚠️ [PATCH /api/housekeeping/tasks] Greška pri slanju push-a:`, error);
+        });
+      }
+
+      // Notifikacija kada se task vrati na popravak (needs_rework)
+      if (updateData.status === 'needs_rework' && currentTask.assigned_to) {
+        const cleaningLabel = cleaningTypeLabels[currentTask.cleaning_type] || currentTask.cleaning_type;
+
+        console.log(`📱 [PATCH /api/housekeeping/tasks] Needs rework - šaljem push sobarici: ${currentTask.assigned_to}`);
+
+        sendPushToAllUserDevices(
+          currentTask.assigned_to,
+          `⚠️ Potrebna dorada - Soba ${currentTask.room_number}`,
+          `${cleaningLabel} - Molimo pregledajte napomene`,
+          id,
+          'urgent'
+        ).then((result) => {
+          console.log(`✅ [PATCH /api/housekeeping/tasks] Push poslat za needs_rework:`, result);
+        }).catch((error) => {
+          console.error(`⚠️ [PATCH /api/housekeeping/tasks] Greška pri slanju push-a:`, error);
+        });
       }
 
       const task = await storage.updateHousekeepingTask(id, updateData);
