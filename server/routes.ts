@@ -1648,10 +1648,19 @@ ${scheduledTasksFormatted}`;
 
   // Funkcija za brisanje QR-a sa display-a kada gost pristupi
   function clearDisplayForToken(token: string) {
+    console.log(`[GUEST DISPLAY] clearDisplayForToken called, token: ${token?.substring(0, 8)}...`);
+    console.log(`[GUEST DISPLAY] activeDisplayTokens size: ${activeDisplayTokens.size}`);
+    console.log(`[GUEST DISPLAY] Token in set: ${activeDisplayTokens.has(token)}`);
+
     if (activeDisplayTokens.has(token)) {
+      console.log(`[GUEST DISPLAY] Calling hideGuestDisplay()...`);
       hideGuestDisplay();
       activeDisplayTokens.delete(token);
       console.log(`[GUEST DISPLAY] QR cleared for token ${token.substring(0, 8)}...`);
+    } else {
+      // Čak i ako token nije u setu, pokušaj sakriti display
+      console.log(`[GUEST DISPLAY] Token not in set, but calling hideGuestDisplay() anyway...`);
+      hideGuestDisplay();
     }
   }
 

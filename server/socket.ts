@@ -254,8 +254,13 @@ export function hideGuestDisplay() {
     return;
   }
 
-  console.log(`[SOCKET.IO] Hiding QR from guest display`);
+  // Provjeri koliko klijenata je u sobi
+  const room = io.sockets.adapter.rooms.get('guest-display-room');
+  const clientCount = room ? room.size : 0;
+  console.log(`[SOCKET.IO] Hiding QR from guest display. Clients in room: ${clientCount}`);
+
   io.to('guest-display-room').emit('guest-display:hide-qr');
+  console.log(`[SOCKET.IO] guest-display:hide-qr event emitted`);
 }
 
 /**
