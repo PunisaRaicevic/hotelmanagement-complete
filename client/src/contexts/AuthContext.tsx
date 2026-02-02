@@ -7,7 +7,7 @@ interface User {
   id: string;
   email: string;
   fullName: string;
-  role: 'admin' | 'recepcioner' | 'operater' | 'radnik' | 'sef' | 'serviser' | 'menadzer' | 'sobarica' | 'sef_domacinstva';
+  role: 'admin' | 'recepcioner' | 'operater' | 'radnik' | 'sef' | 'serviser' | 'menadzer' | 'sobarica' | 'sef_domacinstva' | 'guest_display';
   department: string;
 }
 

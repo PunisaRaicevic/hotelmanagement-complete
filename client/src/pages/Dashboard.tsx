@@ -9,6 +9,7 @@ import ManagerDashboard from './ManagerDashboard';
 import ComplaintSubmissionDashboard from './ComplaintSubmissionDashboard';
 import HousekeeperDashboard from './HousekeeperDashboard';
 import HousekeepingSupervisorDashboard from './HousekeepingSupervisorDashboard';
+import GuestDisplayPage from './GuestDisplayPage';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -37,6 +38,8 @@ export default function Dashboard() {
       return <HousekeepingSupervisorDashboard />;
     case 'recepcioner':
       return <ReceptionistModuleSelector />;
+    case 'guest_display':
+      return <GuestDisplayPage />;
     default:
       // All other roles use complaint submission dashboard
       return <ComplaintSubmissionDashboard />;

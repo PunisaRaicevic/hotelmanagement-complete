@@ -123,6 +123,17 @@ async function seedTestData() {
       password_hash: passwordHash,
       is_active: true,
     },
+
+    // ========== GUEST DISPLAY ==========
+    {
+      username: 'guest_display',
+      email: 'display@hotel.com',
+      full_name: 'Guest Display',
+      role: 'guest_display',
+      department: 'recepcija',
+      password_hash: passwordHash,
+      is_active: true,
+    },
   ];
 
   for (const user of users) {
@@ -342,6 +353,7 @@ async function seedTestData() {
   console.log('\n--- OSTALI ---');
   console.log('  admin / test123 (Administrator - oba modula)');
   console.log('  recepcioner / test123 (Recepcioner)');
+  console.log('  guest_display / test123 (Guest Display ekran)');
 }
 
 seedTestData().catch(console.error);

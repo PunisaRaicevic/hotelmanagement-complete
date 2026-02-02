@@ -48,8 +48,8 @@ export default function GuestDisplayPage() {
     newSocket.on('connect', () => {
       console.log('[GUEST DISPLAY] Connected:', newSocket.id);
       setConnected(true);
-      // Pridruži se sobi za ovog recepcionera
-      newSocket.emit('display:join', user.id);
+      // Pridruži se globalnoj guest-display sobi
+      newSocket.emit('display:join');
     });
 
     newSocket.on('display:paired', (data) => {
@@ -94,7 +94,7 @@ export default function GuestDisplayPage() {
 
     return () => {
       console.log('[GUEST DISPLAY] Cleanup, disconnecting');
-      newSocket.emit('display:leave', user.id);
+      newSocket.emit('display:leave');
       newSocket.disconnect();
     };
   }, [user?.id, isAuthenticated]);
@@ -106,21 +106,21 @@ export default function GuestDisplayPage() {
         <div className="text-center text-white">
           <Hotel className="w-20 h-20 mx-auto mb-6 opacity-50" />
           <h1 className="text-3xl font-bold mb-2">Guest Display</h1>
-          <p className="text-xl opacity-70">Molimo prijavite se kao recepcioner</p>
+          <p className="text-xl opacity-70">Molimo prijavite se</p>
         </div>
       </div>
     );
   }
 
-  // Provjeri da li je korisnik recepcioner/admin
-  const allowedRoles = ['recepcioner', 'admin', 'sef_domacinstva'];
+  // Provjeri da li je korisnik ima pristup guest display-u
+  const allowedRoles = ['guest_display', 'recepcioner', 'admin', 'sef_domacinstva'];
   if (!allowedRoles.includes(user.role)) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-700 flex items-center justify-center p-4">
         <div className="text-center text-white">
           <Hotel className="w-20 h-20 mx-auto mb-6 opacity-50" />
           <h1 className="text-3xl font-bold mb-2">Pristup odbijen</h1>
-          <p className="text-xl opacity-70">Samo recepcioneri mogu koristiti guest display</p>
+          <p className="text-xl opacity-70">Nemate pristup guest display-u</p>
         </div>
       </div>
     );

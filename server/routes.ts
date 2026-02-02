@@ -1590,9 +1590,8 @@ ${scheduledTasksFormatted}`;
   // GUEST DISPLAY - QR kod na ekranu recepcije za goste
   // ============================================================
 
-  // In-memory mapa za praćenje koji recepcioner je prikazao koji token
-  // Koristi se za automatsko brisanje QR-a kada gost pristupi portalu
-  const activeDisplayTokens = new Map<string, string>(); // token -> receptionistId
+  // Set aktivnih tokena koji su prikazani na display-u
+  const activeDisplayTokens = new Set<string>();
 
   // POST /api/rooms/:id/show-qr-to-display - Pošalji QR kod na guest display
   app.post("/api/rooms/:id/show-qr-to-display", requireHousekeepingAccess, async (req, res) => {
@@ -1623,11 +1622,11 @@ ${scheduledTasksFormatted}`;
       const host = req.headers['x-forwarded-host'] || req.get('host');
       const qrUrl = `${protocol}://${host}/guest/${room.room_number}/${room.guest_session_token}`;
 
-      // Sačuvaj mapiranje token -> receptionist za automatsko brisanje
-      activeDisplayTokens.set(room.guest_session_token, sessionUser.id);
+      // Zapamti token koji je prikazan na display-u
+      activeDisplayTokens.add(room.guest_session_token);
 
-      // Pošalji QR na display preko Socket.IO
-      notifyGuestDisplay(sessionUser.id, {
+      // Pošalji QR na display preko Socket.IO (globalna soba)
+      notifyGuestDisplay({
         room_number: room.room_number,
         guest_name: room.guest_name || 'Gost',
         qr_url: qrUrl,
@@ -1649,9 +1648,8 @@ ${scheduledTasksFormatted}`;
 
   // Funkcija za brisanje QR-a sa display-a kada gost pristupi
   function clearDisplayForToken(token: string) {
-    const receptionistId = activeDisplayTokens.get(token);
-    if (receptionistId) {
-      hideGuestDisplayByToken(token);
+    if (activeDisplayTokens.has(token)) {
+      hideGuestDisplay();
       activeDisplayTokens.delete(token);
       console.log(`[GUEST DISPLAY] QR cleared for token ${token.substring(0, 8)}...`);
     }
