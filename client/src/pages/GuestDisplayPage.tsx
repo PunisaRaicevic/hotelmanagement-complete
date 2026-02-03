@@ -54,7 +54,7 @@ export default function GuestDisplayPage() {
     // Dinamička URL selekcija za mobile vs web
     let socketUrl: string;
     if (Capacitor.isNativePlatform()) {
-      socketUrl = import.meta.env.VITE_API_URL || 'https://hotelpark-tehnika-production.up.railway.app';
+      socketUrl = import.meta.env.VITE_API_URL || 'https://hotelmanagement-complete-production.up.railway.app';
     } else {
       socketUrl = window.location.origin;
     }
