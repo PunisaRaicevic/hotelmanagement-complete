@@ -1057,6 +1057,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // 🔔 NOTIFIKACIJA SVIM ŠEFOVIMA KADA SE ZADATAK PROSLIJEDI (status → with_sef)
+      if (status === "with_sef" && currentTask?.status !== "with_sef") {
+        console.log('📢 Zadatak proslijedjen sefu - slanje FCM notifikacija svim sefovima');
+        const supervisors = await storage.getUsersByRole('sef');
+
+        for (const supervisor of supervisors) {
+          sendPushToAllUserDevices(
+            supervisor.id,
+            'Novi zadatak od operatera!',
+            `${task.title}: ${(task.description || '').substring(0, 150)}`,
+            task.id,
+            'urgent'
+          ).then((result) => {
+            console.log(`✅ FCM push poslat sefu ${supervisor.full_name}:`, result);
+          }).catch((error) => {
+            console.error(`⚠️ Greška pri slanju FCM push-a sefu ${supervisor.id}:`, error);
+          });
+        }
+        console.log(`📨 FCM notifikacije poslane ${supervisors.length} sefovima`);
+      }
+
+      // 🔔 NOTIFIKACIJA SVIM ŠEFOVIMA KADA SE ZADATAK VRATI (status → returned_to_sef)
+      if (status === "returned_to_sef" && currentTask?.status !== "returned_to_sef") {
+        console.log('📢 Zadatak vracen sefu - slanje FCM notifikacija svim sefovima');
+        const supervisors = await storage.getUsersByRole('sef');
+
+        for (const supervisor of supervisors) {
+          sendPushToAllUserDevices(
+            supervisor.id,
+            'Zadatak vraćen od majstora!',
+            `${task.title}: ${(task.description || '').substring(0, 150)}`,
+            task.id,
+            'urgent'
+          ).then((result) => {
+            console.log(`✅ FCM push poslat sefu ${supervisor.full_name}:`, result);
+          }).catch((error) => {
+            console.error(`⚠️ Greška pri slanju FCM push-a sefu ${supervisor.id}:`, error);
+          });
+        }
+        console.log(`📨 FCM notifikacije poslane ${supervisors.length} sefovima`);
+      }
+
       notifyTaskUpdate(task);
       res.json({ task });
     } catch (error) {
