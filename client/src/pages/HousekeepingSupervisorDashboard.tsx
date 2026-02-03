@@ -57,6 +57,7 @@ interface Room {
   notes?: string;
   bed_type?: string;
   max_occupancy?: number;
+  pending_guest_requests?: number;
 }
 
 interface HousekeepingTask {

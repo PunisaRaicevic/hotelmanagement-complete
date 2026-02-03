@@ -29,6 +29,7 @@ import {
   Bell,
   BellOff,
   ClipboardList,
+  MessageCircle,
 } from 'lucide-react';
 
 interface Room {
@@ -52,6 +53,7 @@ interface Room {
   notes?: string;
   bed_type?: string;
   max_occupancy?: number;
+  pending_guest_requests?: number;
 }
 
 interface HousekeepingTask {
@@ -449,6 +451,12 @@ export default function RoomGridView({ rooms, tasks = [], onRoomClick }: RoomGri
 
               {/* Indicators Row */}
               <div className="flex gap-1.5 flex-wrap mt-auto">
+                {room.pending_guest_requests && room.pending_guest_requests > 0 && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 bg-purple-50 text-purple-700 border-purple-300 dark:bg-purple-950/30 dark:text-purple-300 dark:border-purple-700 animate-pulse">
+                    <MessageCircle className="w-3 h-3 mr-1" />
+                    {room.pending_guest_requests} zahtjev{room.pending_guest_requests > 1 ? 'a' : ''} gosta
+                  </Badge>
+                )}
                 {minibarDisplay && (
                   <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-700">
                     <Wine className="w-3 h-3 mr-1" />

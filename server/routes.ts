@@ -1391,7 +1391,16 @@ ${scheduledTasksFormatted}`;
         rooms = await storage.getRooms();
       }
 
-      res.json({ rooms });
+      // Get pending guest request counts per room
+      const pendingRequestCounts = await storage.getPendingGuestRequestCounts();
+
+      // Add pending_guest_requests count to each room
+      const roomsWithRequests = rooms.map(room => ({
+        ...room,
+        pending_guest_requests: pendingRequestCounts[room.id] || 0
+      }));
+
+      res.json({ rooms: roomsWithRequests });
     } catch (error) {
       console.error("Error fetching rooms:", error);
       res.status(500).json({ error: "Internal server error" });

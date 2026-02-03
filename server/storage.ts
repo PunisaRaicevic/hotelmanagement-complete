@@ -101,6 +101,7 @@ export interface IStorage {
   getGuestServiceRequestById(id: string): Promise<GuestServiceRequest | undefined>;
   getGuestServiceRequestsByRoom(roomId: string): Promise<GuestServiceRequest[]>;
   updateGuestServiceRequest(id: string, data: Partial<GuestServiceRequest>): Promise<GuestServiceRequest | undefined>;
+  getPendingGuestRequestCounts(): Promise<Record<string, number>>;
 }
 
 export class SupabaseStorage implements IStorage {
@@ -946,6 +947,21 @@ export class SupabaseStorage implements IStorage {
       throw error;
     }
     return updated as GuestServiceRequest;
+  }
+
+  async getPendingGuestRequestCounts(): Promise<Record<string, number>> {
+    const { data, error } = await supabase
+      .from('guest_service_requests')
+      .select('room_id')
+      .in('status', ['new', 'seen', 'in_progress']);
+
+    if (error) throw error;
+
+    const counts: Record<string, number> = {};
+    for (const row of data || []) {
+      counts[row.room_id] = (counts[row.room_id] || 0) + 1;
+    }
+    return counts;
   }
 }
 
