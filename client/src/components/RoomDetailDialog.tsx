@@ -30,7 +30,13 @@ import {
   Loader2,
   MessageSquare,
   Monitor,
+  Wrench,
+  Home,
+  ArrowLeft,
+  Forward,
 } from 'lucide-react';
+import GuestRequestChat from './GuestRequestChat';
+import { getApiUrl } from '@/lib/apiUrl';
 
 interface Room {
   id: string;
@@ -68,6 +74,9 @@ interface GuestServiceRequest {
   priority: string;
   status: string;
   created_at: string;
+  forwarded_to_department?: string;
+  forwarded_at?: string;
+  forwarded_by_name?: string;
 }
 
 interface RoomDetailDialogProps {
@@ -147,6 +156,8 @@ export default function RoomDetailDialog({
   const [isLoading, setIsLoading] = useState(false);
   const [isSendingToDisplay, setIsSendingToDisplay] = useState(false);
   const [guestRequests, setGuestRequests] = useState<GuestServiceRequest[]>([]);
+  const [selectedRequest, setSelectedRequest] = useState<GuestServiceRequest | null>(null);
+  const [isForwarding, setIsForwarding] = useState(false);
 
   // Local room state that can be updated after check-in
   const [room, setRoom] = useState<Room | null>(roomProp);
@@ -183,12 +194,16 @@ export default function RoomDetailDialog({
     }
   }, [room]);
 
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('authToken');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
   const fetchGuestRequests = async () => {
     if (!room) return;
     try {
-      const token = localStorage.getItem('authToken');
-      const response = await fetch(`/api/guest-requests?room_id=${room.id}`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const response = await fetch(getApiUrl(`/api/guest-requests?room_id=${room.id}`), {
+        headers: getAuthHeaders(),
       });
       if (response.ok) {
         const data = await response.json();
@@ -196,6 +211,42 @@ export default function RoomDetailDialog({
       }
     } catch (error) {
       console.error('Error fetching guest requests:', error);
+    }
+  };
+
+  const handleForwardRequest = async (department: 'housekeeping' | 'maintenance') => {
+    if (!selectedRequest) return;
+
+    setIsForwarding(true);
+    try {
+      const response = await fetch(getApiUrl(`/api/guest-requests/${selectedRequest.id}/forward`), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify({ department }),
+      });
+
+      if (response.ok) {
+        toast({
+          title: 'Uspješno proslijeđeno',
+          description: department === 'housekeeping' ? 'Zahtjev proslijeđen domaćinstvu' : 'Zahtjev proslijeđen tehničkoj službi',
+        });
+        await fetchGuestRequests();
+        // Update selected request
+        const data = await response.json();
+        if (data.request) {
+          setSelectedRequest(data.request);
+        }
+      } else {
+        const error = await response.json();
+        toast({ title: 'Greška', description: error.error, variant: 'destructive' });
+      }
+    } catch (error) {
+      toast({ title: 'Greška', description: 'Došlo je do greške', variant: 'destructive' });
+    } finally {
+      setIsForwarding(false);
     }
   };
 
@@ -682,47 +733,157 @@ export default function RoomDetailDialog({
 
           {/* Guest Requests Tab */}
           <TabsContent value="requests" className="space-y-4">
-            <Card className="p-4">
-              <h3 className="font-semibold mb-4 flex items-center gap-2">
-                <MessageSquare className="w-4 h-4" />
-                Zahtjevi gostiju ({guestRequests.length})
-              </h3>
+            {selectedRequest ? (
+              // Selected request detail view
+              <div className="space-y-4">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedRequest(null)}
+                  className="mb-2"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-1" />
+                  Nazad na listu
+                </Button>
 
-              {guestRequests.length === 0 ? (
-                <div className="text-center py-6 text-muted-foreground">
-                  <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                  <p>Nema zahtjeva za ovu sobu</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {guestRequests.map((request) => (
-                    <div
-                      key={request.id}
-                      className="p-3 border rounded-lg bg-muted/30"
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <Badge variant="outline">
-                          {requestTypeLabels[request.request_type] || request.request_type}
-                        </Badge>
-                        <Badge
-                          variant={request.status === 'completed' ? 'default' : request.status === 'new' ? 'destructive' : 'secondary'}
-                        >
-                          {request.status === 'new' ? 'Novi' :
-                           request.status === 'seen' ? 'Viđen' :
-                           request.status === 'in_progress' ? 'U obradi' :
-                           request.status === 'completed' ? 'Završen' : request.status}
-                        </Badge>
-                      </div>
-                      <p className="text-sm">{request.description}</p>
-                      <p className="text-xs text-muted-foreground mt-2">
-                        {formatDateTime(request.created_at)}
-                        {request.guest_name && ` - ${request.guest_name}`}
-                      </p>
+                <Card className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">
+                        {requestTypeLabels[selectedRequest.request_type] || selectedRequest.request_type}
+                      </Badge>
+                      <Badge
+                        variant={selectedRequest.status === 'completed' ? 'default' : selectedRequest.status === 'new' ? 'destructive' : 'secondary'}
+                      >
+                        {selectedRequest.status === 'new' ? 'Novi' :
+                         selectedRequest.status === 'seen' ? 'Viđen' :
+                         selectedRequest.status === 'in_progress' ? 'U obradi' :
+                         selectedRequest.status === 'completed' ? 'Završen' : selectedRequest.status}
+                      </Badge>
                     </div>
-                  ))}
+                    {selectedRequest.priority === 'urgent' && (
+                      <Badge variant="destructive">Hitno</Badge>
+                    )}
+                  </div>
+
+                  <p className="text-sm mb-2">{selectedRequest.description}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatDateTime(selectedRequest.created_at)}
+                    {selectedRequest.guest_name && ` - ${selectedRequest.guest_name}`}
+                  </p>
+
+                  {selectedRequest.forwarded_to_department && (
+                    <div className="mt-3 p-2 bg-blue-50 dark:bg-blue-950/30 rounded text-sm flex items-center gap-2">
+                      <Forward className="w-4 h-4 text-blue-600" />
+                      <span>
+                        Proslijeđeno: {selectedRequest.forwarded_to_department === 'housekeeping' ? 'Domaćinstvo' : 'Tehnička služba'}
+                        {selectedRequest.forwarded_by_name && ` (${selectedRequest.forwarded_by_name})`}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Forward buttons - only show if not yet forwarded */}
+                  {!selectedRequest.forwarded_to_department && selectedRequest.status !== 'completed' && (
+                    <div className="mt-4 pt-3 border-t">
+                      <p className="text-sm font-medium mb-2">Proslijedi zahtjev:</p>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleForwardRequest('housekeeping')}
+                          disabled={isForwarding}
+                        >
+                          {isForwarding ? (
+                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                          ) : (
+                            <Home className="w-4 h-4 mr-1" />
+                          )}
+                          Domaćinstvu
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleForwardRequest('maintenance')}
+                          disabled={isForwarding}
+                        >
+                          {isForwarding ? (
+                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                          ) : (
+                            <Wrench className="w-4 h-4 mr-1" />
+                          )}
+                          Tehničkoj službi
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </Card>
+
+                {/* Chat section */}
+                <div>
+                  <h4 className="font-medium mb-2 flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4" />
+                    Poruke sa gostom
+                  </h4>
+                  <GuestRequestChat
+                    requestId={selectedRequest.id}
+                    isStaff={true}
+                    onMessageSent={fetchGuestRequests}
+                  />
                 </div>
-              )}
-            </Card>
+              </div>
+            ) : (
+              // Request list view
+              <Card className="p-4">
+                <h3 className="font-semibold mb-4 flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4" />
+                  Zahtjevi gostiju ({guestRequests.length})
+                </h3>
+
+                {guestRequests.length === 0 ? (
+                  <div className="text-center py-6 text-muted-foreground">
+                    <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    <p>Nema zahtjeva za ovu sobu</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {guestRequests.map((request) => (
+                      <div
+                        key={request.id}
+                        className="p-3 border rounded-lg bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors"
+                        onClick={() => setSelectedRequest(request)}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline">
+                              {requestTypeLabels[request.request_type] || request.request_type}
+                            </Badge>
+                            {request.forwarded_to_department && (
+                              <Badge variant="secondary" className="text-xs">
+                                <Forward className="w-3 h-3 mr-1" />
+                                {request.forwarded_to_department === 'housekeeping' ? 'Domaćinstvo' : 'Tehnička'}
+                              </Badge>
+                            )}
+                          </div>
+                          <Badge
+                            variant={request.status === 'completed' ? 'default' : request.status === 'new' ? 'destructive' : 'secondary'}
+                          >
+                            {request.status === 'new' ? 'Novi' :
+                             request.status === 'seen' ? 'Viđen' :
+                             request.status === 'in_progress' ? 'U obradi' :
+                             request.status === 'completed' ? 'Završen' : request.status}
+                          </Badge>
+                        </div>
+                        <p className="text-sm line-clamp-2">{request.description}</p>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          {formatDateTime(request.created_at)}
+                          {request.guest_name && ` - ${request.guest_name}`}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            )}
           </TabsContent>
         </Tabs>
       </DialogContent>

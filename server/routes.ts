@@ -1776,6 +1776,121 @@ ${scheduledTasksFormatted}`;
     }
   });
 
+  // PUBLIC: Get all requests for this guest session (no auth, token validated)
+  app.get("/api/public/room/:roomNumber/:token/requests", async (req, res) => {
+    try {
+      const { roomNumber, token } = req.params;
+
+      const room = await storage.getRoomByNumber(roomNumber);
+      if (!room) {
+        return res.status(404).json({ error: "Room not found" });
+      }
+
+      // Validate token
+      if (!room.guest_session_token || room.guest_session_token !== token) {
+        return res.status(403).json({ error: "Invalid or expired QR code" });
+      }
+
+      // Get all requests for this session token
+      const requests = await storage.getGuestServiceRequestsByToken(token);
+
+      res.json({ requests });
+    } catch (error) {
+      console.error("Error fetching guest requests:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // PUBLIC: Get messages for a specific request (no auth, token validated)
+  app.get("/api/public/room/:roomNumber/:token/request/:requestId/messages", async (req, res) => {
+    try {
+      const { roomNumber, token, requestId } = req.params;
+
+      const room = await storage.getRoomByNumber(roomNumber);
+      if (!room) {
+        return res.status(404).json({ error: "Room not found" });
+      }
+
+      // Validate token
+      if (!room.guest_session_token || room.guest_session_token !== token) {
+        return res.status(403).json({ error: "Invalid or expired QR code" });
+      }
+
+      // Verify the request belongs to this session
+      const guestRequest = await storage.getGuestServiceRequestById(requestId);
+      if (!guestRequest || guestRequest.session_token !== token) {
+        return res.status(403).json({ error: "Request not found or access denied" });
+      }
+
+      const messages = await storage.getGuestRequestMessages(requestId);
+
+      // Mark staff messages as read by guest
+      await storage.markGuestRequestMessagesAsRead(requestId, 'staff');
+
+      res.json({ messages });
+    } catch (error) {
+      console.error("Error fetching guest request messages:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // PUBLIC: Guest sends message (no auth, token validated)
+  app.post("/api/public/room/:roomNumber/:token/request/:requestId/messages", async (req, res) => {
+    try {
+      const { roomNumber, token, requestId } = req.params;
+      const { message, sender_name } = req.body;
+
+      if (!message || !message.trim()) {
+        return res.status(400).json({ error: "Message is required" });
+      }
+
+      const room = await storage.getRoomByNumber(roomNumber);
+      if (!room) {
+        return res.status(404).json({ error: "Room not found" });
+      }
+
+      // Validate token
+      if (!room.guest_session_token || room.guest_session_token !== token) {
+        return res.status(403).json({ error: "Invalid or expired QR code" });
+      }
+
+      // Verify the request belongs to this session
+      const guestRequest = await storage.getGuestServiceRequestById(requestId);
+      if (!guestRequest || guestRequest.session_token !== token) {
+        return res.status(403).json({ error: "Request not found or access denied" });
+      }
+
+      const newMessage = await storage.createGuestRequestMessage({
+        request_id: requestId,
+        sender_type: 'guest',
+        sender_id: null,
+        sender_name: sender_name || guestRequest.guest_name || room.guest_name || 'Gost',
+        message: message.trim(),
+      });
+
+      // Notify staff about new message (if assigned)
+      if (guestRequest.assigned_to) {
+        try {
+          const { sendPushToAllUserDevices } = await import('./services/firebase');
+          await sendPushToAllUserDevices(
+            guestRequest.assigned_to,
+            `Nova poruka - Soba ${roomNumber}`,
+            message.trim().substring(0, 100),
+            requestId,
+            'normal'
+          );
+        } catch (e) {
+          console.error('Error sending push notification:', e);
+        }
+      }
+
+      res.json({ message: newMessage });
+    } catch (error) {
+      console.error("Error sending guest message:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Get all guest service requests (staff only)
   app.get("/api/guest-requests", requireAuth, async (req, res) => {
     try {
@@ -1815,6 +1930,180 @@ ${scheduledTasksFormatted}`;
       res.json({ request });
     } catch (error) {
       console.error("Error updating guest request:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Forward guest service request to department (staff only)
+  app.post("/api/guest-requests/:id/forward", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { department, notes } = req.body;
+
+      if (!department || !['housekeeping', 'maintenance'].includes(department)) {
+        return res.status(400).json({ error: "Invalid department. Must be 'housekeeping' or 'maintenance'" });
+      }
+
+      const sessionUser = await storage.getUserById(req.session.userId);
+      if (!sessionUser) {
+        return res.status(401).json({ error: "Invalid session" });
+      }
+
+      const guestRequest = await storage.getGuestServiceRequestById(id);
+      if (!guestRequest) {
+        return res.status(404).json({ error: "Request not found" });
+      }
+
+      if (guestRequest.status === 'completed') {
+        return res.status(400).json({ error: "Cannot forward completed request" });
+      }
+
+      // Update guest request with forwarding info
+      const updateData: any = {
+        forwarded_to_department: department,
+        forwarded_at: new Date().toISOString(),
+        forwarded_by: sessionUser.id,
+        forwarded_by_name: sessionUser.full_name,
+        status: 'in_progress',
+      };
+
+      if (notes) {
+        updateData.staff_notes = notes;
+      }
+
+      let linkedTaskId = null;
+
+      if (department === 'housekeeping') {
+        // Create housekeeping task
+        const room = await storage.getRoomByNumber(guestRequest.room_number);
+        if (room) {
+          const housekeepingTask = await storage.createHousekeepingTask({
+            room_id: room.id,
+            room_number: guestRequest.room_number,
+            cleaning_type: guestRequest.request_type === 'housekeeping' ? 'touch_up' : 'daily',
+            priority: guestRequest.priority,
+            scheduled_date: new Date().toISOString(),
+            guest_requests: guestRequest.description,
+          });
+          updateData.linked_housekeeping_task_id = housekeepingTask.id;
+          linkedTaskId = housekeepingTask.id;
+
+          // Notify housekeeping supervisor
+          const supervisors = await storage.getUsersByRole('sef_domacinstva');
+          for (const supervisor of supervisors) {
+            try {
+              const { sendPushToAllUserDevices } = await import('./services/firebase');
+              await sendPushToAllUserDevices(
+                supervisor.id,
+                `Zahtjev gosta - Soba ${guestRequest.room_number}`,
+                guestRequest.description.substring(0, 200),
+                housekeepingTask.id,
+                guestRequest.priority
+              );
+            } catch (e) {
+              console.error('Error sending push notification:', e);
+            }
+          }
+        }
+      } else if (department === 'maintenance') {
+        // Create maintenance task
+        const maintenanceTask = await storage.createTask({
+          title: `Zahtjev gosta - Soba ${guestRequest.room_number}`,
+          description: guestRequest.description,
+          location: `Soba ${guestRequest.room_number}`,
+          room_number: guestRequest.room_number,
+          priority: guestRequest.priority,
+          status: 'new',
+          created_by: sessionUser.id,
+          created_by_name: sessionUser.full_name,
+          created_by_department: 'recepcija',
+        });
+        updateData.linked_task_id = maintenanceTask.id;
+        linkedTaskId = maintenanceTask.id;
+
+        // Notify operators
+        const operators = await storage.getUsersByRole('operater');
+        for (const operator of operators) {
+          try {
+            const { sendPushToAllUserDevices } = await import('./services/firebase');
+            await sendPushToAllUserDevices(
+              operator.id,
+              `Zahtjev gosta - Soba ${guestRequest.room_number}`,
+              guestRequest.description.substring(0, 200),
+              maintenanceTask.id,
+              guestRequest.priority
+            );
+          } catch (e) {
+            console.error('Error sending push notification:', e);
+          }
+        }
+      }
+
+      const updatedRequest = await storage.updateGuestServiceRequest(id, updateData);
+
+      res.json({
+        request: updatedRequest,
+        linkedTaskId,
+        message: `Request forwarded to ${department}`
+      });
+    } catch (error) {
+      console.error("Error forwarding guest request:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get messages for a guest request (staff only)
+  app.get("/api/guest-requests/:id/messages", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const messages = await storage.getGuestRequestMessages(id);
+
+      // Mark guest messages as read by staff
+      await storage.markGuestRequestMessagesAsRead(id, 'guest');
+
+      res.json({ messages });
+    } catch (error) {
+      console.error("Error fetching guest request messages:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Staff sends message to guest
+  app.post("/api/guest-requests/:id/messages", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { message } = req.body;
+
+      if (!message || !message.trim()) {
+        return res.status(400).json({ error: "Message is required" });
+      }
+
+      const sessionUser = await storage.getUserById(req.session.userId);
+      if (!sessionUser) {
+        return res.status(401).json({ error: "Invalid session" });
+      }
+
+      const guestRequest = await storage.getGuestServiceRequestById(id);
+      if (!guestRequest) {
+        return res.status(404).json({ error: "Request not found" });
+      }
+
+      const newMessage = await storage.createGuestRequestMessage({
+        request_id: id,
+        sender_type: 'staff',
+        sender_id: sessionUser.id,
+        sender_name: sessionUser.full_name,
+        message: message.trim(),
+      });
+
+      // Update request status to 'seen' if it was 'new'
+      if (guestRequest.status === 'new') {
+        await storage.updateGuestServiceRequest(id, { status: 'seen' });
+      }
+
+      res.json({ message: newMessage });
+    } catch (error) {
+      console.error("Error sending message:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });

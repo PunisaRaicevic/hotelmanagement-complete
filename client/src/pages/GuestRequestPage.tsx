@@ -6,7 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import GuestRequestChat from '@/components/GuestRequestChat';
 import {
   Hotel,
   Wrench,
@@ -20,6 +22,11 @@ import {
   AlertTriangle,
   Phone,
   User,
+  MessageSquare,
+  ArrowLeft,
+  Plus,
+  Clock,
+  Forward,
 } from 'lucide-react';
 
 interface RoomInfo {
@@ -27,6 +34,17 @@ interface RoomInfo {
   floor: number;
   category: string;
   guest_name?: string;
+}
+
+interface GuestRequest {
+  id: string;
+  request_type: string;
+  category?: string;
+  description: string;
+  status: string;
+  priority: string;
+  created_at: string;
+  forwarded_to_department?: string;
 }
 
 type RequestType = 'maintenance' | 'housekeeping' | 'amenities' | 'other';
@@ -57,10 +75,13 @@ export default function GuestRequestPage() {
   const { roomNumber, token } = params;
   const { toast } = useToast();
 
-  const [status, setStatus] = useState<'loading' | 'valid' | 'invalid' | 'submitted'>('loading');
+  const [status, setStatus] = useState<'loading' | 'valid' | 'invalid' | 'submitted' | 'viewRequests'>('loading');
   const [roomInfo, setRoomInfo] = useState<RoomInfo | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [myRequests, setMyRequests] = useState<GuestRequest[]>([]);
+  const [selectedRequest, setSelectedRequest] = useState<GuestRequest | null>(null);
+  const [isLoadingRequests, setIsLoadingRequests] = useState(false);
 
   // Form state
   const [requestType, setRequestType] = useState<RequestType | null>(null);
@@ -147,6 +168,66 @@ export default function GuestRequestPage() {
     setStatus('valid');
   };
 
+  const fetchMyRequests = async () => {
+    setIsLoadingRequests(true);
+    try {
+      const response = await fetch(`/api/public/room/${roomNumber}/${token}/requests`);
+      if (response.ok) {
+        const data = await response.json();
+        setMyRequests(data.requests || []);
+      }
+    } catch (error) {
+      console.error('Error fetching requests:', error);
+    } finally {
+      setIsLoadingRequests(false);
+    }
+  };
+
+  const viewMyRequests = () => {
+    fetchMyRequests();
+    setStatus('viewRequests');
+    setSelectedRequest(null);
+  };
+
+  const getStatusLabel = (s: string) => {
+    switch (s) {
+      case 'new': return 'Novi';
+      case 'seen': return 'Primljeno';
+      case 'in_progress': return 'U obradi';
+      case 'completed': return 'Završeno';
+      default: return s;
+    }
+  };
+
+  const getStatusColor = (s: string) => {
+    switch (s) {
+      case 'new': return 'destructive';
+      case 'seen': return 'secondary';
+      case 'in_progress': return 'default';
+      case 'completed': return 'outline';
+      default: return 'secondary';
+    }
+  };
+
+  const getRequestTypeLabel = (type: string) => {
+    switch (type) {
+      case 'maintenance': return 'Tehnički problem';
+      case 'housekeeping': return 'Čišćenje';
+      case 'amenities': return 'Potrepštine';
+      case 'other': return 'Ostalo';
+      default: return type;
+    }
+  };
+
+  const formatDateTime = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('sr-RS', {
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
   // Loading state
   if (status === 'loading') {
     return (
@@ -186,10 +267,127 @@ export default function GuestRequestPage() {
           <p className="text-muted-foreground mb-4">
             Naše osoblje će se pobrinuti za vaš zahtjev u najkraćem roku.
           </p>
-          <Button onClick={resetForm} className="w-full">
-            Pošalji novi zahtjev
-          </Button>
+          <div className="space-y-2">
+            <Button onClick={viewMyRequests} className="w-full">
+              <MessageSquare className="w-4 h-4 mr-2" />
+              Pogledaj moje zahtjeve
+            </Button>
+            <Button onClick={resetForm} variant="outline" className="w-full">
+              <Plus className="w-4 h-4 mr-2" />
+              Pošalji novi zahtjev
+            </Button>
+          </div>
         </Card>
+      </div>
+    );
+  }
+
+  // View my requests state
+  if (status === 'viewRequests') {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white p-4 overflow-y-auto">
+        <div className="max-w-lg mx-auto pb-8">
+          {/* Header */}
+          <div className="text-center mb-6">
+            <Hotel className="w-10 h-10 mx-auto text-blue-600 mb-2" />
+            <h1 className="text-xl font-bold">Moji zahtjevi</h1>
+            <p className="text-muted-foreground text-sm">
+              Soba {roomInfo?.room_number}
+            </p>
+          </div>
+
+          {selectedRequest ? (
+            // Selected request detail with chat
+            <div className="space-y-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedRequest(null)}
+              >
+                <ArrowLeft className="w-4 h-4 mr-1" />
+                Nazad na listu
+              </Button>
+
+              <Card className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <Badge variant="outline">
+                    {getRequestTypeLabel(selectedRequest.request_type)}
+                  </Badge>
+                  <Badge variant={getStatusColor(selectedRequest.status) as any}>
+                    {getStatusLabel(selectedRequest.status)}
+                  </Badge>
+                </div>
+                <p className="text-sm mb-2">{selectedRequest.description}</p>
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  {formatDateTime(selectedRequest.created_at)}
+                </p>
+                {selectedRequest.forwarded_to_department && (
+                  <div className="mt-2 text-xs text-blue-600 flex items-center gap-1">
+                    <Forward className="w-3 h-3" />
+                    Proslijeđeno: {selectedRequest.forwarded_to_department === 'housekeeping' ? 'Domaćinstvo' : 'Tehnička služba'}
+                  </div>
+                )}
+              </Card>
+
+              <div>
+                <h3 className="font-medium mb-2 flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4" />
+                  Poruke
+                </h3>
+                <GuestRequestChat
+                  requestId={selectedRequest.id}
+                  isStaff={false}
+                  sessionToken={token}
+                  roomNumber={roomNumber}
+                />
+              </div>
+            </div>
+          ) : (
+            // Request list
+            <>
+              {isLoadingRequests ? (
+                <div className="text-center py-8">
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-500" />
+                </div>
+              ) : myRequests.length === 0 ? (
+                <Card className="p-8 text-center">
+                  <MessageSquare className="w-12 h-12 mx-auto text-muted-foreground mb-3 opacity-50" />
+                  <p className="text-muted-foreground">Nemate poslanih zahtjeva</p>
+                </Card>
+              ) : (
+                <div className="space-y-3">
+                  {myRequests.map((req) => (
+                    <Card
+                      key={req.id}
+                      className="p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={() => setSelectedRequest(req)}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <Badge variant="outline">
+                          {getRequestTypeLabel(req.request_type)}
+                        </Badge>
+                        <Badge variant={getStatusColor(req.status) as any}>
+                          {getStatusLabel(req.status)}
+                        </Badge>
+                      </div>
+                      <p className="text-sm line-clamp-2">{req.description}</p>
+                      <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {formatDateTime(req.created_at)}
+                      </p>
+                    </Card>
+                  ))}
+                </div>
+              )}
+
+              <Button onClick={resetForm} className="w-full mt-4">
+                <Plus className="w-4 h-4 mr-2" />
+                Pošalji novi zahtjev
+              </Button>
+            </>
+          )}
+        </div>
       </div>
     );
   }

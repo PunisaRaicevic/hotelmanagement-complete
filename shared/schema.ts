@@ -402,8 +402,27 @@ export const guest_service_requests = pgTable("guest_service_requests", {
   staff_notes: text("staff_notes"),
   resolved_at: timestamp("resolved_at", { withTimezone: true }),
   resolved_by: varchar("resolved_by"),
+  // Forwarding fields
+  forwarded_to_department: varchar("forwarded_to_department"), // 'housekeeping' or 'maintenance'
+  forwarded_at: timestamp("forwarded_at", { withTimezone: true }),
+  forwarded_by: varchar("forwarded_by"),
+  forwarded_by_name: text("forwarded_by_name"),
+  linked_task_id: varchar("linked_task_id"), // Links to tasks table for maintenance
+  linked_housekeeping_task_id: varchar("linked_housekeeping_task_id"), // Links to housekeeping_tasks
   created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Guest request messages - chat between guest and staff
+export const guest_request_messages = pgTable("guest_request_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  request_id: varchar("request_id").notNull(),
+  sender_type: varchar("sender_type").notNull(), // 'guest' or 'staff'
+  sender_id: varchar("sender_id"), // NULL for guest, user_id for staff
+  sender_name: text("sender_name").notNull(),
+  message: text("message").notNull(),
+  is_read: boolean("is_read").notNull().default(false),
+  created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const housekeeping_tasks = pgTable("housekeeping_tasks", {
@@ -564,6 +583,7 @@ export const insertNotificationSchema = createInsertSchema(notifications);
 export const insertRoomSchema = createInsertSchema(rooms);
 export const insertRoomStatusHistorySchema = createInsertSchema(room_status_history);
 export const insertGuestServiceRequestSchema = createInsertSchema(guest_service_requests);
+export const insertGuestRequestMessageSchema = createInsertSchema(guest_request_messages);
 export const insertHousekeepingTaskSchema = createInsertSchema(housekeeping_tasks);
 export const insertInventoryItemSchema = createInsertSchema(inventory_items);
 export const insertRoomInventorySchema = createInsertSchema(room_inventory);
@@ -604,6 +624,8 @@ export type InsertRoomStatusHistory = z.infer<typeof insertRoomStatusHistorySche
 export type RoomStatusHistory = typeof room_status_history.$inferSelect;
 export type InsertGuestServiceRequest = z.infer<typeof insertGuestServiceRequestSchema>;
 export type GuestServiceRequest = typeof guest_service_requests.$inferSelect;
+export type InsertGuestRequestMessage = z.infer<typeof insertGuestRequestMessageSchema>;
+export type GuestRequestMessage = typeof guest_request_messages.$inferSelect;
 export type InsertHousekeepingTask = z.infer<typeof insertHousekeepingTaskSchema>;
 export type HousekeepingTask = typeof housekeeping_tasks.$inferSelect;
 export type InsertInventoryItem = z.infer<typeof insertInventoryItemSchema>;

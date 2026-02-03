@@ -21,7 +21,9 @@ import {
   type RoomInventory,
   type InsertRoomInventory,
   type GuestServiceRequest,
-  type InsertGuestServiceRequest
+  type InsertGuestServiceRequest,
+  type GuestRequestMessage,
+  type InsertGuestRequestMessage
 } from "@shared/schema";
 
 export interface IStorage {
@@ -100,8 +102,14 @@ export interface IStorage {
   getGuestServiceRequests(filters?: { status?: string; roomId?: string; request_type?: string }): Promise<GuestServiceRequest[]>;
   getGuestServiceRequestById(id: string): Promise<GuestServiceRequest | undefined>;
   getGuestServiceRequestsByRoom(roomId: string): Promise<GuestServiceRequest[]>;
+  getGuestServiceRequestsByToken(sessionToken: string): Promise<GuestServiceRequest[]>;
   updateGuestServiceRequest(id: string, data: Partial<GuestServiceRequest>): Promise<GuestServiceRequest | undefined>;
   getPendingGuestRequestCounts(): Promise<Record<string, number>>;
+
+  // Guest Request Messages (chat between guest and staff)
+  createGuestRequestMessage(message: Partial<InsertGuestRequestMessage>): Promise<GuestRequestMessage>;
+  getGuestRequestMessages(requestId: string): Promise<GuestRequestMessage[]>;
+  markGuestRequestMessagesAsRead(requestId: string, senderType: 'guest' | 'staff'): Promise<void>;
 }
 
 export class SupabaseStorage implements IStorage {
@@ -962,6 +970,50 @@ export class SupabaseStorage implements IStorage {
       counts[row.room_id] = (counts[row.room_id] || 0) + 1;
     }
     return counts;
+  }
+
+  async getGuestServiceRequestsByToken(sessionToken: string): Promise<GuestServiceRequest[]> {
+    const { data, error } = await supabase
+      .from('guest_service_requests')
+      .select('*')
+      .eq('session_token', sessionToken)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return (data || []) as GuestServiceRequest[];
+  }
+
+  // Guest Request Messages methods
+  async createGuestRequestMessage(message: Partial<InsertGuestRequestMessage>): Promise<GuestRequestMessage> {
+    const { data, error } = await supabase
+      .from('guest_request_messages')
+      .insert(message)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as GuestRequestMessage;
+  }
+
+  async getGuestRequestMessages(requestId: string): Promise<GuestRequestMessage[]> {
+    const { data, error } = await supabase
+      .from('guest_request_messages')
+      .select('*')
+      .eq('request_id', requestId)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+    return (data || []) as GuestRequestMessage[];
+  }
+
+  async markGuestRequestMessagesAsRead(requestId: string, senderType: 'guest' | 'staff'): Promise<void> {
+    const { error } = await supabase
+      .from('guest_request_messages')
+      .update({ is_read: true })
+      .eq('request_id', requestId)
+      .eq('sender_type', senderType);
+
+    if (error) throw error;
   }
 }
 
