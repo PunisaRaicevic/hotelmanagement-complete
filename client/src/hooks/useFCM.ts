@@ -35,13 +35,36 @@ export const useFCM = (userId?: string) => {
     const callTime = new Date().toLocaleTimeString();
     console.log(`📱 [useFCM:${callTime}] Hook called with userId:`, userId ? `${userId.substring(0, 8)}...` : 'UNDEFINED');
     console.log(`📱 [useFCM:${callTime}] Window location:`, typeof window !== 'undefined' ? window.location.href : 'NO WINDOW');
-    
+    console.log(`📱 [useFCM:${callTime}] Platform:`, Capacitor.getPlatform());
+    console.log(`📱 [useFCM:${callTime}] isNativePlatform:`, Capacitor.isNativePlatform());
+
     if (!userId) {
       console.warn(`⚠️ [useFCM:${callTime}] Skipping FCM setup - no userId provided`);
       return;
     }
 
     console.log(`✅ [useFCM:${callTime}] userId is valid - proceeding with FCM setup`);
+
+    // 🔥 DEBUG: Šalji log na server da vidimo da li hook uopšte radi na mobilnoj
+    const sendDebugLog = async (message: string, data?: any) => {
+      try {
+        const { getApiUrl } = await import('@/lib/apiUrl');
+        await fetch(getApiUrl('/api/debug/log'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            level: 'info',
+            args: [message, data],
+            timestamp: new Date().toISOString(),
+            platform: Capacitor.getPlatform()
+          })
+        });
+      } catch (e) {
+        console.error('[useFCM] Debug log failed:', e);
+      }
+    };
+
+    sendDebugLog('useFCM hook started', { userId: userId.substring(0, 8), platform: Capacitor.getPlatform() });
 
     let isMounted = true;
     let hasStarted = false;
@@ -76,11 +99,13 @@ export const useFCM = (userId?: string) => {
 
         // ========== MOBILNA VERZIJA - Android/iOS ==========
         console.log(`📱 [FCM:${setupTime}] MOBILNA VERZIJA DETEKTOVANA! Platform: ${platform}`);
+        sendDebugLog('MOBILE DETECTED - Starting FCM setup', { platform });
 
         // 🔥 1. Kreiraj notification channel (samo Android)
         console.log(`📝 [FCM:${setupTime}] Kreiram notification channel...`);
         await createNotificationChannel();
         console.log(`✅ [FCM:${setupTime}] Notification channel kreiran`);
+        sendDebugLog('Notification channel created');
 
         // Dinamički import PushNotifications
         console.log(`📝 [FCM:${setupTime}] Importujem @capacitor/push-notifications...`);
@@ -89,15 +114,19 @@ export const useFCM = (userId?: string) => {
 
         // 2. Tražimo dozvolu
         console.log(`📋 [FCM:${setupTime}] Zahtevam push dozvole...`);
+        sendDebugLog('Requesting push permissions...');
         const permResult = await PushNotifications.requestPermissions();
         console.log(`✅ [FCM:${setupTime}] Permission result:`, permResult.receive);
-        
+        sendDebugLog('Permission result', { receive: permResult.receive });
+
         if (permResult.receive !== 'granted') {
           console.warn(`⚠️ [FCM:${setupTime}] Push dozvola nije odobrena - status:`, permResult.receive);
           console.error(`❌ [FCM:${setupTime}] FAIL: Push dozvola NIJE ODOBRENA`);
+          sendDebugLog('PERMISSION DENIED', { status: permResult.receive });
           return;
         }
         console.log(`✅ [FCM:${setupTime}] Push dozvola odobrena`);
+        sendDebugLog('Permission GRANTED');
 
         // 3. Registrujemo uređaj i čekamo token
         console.log(`📝 [FCM:${setupTime}] Registrujem uređaj...`);
@@ -113,8 +142,9 @@ export const useFCM = (userId?: string) => {
           const regTime = new Date().toLocaleTimeString();
           clearTimeout(tokenTimeout);
           tokenReceived = true;
-          
+
           console.log(`🔥 [FCM:${regTime}] Token primljen:`, fcmToken.value?.substring(0, 50) + '...');
+          sendDebugLog('FCM TOKEN RECEIVED!', { tokenLength: fcmToken.value?.length });
 
           if (!isMounted) return;
 
@@ -125,10 +155,14 @@ export const useFCM = (userId?: string) => {
               platform: platform,
             };
             console.log(`📤 [FCM:${regTime}] Payload koji se šalje:`, { ...payload, token: payload.token.substring(0, 30) + '...' });
+            sendDebugLog('Sending token to backend...', { platform, tokenLength: fcmToken.value.length });
+
             const response = await apiRequest('POST', '/api/users/fcm-token', payload);
             console.log(`✅ [FCM:${regTime}] Token sačuvan na backend!`, response);
-          } catch (err) {
+            sendDebugLog('TOKEN SAVED TO BACKEND!', { status: response.status });
+          } catch (err: any) {
             console.error(`❌ [FCM:${regTime}] Greška pri slanju tokena:`, err);
+            sendDebugLog('ERROR SAVING TOKEN', { error: err?.message || String(err) });
           }
         });
 
@@ -136,6 +170,7 @@ export const useFCM = (userId?: string) => {
           const errTime = new Date().toLocaleTimeString();
           clearTimeout(tokenTimeout);
           console.error(`❌ [FCM:${errTime}] Greška pri registraciji:`, err?.message || JSON.stringify(err));
+          sendDebugLog('REGISTRATION ERROR!', { error: err?.message || JSON.stringify(err) });
         });
 
         PushNotifications.addListener('pushNotificationReceived', async (notification) => {
@@ -185,13 +220,16 @@ export const useFCM = (userId?: string) => {
 
         // 4. Registruj uređaj
         console.log(`📝 [FCM:${setupTime}] Pozivam PushNotifications.register()...`);
+        sendDebugLog('Calling PushNotifications.register()...');
         await PushNotifications.register();
         console.log(`✅ [FCM:${setupTime}] Uređaj registrovan - čekam token...`);
+        sendDebugLog('PushNotifications.register() completed - waiting for token...');
 
       } catch (error: any) {
         const errorTime = new Date().toLocaleTimeString();
         console.error(`❌ [FCM:${errorTime}] Greška pri inicijalizaciji:`, error?.message || error);
         console.error(`❌ [FCM:${errorTime}] Full stack:`, error);
+        sendDebugLog('FCM INITIALIZATION ERROR', { error: error?.message || String(error) });
       }
     };
 

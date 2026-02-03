@@ -21,13 +21,14 @@ async function initializeFirebaseWeb() {
     const { initializeApp } = await import("firebase/app");
     const { getMessaging } = await import("firebase/messaging");
 
+    // IMPORTANT: Match mobile app Firebase project (google-services.json)
     const firebaseConfig = {
-      apiKey: "AIzaSyCnuos4xgks1AkDaLfmpJD01lFp9ZTrkT0",
-      authDomain: "hotelpark-tehnika.firebaseapp.com",
-      projectId: "hotelpark-tehnika",
-      storageBucket: "hotelpark-tehnika.firebasestorage.app",
-      messagingSenderId: "615826196463",
-      appId: "1:615826196463:web:0c8c1b6ec36bb96973181a",
+      apiKey: "AIzaSyBfYhSzQH_qVPTVsCO9X85R8Kl6-k6f8dY",
+      authDomain: "hotelmanagement-complete.firebaseapp.com",
+      projectId: "hotelmanagement-complete",
+      storageBucket: "hotelmanagement-complete.firebasestorage.app",
+      messagingSenderId: "97241477060",
+      appId: "1:97241477060:web:eca4ce4e2117d2cf6a3e91",
     };
 
     const app = initializeApp(firebaseConfig);
