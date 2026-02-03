@@ -530,7 +530,12 @@ export default function SupervisorDashboard() {
         <div>
           <h1 className="text-3xl font-medium">{t('supervisorDashboard')}</h1>
           <p className="text-muted-foreground mt-1">
-            {user?.fullName} - {user?.role}
+            {user?.fullName} - {
+              user?.role === 'admin' ? 'Administrator' :
+              user?.role === 'sef' ? 'Šef tehničke službe' :
+              user?.role === 'operater' ? 'Operater' :
+              user?.role
+            }
           </p>
         </div>
       </div>

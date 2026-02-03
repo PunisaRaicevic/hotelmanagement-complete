@@ -428,7 +428,14 @@ export default function HousekeepingSupervisorDashboard() {
             </div>
             <span className="text-gradient">Domaćinstvo</span>
           </h1>
-          <p className="text-muted-foreground">{user?.fullName} - Šef domaćinstva</p>
+          <p className="text-muted-foreground">
+            {user?.fullName} - {
+              user?.role === 'admin' ? 'Administrator' :
+              user?.role === 'recepcioner' ? 'Recepcioner' :
+              user?.role === 'sef_domacinstva' ? 'Šef domaćinstva' :
+              'Korisnik'
+            }
+          </p>
         </div>
         <Button variant="outline" size="sm" onClick={fetchData}>
           <RefreshCw className="w-4 h-4 mr-1" />
