@@ -1782,7 +1782,7 @@ ${scheduledTasksFormatted}`;
       const { status, room_id, request_type } = req.query;
       const requests = await storage.getGuestServiceRequests({
         status: status as string,
-        room_id: room_id as string,
+        roomId: room_id as string,
         request_type: request_type as string,
       });
       res.json({ requests });
