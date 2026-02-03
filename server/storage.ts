@@ -894,7 +894,7 @@ export class SupabaseStorage implements IStorage {
     return data as GuestServiceRequest;
   }
 
-  async getGuestServiceRequests(filters?: { status?: string; roomId?: string; request_type?: string }): Promise<GuestServiceRequest[]> {
+  async getGuestServiceRequests(filters?: { status?: string; roomId?: string; request_type?: string; forwarded_to_department?: string }): Promise<GuestServiceRequest[]> {
     let query = supabase
       .from('guest_service_requests')
       .select('*')
@@ -908,6 +908,9 @@ export class SupabaseStorage implements IStorage {
     }
     if (filters?.request_type) {
       query = query.eq('request_type', filters.request_type);
+    }
+    if (filters?.forwarded_to_department) {
+      query = query.eq('forwarded_to_department', filters.forwarded_to_department);
     }
 
     const { data, error } = await query;

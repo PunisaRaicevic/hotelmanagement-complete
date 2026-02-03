@@ -31,7 +31,12 @@ import {
   XCircle,
   Building,
   RefreshCw,
+  MessageSquare,
+  Phone,
+  User,
+  Send,
 } from 'lucide-react';
+import GuestRequestChat from '@/components/GuestRequestChat';
 
 interface Room {
   id: string;
@@ -85,13 +90,123 @@ interface Housekeeper {
   is_active: boolean;
 }
 
+interface GuestRequest {
+  id: string;
+  room_id: string;
+  room_number: string;
+  request_type: string;
+  category?: string;
+  description: string;
+  guest_name?: string;
+  guest_phone?: string;
+  priority: string;
+  status: string;
+  forwarded_to_department?: string;
+  forwarded_at?: string;
+  forwarded_by_name?: string;
+  linked_housekeeping_task_id?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
 export default function HousekeepingSupervisorDashboard() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [tasks, setTasks] = useState<HousekeepingTask[]>([]);
   const [housekeepers, setHousekeepers] = useState<Housekeeper[]>([]);
+  const [guestRequests, setGuestRequests] = useState<GuestRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedGuestRequest, setSelectedGuestRequest] = useState<GuestRequest | null>(null);
+
+  // Sound notification state
+  const [audioEnabled, setAudioEnabled] = useState(() => {
+    const saved = localStorage.getItem('soundNotificationsEnabled');
+    return saved === 'true';
+  });
+  const [previousActiveRequestCount, setPreviousActiveRequestCount] = useState<number>(0);
+
+  // Listen for sound setting changes from header toggle
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const saved = localStorage.getItem('soundNotificationsEnabled');
+      setAudioEnabled(saved === 'true');
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    // Also listen for custom event for same-tab updates
+    const handleCustomEvent = () => handleStorageChange();
+    window.addEventListener('soundSettingChanged', handleCustomEvent);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('soundSettingChanged', handleCustomEvent);
+    };
+  }, []);
+
+  // Play notification sound using Web Audio API
+  const playNotificationSound = () => {
+    try {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      // Create a pleasant notification sound (two-tone)
+      oscillator.frequency.value = 800; // First tone
+      oscillator.type = 'sine';
+
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.1);
+
+      // Second tone
+      setTimeout(() => {
+        const oscillator2 = audioContext.createOscillator();
+        const gainNode2 = audioContext.createGain();
+
+        oscillator2.connect(gainNode2);
+        gainNode2.connect(audioContext.destination);
+
+        oscillator2.frequency.value = 1000; // Second tone (higher pitch)
+        oscillator2.type = 'sine';
+
+        gainNode2.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode2.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+
+        oscillator2.start(audioContext.currentTime);
+        oscillator2.stop(audioContext.currentTime + 0.1);
+      }, 100);
+    } catch (error) {
+      console.error('Failed to play notification sound:', error);
+    }
+  };
+
+  // Monitor guest requests and play sound when new ones arrive
+  useEffect(() => {
+    if (loading) return;
+
+    // Count active (non-completed) guest requests
+    const activeRequestCount = guestRequests.filter(r => r.status !== 'completed').length;
+
+    // Only play sound if not initial load and count increased
+    if (previousActiveRequestCount > 0 && activeRequestCount > previousActiveRequestCount) {
+      if (audioEnabled) {
+        playNotificationSound();
+      }
+      toast({
+        title: "Novi zahtjev gosta!",
+        description: `Primljen ${activeRequestCount - previousActiveRequestCount} novi zahtjev.`,
+      });
+    }
+
+    setPreviousActiveRequestCount(activeRequestCount);
+  }, [guestRequests, loading, audioEnabled]);
 
   // Filters
   const [floorFilter, setFloorFilter] = useState<string>('all');
@@ -114,10 +229,11 @@ export default function HousekeepingSupervisorDashboard() {
 
   const fetchData = async () => {
     try {
-      const [roomsRes, tasksRes, housekeepersRes] = await Promise.all([
+      const [roomsRes, tasksRes, housekeepersRes, guestRequestsRes] = await Promise.all([
         fetch(getApiUrl('/api/rooms'), { credentials: 'include', headers: getAuthHeaders() }),
         fetch(getApiUrl('/api/housekeeping/tasks'), { credentials: 'include', headers: getAuthHeaders() }),
         fetch(getApiUrl('/api/housekeepers'), { credentials: 'include', headers: getAuthHeaders() }),
+        fetch(getApiUrl('/api/guest-requests?forwarded_to_department=housekeeping'), { credentials: 'include', headers: getAuthHeaders() }),
       ]);
 
       if (roomsRes.ok) {
@@ -132,6 +248,10 @@ export default function HousekeepingSupervisorDashboard() {
         const data = await housekeepersRes.json();
         setHousekeepers(data.housekeepers || []);
       }
+      if (guestRequestsRes.ok) {
+        const data = await guestRequestsRes.json();
+        setGuestRequests(data.requests || []);
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -141,6 +261,13 @@ export default function HousekeepingSupervisorDashboard() {
 
   useEffect(() => {
     fetchData();
+
+    // Poll for new data every 30 seconds
+    const pollInterval = setInterval(() => {
+      fetchData();
+    }, 30000);
+
+    return () => clearInterval(pollInterval);
   }, []);
 
   // Statistics
@@ -349,14 +476,27 @@ export default function HousekeepingSupervisorDashboard() {
       </div>
 
       {/* Main Content */}
-      <Tabs defaultValue="rooms">
-        <TabsList className="grid w-full grid-cols-4 h-12 p-1 bg-muted/50">
+      <Tabs defaultValue="guest-requests">
+        <TabsList className="grid w-full grid-cols-5 h-12 p-1 bg-muted/50">
+          <TabsTrigger
+            value="guest-requests"
+            className="gap-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md"
+          >
+            <MessageSquare className="w-4 h-4" />
+            <span className="hidden sm:inline">Zahtjevi</span>
+            <Badge
+              variant={guestRequests.filter(r => r.status !== 'completed').length > 0 ? 'destructive' : 'secondary'}
+              className="ml-1 text-[10px] px-1.5"
+            >
+              {guestRequests.filter(r => r.status !== 'completed').length}
+            </Badge>
+          </TabsTrigger>
           <TabsTrigger
             value="rooms"
             className="gap-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md"
           >
             <Building className="w-4 h-4" />
-            Sobe
+            <span className="hidden sm:inline">Sobe</span>
             <Badge variant="secondary" className="ml-1 text-[10px] px-1.5">{rooms.length}</Badge>
           </TabsTrigger>
           <TabsTrigger
@@ -364,7 +504,7 @@ export default function HousekeepingSupervisorDashboard() {
             className="gap-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md"
           >
             <ClipboardList className="w-4 h-4" />
-            Zadaci
+            <span className="hidden sm:inline">Zadaci</span>
             <Badge variant="secondary" className="ml-1 text-[10px] px-1.5">{tasks.length}</Badge>
           </TabsTrigger>
           <TabsTrigger
@@ -372,7 +512,7 @@ export default function HousekeepingSupervisorDashboard() {
             className="gap-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md"
           >
             <Eye className="w-4 h-4" />
-            Inspekcija
+            <span className="hidden sm:inline">Inspekcija</span>
             <Badge
               variant={needsInspection.length > 0 ? 'destructive' : 'secondary'}
               className="ml-1 text-[10px] px-1.5"
@@ -385,10 +525,226 @@ export default function HousekeepingSupervisorDashboard() {
             className="gap-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md"
           >
             <Users className="w-4 h-4" />
-            Tim
+            <span className="hidden sm:inline">Tim</span>
             <Badge variant="secondary" className="ml-1 text-[10px] px-1.5">{housekeepers.length}</Badge>
           </TabsTrigger>
         </TabsList>
+
+        {/* Guest Requests Tab */}
+        <TabsContent value="guest-requests" className="mt-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Request List */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5" />
+                  Zahtjevi gostiju
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[500px]">
+                  <div className="space-y-3 pr-4">
+                    {guestRequests.length > 0 ? (
+                      guestRequests.map((request) => {
+                        const isActive = request.status !== 'completed';
+                        return (
+                          <Card
+                            key={request.id}
+                            className={`p-4 cursor-pointer transition-all hover:shadow-md ${
+                              selectedGuestRequest?.id === request.id
+                                ? 'ring-2 ring-primary'
+                                : ''
+                            } ${
+                              request.priority === 'urgent'
+                                ? 'border-l-4 border-l-red-500'
+                                : request.priority === 'normal'
+                                ? 'border-l-4 border-l-blue-500'
+                                : 'border-l-4 border-l-green-500'
+                            }`}
+                            onClick={() => setSelectedGuestRequest(request)}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold">Soba {request.room_number}</span>
+                                <Badge variant={isActive ? 'default' : 'outline'} className="text-xs">
+                                  {request.status === 'new' && 'Novi'}
+                                  {request.status === 'seen' && 'Viđeno'}
+                                  {request.status === 'in_progress' && 'U obradi'}
+                                  {request.status === 'completed' && 'Završeno'}
+                                </Badge>
+                              </div>
+                              <Badge
+                                variant={
+                                  request.priority === 'urgent'
+                                    ? 'destructive'
+                                    : request.priority === 'normal'
+                                    ? 'secondary'
+                                    : 'outline'
+                                }
+                                className="text-xs"
+                              >
+                                {request.priority === 'urgent' && 'Hitno'}
+                                {request.priority === 'normal' && 'Normalno'}
+                                {request.priority === 'low' && 'Može čekati'}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground mb-2">
+                              {request.request_type === 'housekeeping' && 'Čišćenje'}
+                              {request.request_type === 'amenities' && 'Potrepštine'}
+                              {request.request_type === 'other' && 'Ostalo'}
+                              {request.category && ` - ${request.category}`}
+                            </p>
+                            <p className="text-sm line-clamp-2">{request.description}</p>
+                            {request.guest_name && (
+                              <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
+                                <User className="w-3 h-3" />
+                                {request.guest_name}
+                                {request.guest_phone && (
+                                  <>
+                                    <Phone className="w-3 h-3 ml-2" />
+                                    {request.guest_phone}
+                                  </>
+                                )}
+                              </div>
+                            )}
+                            <p className="text-xs text-muted-foreground mt-2">
+                              {new Date(request.created_at).toLocaleDateString('sr-RS', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                              {request.forwarded_by_name && (
+                                <span className="ml-2">• Proslijedio: {request.forwarded_by_name}</span>
+                              )}
+                            </p>
+                          </Card>
+                        );
+                      })
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                        <p>Nema zahtjeva gostiju</p>
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+
+            {/* Selected Request Details & Chat */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">
+                  {selectedGuestRequest ? `Detalji - Soba ${selectedGuestRequest.room_number}` : 'Odaberite zahtjev'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {selectedGuestRequest ? (
+                  <div className="space-y-4">
+                    {/* Request Details */}
+                    <div className="p-4 bg-muted/50 rounded-lg space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Tip zahtjeva:</span>
+                        <span className="text-sm">
+                          {selectedGuestRequest.request_type === 'housekeeping' && 'Čišćenje'}
+                          {selectedGuestRequest.request_type === 'amenities' && 'Potrepštine'}
+                          {selectedGuestRequest.request_type === 'other' && 'Ostalo'}
+                        </span>
+                      </div>
+                      {selectedGuestRequest.category && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">Kategorija:</span>
+                          <span className="text-sm">{selectedGuestRequest.category}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Prioritet:</span>
+                        <Badge
+                          variant={
+                            selectedGuestRequest.priority === 'urgent'
+                              ? 'destructive'
+                              : selectedGuestRequest.priority === 'normal'
+                              ? 'secondary'
+                              : 'outline'
+                          }
+                        >
+                          {selectedGuestRequest.priority === 'urgent' && 'Hitno'}
+                          {selectedGuestRequest.priority === 'normal' && 'Normalno'}
+                          {selectedGuestRequest.priority === 'low' && 'Može čekati'}
+                        </Badge>
+                      </div>
+                      {selectedGuestRequest.guest_name && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">Gost:</span>
+                          <span className="text-sm">{selectedGuestRequest.guest_name}</span>
+                        </div>
+                      )}
+                      {selectedGuestRequest.guest_phone && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">Telefon:</span>
+                          <a href={`tel:${selectedGuestRequest.guest_phone}`} className="text-sm text-blue-600">
+                            {selectedGuestRequest.guest_phone}
+                          </a>
+                        </div>
+                      )}
+                      <div className="pt-2 border-t">
+                        <span className="text-sm font-medium">Opis:</span>
+                        <p className="text-sm mt-1">{selectedGuestRequest.description}</p>
+                      </div>
+                    </div>
+
+                    {/* Chat Section */}
+                    <div>
+                      <h4 className="font-medium mb-2 flex items-center gap-2">
+                        <MessageSquare className="w-4 h-4" />
+                        Komunikacija sa gostom
+                      </h4>
+                      <GuestRequestChat
+                        requestId={selectedGuestRequest.id}
+                        isStaff={true}
+                      />
+                    </div>
+
+                    {/* Action Buttons */}
+                    {selectedGuestRequest.status !== 'completed' && (
+                      <div className="flex gap-2 pt-4 border-t">
+                        <Button
+                          className="flex-1"
+                          onClick={async () => {
+                            try {
+                              const response = await fetch(getApiUrl(`/api/guest-requests/${selectedGuestRequest.id}`), {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+                                credentials: 'include',
+                                body: JSON.stringify({ status: 'completed' }),
+                              });
+                              if (response.ok) {
+                                toast({ title: 'Uspješno', description: 'Zahtjev označen kao završen' });
+                                fetchData();
+                                setSelectedGuestRequest(null);
+                              }
+                            } catch (error) {
+                              toast({ title: 'Greška', variant: 'destructive' });
+                            }
+                          }}
+                        >
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          Označi kao završeno
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-16 text-muted-foreground">
+                    <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    <p>Odaberite zahtjev sa liste za prikaz detalja i komunikaciju</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
 
         {/* Rooms Tab */}
         <TabsContent value="rooms" className="mt-4">

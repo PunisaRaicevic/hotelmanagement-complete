@@ -1894,11 +1894,12 @@ ${scheduledTasksFormatted}`;
   // Get all guest service requests (staff only)
   app.get("/api/guest-requests", requireAuth, async (req, res) => {
     try {
-      const { status, room_id, request_type } = req.query;
+      const { status, room_id, request_type, forwarded_to_department } = req.query;
       const requests = await storage.getGuestServiceRequests({
         status: status as string,
         roomId: room_id as string,
         request_type: request_type as string,
+        forwarded_to_department: forwarded_to_department as string,
       });
       res.json({ requests });
     } catch (error) {

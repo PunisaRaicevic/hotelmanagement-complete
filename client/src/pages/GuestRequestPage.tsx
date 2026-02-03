@@ -91,7 +91,23 @@ export default function GuestRequestPage() {
   const [guestPhone, setGuestPhone] = useState('');
   const [priority, setPriority] = useState<Priority>('normal');
 
-  // Validate token on mount
+  // Function to fetch guest requests
+  const fetchMyRequests = async (showLoading = true) => {
+    if (showLoading) setIsLoadingRequests(true);
+    try {
+      const response = await fetch(`/api/public/room/${roomNumber}/${token}/requests`);
+      if (response.ok) {
+        const data = await response.json();
+        setMyRequests(data.requests || []);
+      }
+    } catch (error) {
+      console.error('Error fetching requests:', error);
+    } finally {
+      if (showLoading) setIsLoadingRequests(false);
+    }
+  };
+
+  // Validate token on mount and fetch existing requests
   useEffect(() => {
     const validateToken = async () => {
       try {
@@ -102,6 +118,9 @@ export default function GuestRequestPage() {
           setRoomInfo(data.room);
           setGuestName(data.room.guest_name || '');
           setStatus('valid');
+
+          // Fetch existing requests in the background (without loading indicator)
+          fetchMyRequests(false);
         } else {
           setStatus('invalid');
           setErrorMessage(data.error || 'QR kod nije validan.');
@@ -119,6 +138,7 @@ export default function GuestRequestPage() {
       setErrorMessage('Nedostaje broj sobe ili token.');
     }
   }, [roomNumber, token]);
+
 
   const handleSubmit = async () => {
     if (!requestType) {
@@ -166,21 +186,8 @@ export default function GuestRequestPage() {
     setDescription('');
     setPriority('normal');
     setStatus('valid');
-  };
-
-  const fetchMyRequests = async () => {
-    setIsLoadingRequests(true);
-    try {
-      const response = await fetch(`/api/public/room/${roomNumber}/${token}/requests`);
-      if (response.ok) {
-        const data = await response.json();
-        setMyRequests(data.requests || []);
-      }
-    } catch (error) {
-      console.error('Error fetching requests:', error);
-    } finally {
-      setIsLoadingRequests(false);
-    }
+    // Refresh requests when returning to form
+    fetchMyRequests(false);
   };
 
   const viewMyRequests = () => {
@@ -404,6 +411,63 @@ export default function GuestRequestPage() {
             Soba {roomInfo?.room_number} • Sprat {roomInfo?.floor}
           </p>
         </div>
+
+        {/* Previous Requests Section - Show if guest has any requests */}
+        {myRequests.length > 0 && (
+          <Card className="p-4 mb-4 border-blue-200 bg-blue-50/50">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="w-5 h-5 text-blue-600" />
+                <span className="font-medium">Vaši prethodni zahtjevi</span>
+              </div>
+              <Badge variant="secondary">{myRequests.length}</Badge>
+            </div>
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {myRequests.slice(0, 3).map((req) => (
+                <div
+                  key={req.id}
+                  className="p-3 bg-white rounded-lg border cursor-pointer hover:bg-gray-50 transition-colors"
+                  onClick={() => {
+                    setSelectedRequest(req);
+                    setStatus('viewRequests');
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-medium">{getRequestTypeLabel(req.request_type)}</span>
+                    <Badge variant={getStatusColor(req.status) as any} className="text-xs">
+                      {getStatusLabel(req.status)}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground line-clamp-1">{req.description}</p>
+                  <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    {formatDateTime(req.created_at)}
+                  </p>
+                </div>
+              ))}
+            </div>
+            {myRequests.length > 3 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full mt-2 text-blue-600"
+                onClick={viewMyRequests}
+              >
+                Pogledaj sve ({myRequests.length}) zahtjeva
+              </Button>
+            )}
+            {myRequests.length <= 3 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full mt-2 text-blue-600"
+                onClick={viewMyRequests}
+              >
+                Pogledaj sve zahtjeve
+              </Button>
+            )}
+          </Card>
+        )}
 
         {/* Request Type Selection */}
         <Card className="p-4 mb-4">

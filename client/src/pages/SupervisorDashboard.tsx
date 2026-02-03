@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Send, CheckCircle, XCircle, Clock, TrendingUp, FileText, Trash2, Calendar, History, RefreshCw, Building2 } from 'lucide-react';
+import { Send, CheckCircle, XCircle, Clock, TrendingUp, FileText, Trash2, Calendar, History, RefreshCw, Building2, UserPlus } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -1048,6 +1048,38 @@ export default function SupervisorDashboard() {
                                         )}
                                       </div>
                                     </div>
+                                    {/* Button to assign task to worker */}
+                                    {(task.status === 'new' || task.status === 'with_sef' || task.status === 'returned_to_sef') && (
+                                      <div className="flex gap-2 mt-3">
+                                        <Button
+                                          variant="default"
+                                          size="sm"
+                                          className="flex-1"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleAssignToWorker(task.id, task.title);
+                                          }}
+                                          data-testid={`button-assign-upcoming-${task.id}`}
+                                        >
+                                          <UserPlus className="w-4 h-4 mr-2" />
+                                          Dodijeli majstoru
+                                        </Button>
+                                        <Button
+                                          variant="secondary"
+                                          size="sm"
+                                          className="flex-1"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            sendToExternalMutation.mutate(task.id);
+                                          }}
+                                          disabled={sendToExternalMutation.isPending}
+                                          data-testid={`button-external-upcoming-${task.id}`}
+                                        >
+                                          <Send className="w-4 h-4 mr-2" />
+                                          Eksterna firma
+                                        </Button>
+                                      </div>
+                                    )}
                                     {/* Button to complete external company task */}
                                     {task.status === 'with_external' && (
                                       <Button
