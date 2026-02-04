@@ -436,6 +436,9 @@ export class SupabaseStorage implements IStorage {
     }
     
     // STEP 2: Save/update token for current user with is_active=true
+    // NOTE: fcm_token has a UNIQUE constraint in the database schema
+    console.log(`[STORAGE] Attempting upsert for token: ${token.fcm_token.substring(0, 20)}...`);
+
     const { data, error } = await supabase
       .from('user_device_tokens')
       .upsert({
@@ -444,15 +447,37 @@ export class SupabaseStorage implements IStorage {
         platform: token.platform || 'web',
         last_updated: new Date().toISOString(),
         is_active: true,
-      }, { onConflict: 'user_id,fcm_token,platform' })
+      }, { onConflict: 'fcm_token' })
       .select()
       .single();
-    
+
     if (error) {
-      console.error(`[STORAGE] saveDeviceToken error:`, error);
-      throw error;
+      console.error(`[STORAGE] saveDeviceToken upsert error:`, error);
+      console.error(`[STORAGE] Error code: ${error.code}, details: ${error.details}, hint: ${error.hint}`);
+
+      // Fallback: Try direct INSERT if upsert fails
+      console.log(`[STORAGE] Attempting fallback INSERT...`);
+      const { data: insertData, error: insertError } = await supabase
+        .from('user_device_tokens')
+        .insert({
+          user_id: token.user_id,
+          fcm_token: token.fcm_token,
+          platform: token.platform || 'web',
+          last_updated: new Date().toISOString(),
+          is_active: true,
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error(`[STORAGE] Fallback INSERT also failed:`, insertError);
+        throw error; // Throw original error
+      }
+
+      console.log(`[STORAGE] Fallback INSERT succeeded - ID: ${insertData.id}`);
+      return insertData as UserDeviceToken;
     }
-    
+
     console.log(`[STORAGE] Device token saved successfully - ID: ${data.id}, user is now the ONLY active user on this device`);
     return data as UserDeviceToken;
   }
