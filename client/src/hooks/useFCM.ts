@@ -29,21 +29,51 @@ const createNotificationChannel = async () => {
   }
 };
 
+// 🔥 Global FCM status for debugging
+export let fcmDebugStatus = {
+  lastAttempt: '',
+  platform: '',
+  step: '',
+  error: '',
+  tokenSaved: false
+};
+
 export const useFCM = (userId?: string) => {
   useEffect(() => {
     // 🔴 UVEK logujem kada se hook pozove - i na web i na mobilnom
     const callTime = new Date().toLocaleTimeString();
+    const platform = Capacitor.getPlatform();
+    const isNative = Capacitor.isNativePlatform();
+
     console.log(`📱 [useFCM:${callTime}] Hook called with userId:`, userId ? `${userId.substring(0, 8)}...` : 'UNDEFINED');
     console.log(`📱 [useFCM:${callTime}] Window location:`, typeof window !== 'undefined' ? window.location.href : 'NO WINDOW');
-    console.log(`📱 [useFCM:${callTime}] Platform:`, Capacitor.getPlatform());
-    console.log(`📱 [useFCM:${callTime}] isNativePlatform:`, Capacitor.isNativePlatform());
+    console.log(`📱 [useFCM:${callTime}] Platform:`, platform);
+    console.log(`📱 [useFCM:${callTime}] isNativePlatform:`, isNative);
+
+    // Update global debug status
+    fcmDebugStatus = {
+      ...fcmDebugStatus,
+      lastAttempt: callTime,
+      platform: platform,
+      step: 'hook_started'
+    };
+
+    // 🔥 Show visible alert on MOBILE to confirm code is running (remove after debugging)
+    if (isNative && userId) {
+      // Using native alert so it's visible even if toasts don't work
+      setTimeout(() => {
+        console.log(`📱 [useFCM] NATIVE DETECTED - Starting FCM registration for ${userId.substring(0, 8)}...`);
+      }, 100);
+    }
 
     if (!userId) {
       console.warn(`⚠️ [useFCM:${callTime}] Skipping FCM setup - no userId provided`);
+      fcmDebugStatus.step = 'no_userId';
       return;
     }
 
     console.log(`✅ [useFCM:${callTime}] userId is valid - proceeding with FCM setup`);
+    fcmDebugStatus.step = 'userId_valid';
 
     // 🔥 DEBUG: Šalji log na server da vidimo da li hook uopšte radi na mobilnoj
     const sendDebugLog = async (step: string, data?: any) => {
@@ -102,6 +132,7 @@ export const useFCM = (userId?: string) => {
         // ========== MOBILNA VERZIJA - Android/iOS ==========
         console.log(`📱 [FCM:${setupTime}] MOBILNA VERZIJA DETEKTOVANA! Platform: ${platform}`);
         sendDebugLog('MOBILE DETECTED - Starting FCM setup', { platform });
+        fcmDebugStatus.step = 'mobile_detected';
 
         // 🔥 1. Kreiraj notification channel (samo Android)
         console.log(`📝 [FCM:${setupTime}] Kreiram notification channel...`);
@@ -162,9 +193,13 @@ export const useFCM = (userId?: string) => {
             const response = await apiRequest('POST', '/api/users/fcm-token', payload);
             console.log(`✅ [FCM:${regTime}] Token sačuvan na backend!`, response);
             sendDebugLog('TOKEN SAVED TO BACKEND!', { status: response.status });
+            fcmDebugStatus.step = 'token_saved';
+            fcmDebugStatus.tokenSaved = true;
           } catch (err: any) {
             console.error(`❌ [FCM:${regTime}] Greška pri slanju tokena:`, err);
             sendDebugLog('ERROR SAVING TOKEN', { error: err?.message || String(err) });
+            fcmDebugStatus.step = 'token_save_error';
+            fcmDebugStatus.error = err?.message || String(err);
           }
         });
 
@@ -173,6 +208,8 @@ export const useFCM = (userId?: string) => {
           clearTimeout(tokenTimeout);
           console.error(`❌ [FCM:${errTime}] Greška pri registraciji:`, err?.message || JSON.stringify(err));
           sendDebugLog('REGISTRATION ERROR!', { error: err?.message || JSON.stringify(err) });
+          fcmDebugStatus.step = 'registration_error';
+          fcmDebugStatus.error = err?.message || JSON.stringify(err);
         });
 
         PushNotifications.addListener('pushNotificationReceived', async (notification) => {
