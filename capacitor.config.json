@@ -16,7 +16,7 @@
       ]
     },
     "LiveUpdates": {
-      "appId": "YOUR_APPFLOW_APP_ID",
+      "appId": "870a70bb",
       "channel": "Production",
       "autoUpdateMethod": "background",
       "maxVersions": 2
