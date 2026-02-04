@@ -24,6 +24,29 @@ setupIonicReact({
   mode: "md",
 });
 
+// 🔄 Live Updates - Auto-sync new code on app startup
+if (Capacitor.isNativePlatform()) {
+  const syncLiveUpdates = async () => {
+    try {
+      const { LiveUpdates } = await import('@capacitor/live-updates');
+      console.log('🔄 [LIVE UPDATES] Checking for updates...');
+
+      // Sync in background - downloads new bundle if available
+      const result = await LiveUpdates.sync();
+      console.log('🔄 [LIVE UPDATES] Sync result:', result);
+
+      if (result.activeApplicationPathChanged) {
+        console.log('🔄 [LIVE UPDATES] New version available! Reloading app...');
+        // Reload app to apply new bundle
+        await LiveUpdates.reload();
+      }
+    } catch (error) {
+      console.error('🔄 [LIVE UPDATES] Error:', error);
+    }
+  };
+  syncLiveUpdates();
+}
+
 // 🔥 Mobile app ping - verify connection to server on startup
 if (Capacitor.isNativePlatform()) {
   const pingServer = async () => {
