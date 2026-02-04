@@ -2049,14 +2049,14 @@ ${scheduledTasksFormatted}`;
           }
         }
       } else if (department === 'maintenance') {
-        // Create maintenance task
+        // Create maintenance task - send directly to šef tehničke službe
         const maintenanceTask = await storage.createTask({
           title: `Zahtjev gosta - Soba ${guestRequest.room_number}`,
           description: guestRequest.description,
           location: `Soba ${guestRequest.room_number}`,
           room_number: guestRequest.room_number,
           priority: guestRequest.priority,
-          status: 'new',
+          status: 'with_sef', // 🔧 Changed from 'new' - send directly to šef
           created_by: sessionUser.id,
           created_by_name: sessionUser.full_name,
           created_by_department: 'recepcija',
@@ -2064,13 +2064,13 @@ ${scheduledTasksFormatted}`;
         updateData.linked_task_id = maintenanceTask.id;
         linkedTaskId = maintenanceTask.id;
 
-        // Notify operators
-        const operators = await storage.getUsersByRole('operater');
-        for (const operator of operators) {
+        // 🔔 Notify šef tehničke službe (not operators)
+        const supervisors = await storage.getUsersByRole('sef');
+        for (const supervisor of supervisors) {
           try {
             const { sendPushToAllUserDevices } = await import('./services/firebase');
             await sendPushToAllUserDevices(
-              operator.id,
+              supervisor.id,
               `Zahtjev gosta - Soba ${guestRequest.room_number}`,
               guestRequest.description.substring(0, 200),
               maintenanceTask.id,
@@ -2080,6 +2080,10 @@ ${scheduledTasksFormatted}`;
             console.error('Error sending push notification:', e);
           }
         }
+
+        // 🔌 Emit Socket.IO notification for real-time sound
+        notifyTaskUpdate(maintenanceTask);
+        console.log(`📢 [GUEST REQUEST] Task forwarded to maintenance, notified ${supervisors.length} supervisors via FCM and Socket.IO`);
       }
 
       const updatedRequest = await storage.updateGuestServiceRequest(id, updateData);
