@@ -1,3 +1,4 @@
+// Real-time Socket.IO Notifications - v2.0 (Feb 2026)
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
