@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { queryClient, apiRequest } from '@/lib/queryClient';
+import { io, Socket } from 'socket.io-client';
+import { Capacitor } from '@capacitor/core';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -89,6 +91,15 @@ export default function SupervisorDashboard() {
   const [previousNewTaskCount, setPreviousNewTaskCount] = useState<number>(0);
   const [previousReturnedTaskCount, setPreviousReturnedTaskCount] = useState<number>(0);
 
+  // Socket.IO refs for real-time notifications
+  const socketRef = useRef<Socket | null>(null);
+  const audioEnabledRef = useRef(audioEnabled);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    audioEnabledRef.current = audioEnabled;
+  }, [audioEnabled]);
+
   // Listen for sound setting changes from header toggle
   useEffect(() => {
     const handleStorageChange = () => {
@@ -149,6 +160,81 @@ export default function SupervisorDashboard() {
       console.error('Failed to play notification sound:', error);
     }
   };
+
+  // 🔌 Socket.IO connection for real-time notifications
+  useEffect(() => {
+    if (!user?.id) return;
+
+    // Connect to Socket.IO server
+    let socketUrl: string;
+    if (Capacitor.isNativePlatform()) {
+      socketUrl = import.meta.env.VITE_API_URL || "https://hotelmanagement-complete-production.up.railway.app";
+    } else {
+      socketUrl = window.location.origin;
+    }
+
+    console.log('[SUPERVISOR SOCKET.IO] Connecting to:', socketUrl);
+
+    const socket = io(socketUrl, {
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5,
+      path: '/socket.io',
+      autoConnect: true
+    });
+
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      console.log('[SUPERVISOR SOCKET.IO] ✅ Connected:', socket.id);
+      // Join supervisor room
+      socket.emit('worker:join', user.id);
+    });
+
+    // Listen for task updates - play sound when task is forwarded to sef
+    socket.on('task:updated', (taskData) => {
+      console.log('[SUPERVISOR SOCKET.IO] Task updated:', taskData.id, taskData.status);
+
+      // Play sound if task is forwarded to supervisor (with_sef) or returned (returned_to_sef)
+      if (taskData.status === 'with_sef' || taskData.status === 'returned_to_sef') {
+        console.log('[SUPERVISOR SOCKET.IO] 🔔 New task for supervisor! Status:', taskData.status);
+
+        // Play notification sound if enabled
+        if (audioEnabledRef.current) {
+          playNotificationSound();
+          console.log('[SUPERVISOR SOCKET.IO] 🔊 Sound played!');
+        }
+
+        // Show toast notification
+        toast({
+          title: taskData.status === 'with_sef' ? 'Novi zadatak!' : 'Zadatak vraćen!',
+          description: `${taskData.title} - ${taskData.location || taskData.description?.substring(0, 50) || ''}`,
+          duration: 8000,
+        });
+
+        // Refresh task list
+        queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+      }
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.log('[SUPERVISOR SOCKET.IO] Disconnected:', reason);
+    });
+
+    socket.on('connect_error', (error) => {
+      console.error('[SUPERVISOR SOCKET.IO] Connection error:', error.message);
+    });
+
+    // Cleanup on unmount
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.emit('worker:leave', user.id);
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+    };
+  }, [user?.id, toast]);
 
   // Fetch all tasks from API
   const { data: tasksResponse, isLoading } = useQuery<{ tasks: any[] }>({
