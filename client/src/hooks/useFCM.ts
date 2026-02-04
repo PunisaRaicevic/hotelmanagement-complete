@@ -46,17 +46,19 @@ export const useFCM = (userId?: string) => {
     console.log(`✅ [useFCM:${callTime}] userId is valid - proceeding with FCM setup`);
 
     // 🔥 DEBUG: Šalji log na server da vidimo da li hook uopšte radi na mobilnoj
-    const sendDebugLog = async (message: string, data?: any) => {
+    const sendDebugLog = async (step: string, data?: any) => {
       try {
         const { getApiUrl } = await import('@/lib/apiUrl');
-        await fetch(getApiUrl('/api/debug/log'), {
+        // Use dedicated FCM debug endpoint for better tracking
+        await fetch(getApiUrl('/api/mobile/fcm-debug'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            level: 'info',
-            args: [message, data],
-            timestamp: new Date().toISOString(),
-            platform: Capacitor.getPlatform()
+            userId: userId,
+            platform: Capacitor.getPlatform(),
+            step: step,
+            data: data,
+            timestamp: new Date().toISOString()
           })
         });
       } catch (e) {

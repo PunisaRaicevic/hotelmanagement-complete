@@ -573,6 +573,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Mobile app ping endpoint - called on app startup to verify connection
+  app.get("/api/mobile/ping", (req, res) => {
+    const userAgent = req.headers['user-agent'] || 'unknown';
+    console.log(`📲 [MOBILE PING] Request received! User-Agent: ${userAgent}`);
+    res.json({
+      ok: true,
+      serverTime: new Date().toISOString(),
+      message: "Mobile app successfully connected to server"
+    });
+  });
+
+  app.post("/api/mobile/fcm-debug", (req, res) => {
+    const { userId, platform, step, data } = req.body;
+    console.log(`🔔 [FCM DEBUG] User: ${userId?.substring(0, 8) || 'N/A'}, Platform: ${platform}, Step: ${step}`);
+    if (data) console.log(`🔔 [FCM DEBUG] Data:`, data);
+    res.json({ ok: true });
+  });
+
   // Admin: Get all users
   app.get("/api/users", requireAdmin, async (req, res) => {
     try {

@@ -24,6 +24,21 @@ setupIonicReact({
   mode: "md",
 });
 
+// 🔥 Mobile app ping - verify connection to server on startup
+if (Capacitor.isNativePlatform()) {
+  const pingServer = async () => {
+    try {
+      const { getApiUrl } = await import('@/lib/apiUrl');
+      const response = await fetch(getApiUrl('/api/mobile/ping'));
+      const data = await response.json();
+      console.log('📲 [APP PING] Server response:', data);
+    } catch (error) {
+      console.error('📲 [APP PING] Failed to ping server:', error);
+    }
+  };
+  pingServer();
+}
+
 function Router() {
   const { user, login, loading } = useAuth();
 
