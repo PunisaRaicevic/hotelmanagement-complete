@@ -1805,7 +1805,41 @@ ${scheduledTasksFormatted}`;
         images,
       });
 
-      // TODO: Send notification to relevant staff (operater for maintenance, sef_domacinstva for housekeeping)
+      // 🔔 NOTIFY RECEPTIONISTS when guest submits a request
+      try {
+        const receptionists = await storage.getUsersByRole('recepcioner');
+        const { sendPushToAllUserDevices } = await import('./services/firebase');
+        const { getIO } = await import('./socket');
+
+        for (const receptionist of receptionists) {
+          // FCM Push notification
+          sendPushToAllUserDevices(
+            receptionist.id,
+            `Novi zahtjev gosta - Soba ${roomNumber}`,
+            description.substring(0, 150),
+            request.id,
+            priority || 'normal'
+          ).catch(e => console.error('FCM error:', e));
+        }
+
+        // Socket.IO broadcast for real-time sound
+        const io = getIO();
+        if (io) {
+          io.emit('guest-request:new', {
+            id: request.id,
+            room_number: roomNumber,
+            request_type,
+            description: description.substring(0, 100),
+            guest_name: guest_name || room.guest_name,
+            priority: priority || 'normal',
+            created_at: new Date().toISOString()
+          });
+        }
+
+        console.log(`📢 [GUEST REQUEST] New request from room ${roomNumber}, notified ${receptionists.length} receptionists`);
+      } catch (notifyError) {
+        console.error('Error sending notifications:', notifyError);
+      }
 
       res.status(201).json({
         success: true,

@@ -192,8 +192,8 @@ export default function AppHeader() {
           <span className="text-base font-medium">{i18n.language.toUpperCase()}</span>
         </Button>
 
-        {/* Sound toggle - for workers, operators, supervisors and housekeeping supervisor */}
-        {(user?.role === 'radnik' || user?.role === 'operater' || user?.role === 'sef' || user?.role === 'sef_domacinstva') && (
+        {/* Sound toggle - for workers, operators, supervisors, housekeeping supervisor, and receptionists */}
+        {(user?.role === 'radnik' || user?.role === 'operater' || user?.role === 'sef' || user?.role === 'sef_domacinstva' || user?.role === 'recepcioner' || user?.role === 'admin') && (
           <Button
             variant={audioEnabled ? "default" : "outline"}
             onClick={toggleAudio}

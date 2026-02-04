@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -12,6 +12,8 @@ import { useToast } from '@/hooks/use-toast';
 import CreateTaskDialog from '@/components/CreateTaskDialog';
 import SelectTechnicianDialog from '@/components/SelectTechnicianDialog';
 import TaskDetailsDialog from '@/components/TaskDetailsDialog';
+import { io, Socket } from 'socket.io-client';
+import { Capacitor } from '@capacitor/core';
 
 type Task = {
   id: string;
@@ -98,6 +100,15 @@ export default function OperatorDashboard() {
     const saved = localStorage.getItem('soundNotificationsEnabled');
     return saved === 'true';
   });
+
+  // Socket.IO refs
+  const socketRef = useRef<Socket | null>(null);
+  const audioEnabledRef = useRef(audioEnabled);
+
+  // Keep ref in sync
+  useEffect(() => {
+    audioEnabledRef.current = audioEnabled;
+  }, [audioEnabled]);
 
   // Listen for sound setting changes from header toggle
   useEffect(() => {
@@ -320,6 +331,69 @@ export default function OperatorDashboard() {
       console.error('Failed to play notification sound:', error);
     }
   };
+
+  // 🔌 Socket.IO connection for real-time notifications
+  useEffect(() => {
+    if (!user?.id) return;
+
+    let socketUrl: string;
+    if (Capacitor.isNativePlatform()) {
+      socketUrl = import.meta.env.VITE_API_URL || "https://hotelmanagement-complete-production.up.railway.app";
+    } else {
+      socketUrl = window.location.origin;
+    }
+
+    console.log('[OPERATOR SOCKET.IO] Connecting to:', socketUrl);
+
+    const socket = io(socketUrl, {
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      path: '/socket.io',
+      autoConnect: true
+    });
+
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      console.log('[OPERATOR SOCKET.IO] ✅ Connected:', socket.id);
+      socket.emit('worker:join', user.id);
+    });
+
+    // Listen for new tasks (status = 'new' or 'with_operator')
+    socket.on('task:updated', (taskData) => {
+      console.log('[OPERATOR SOCKET.IO] Task updated:', taskData.id, taskData.status);
+
+      // Play sound for new tasks or tasks returned to operator
+      if (taskData.status === 'new' || taskData.status === 'with_operator' || taskData.status === 'returned_to_operator') {
+        console.log('[OPERATOR SOCKET.IO] 🔔 New/Returned task for operator!');
+
+        if (audioEnabledRef.current) {
+          playNotificationSound();
+          console.log('[OPERATOR SOCKET.IO] 🔊 Sound played!');
+        }
+
+        toast({
+          title: taskData.status === 'returned_to_operator' ? 'Zadatak vraćen!' : 'Nova reklamacija!',
+          description: `${taskData.title} - ${taskData.location || ''}`,
+          duration: 8000,
+        });
+
+        queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+      }
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.log('[OPERATOR SOCKET.IO] Disconnected:', reason);
+    });
+
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.emit('worker:leave', user.id);
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+    };
+  }, [user?.id, toast]);
 
   // Monitor new tasks and play sound when count increases
   useEffect(() => {

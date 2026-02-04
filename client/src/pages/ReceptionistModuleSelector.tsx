@@ -1,15 +1,135 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { IonContent, IonPage, IonHeader, IonToolbar, IonTitle, IonButtons, IonButton } from '@ionic/react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Home, MessageSquarePlus, LogOut, ArrowLeft } from 'lucide-react';
 import HousekeepingSupervisorDashboard from './HousekeepingSupervisorDashboard';
 import ComplaintSubmissionDashboard from './ComplaintSubmissionDashboard';
+import { io, Socket } from 'socket.io-client';
+import { Capacitor } from '@capacitor/core';
+import { useToast } from '@/hooks/use-toast';
 
 type ModuleType = 'selector' | 'domacinstvo' | 'reklamacije';
 
 export default function ReceptionistModuleSelector() {
   const { user, logout } = useAuth();
+  const { toast } = useToast();
   const [selectedModule, setSelectedModule] = useState<ModuleType>('selector');
+
+  // Socket.IO ref for real-time notifications
+  const socketRef = useRef<Socket | null>(null);
+
+  // Sound notification state
+  const [audioEnabled, setAudioEnabled] = useState(() => {
+    const saved = localStorage.getItem('soundNotificationsEnabled');
+    return saved === 'true';
+  });
+  const audioEnabledRef = useRef(audioEnabled);
+
+  // Keep ref in sync
+  useEffect(() => {
+    audioEnabledRef.current = audioEnabled;
+  }, [audioEnabled]);
+
+  // Listen for sound setting changes
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const saved = localStorage.getItem('soundNotificationsEnabled');
+      setAudioEnabled(saved === 'true');
+    };
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('soundSettingChanged', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('soundSettingChanged', handleStorageChange);
+    };
+  }, []);
+
+  // Play notification sound
+  const playNotificationSound = () => {
+    try {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      oscillator.frequency.value = 800;
+      oscillator.type = 'sine';
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.1);
+      setTimeout(() => {
+        const osc2 = audioContext.createOscillator();
+        const gain2 = audioContext.createGain();
+        osc2.connect(gain2);
+        gain2.connect(audioContext.destination);
+        osc2.frequency.value = 1000;
+        osc2.type = 'sine';
+        gain2.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gain2.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+        osc2.start(audioContext.currentTime);
+        osc2.stop(audioContext.currentTime + 0.1);
+      }, 100);
+    } catch (error) {
+      console.error('Sound error:', error);
+    }
+  };
+
+  // 🔌 Socket.IO connection for real-time guest request notifications
+  useEffect(() => {
+    if (!user?.id) return;
+
+    let socketUrl: string;
+    if (Capacitor.isNativePlatform()) {
+      socketUrl = import.meta.env.VITE_API_URL || "https://hotelmanagement-complete-production.up.railway.app";
+    } else {
+      socketUrl = window.location.origin;
+    }
+
+    console.log('[RECEPTIONIST SOCKET.IO] Connecting to:', socketUrl);
+
+    const socket = io(socketUrl, {
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      path: '/socket.io',
+      autoConnect: true
+    });
+
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      console.log('[RECEPTIONIST SOCKET.IO] ✅ Connected:', socket.id);
+      socket.emit('worker:join', user.id);
+    });
+
+    // Listen for new guest requests
+    socket.on('guest-request:new', (data) => {
+      console.log('[RECEPTIONIST SOCKET.IO] 🔔 New guest request:', data);
+
+      if (audioEnabledRef.current) {
+        playNotificationSound();
+        console.log('[RECEPTIONIST SOCKET.IO] 🔊 Sound played!');
+      }
+
+      toast({
+        title: `Novi zahtjev gosta - Soba ${data.room_number}`,
+        description: data.description?.substring(0, 80) || 'Novi zahtjev',
+        duration: 8000,
+      });
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.log('[RECEPTIONIST SOCKET.IO] Disconnected:', reason);
+    });
+
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.emit('worker:leave', user.id);
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+    };
+  }, [user?.id, toast]);
 
   const handleLogout = async () => {
     try {
