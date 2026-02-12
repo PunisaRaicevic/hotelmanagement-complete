@@ -36,6 +36,7 @@ import {
   Forward,
 } from 'lucide-react';
 import GuestRequestChat from './GuestRequestChat';
+import SelectHousekeeperDialog from './SelectHousekeeperDialog';
 import { getApiUrl } from '@/lib/apiUrl';
 
 interface Room {
@@ -158,6 +159,8 @@ export default function RoomDetailDialog({
   const [guestRequests, setGuestRequests] = useState<GuestServiceRequest[]>([]);
   const [selectedRequest, setSelectedRequest] = useState<GuestServiceRequest | null>(null);
   const [isForwarding, setIsForwarding] = useState(false);
+  const [showHousekeeperDialog, setShowHousekeeperDialog] = useState(false);
+  const [checkoutRoomData, setCheckoutRoomData] = useState<{ roomId: string; roomNumber: string } | null>(null);
 
   // Local room state that can be updated after check-in
   const [room, setRoom] = useState<Room | null>(roomProp);
@@ -319,6 +322,9 @@ export default function RoomDetailDialog({
 
       if (response.ok) {
         const data = await response.json();
+        // Save room data for housekeeper dialog before updating state
+        const roomId = room.id;
+        const roomNumber = room.room_number;
         // Update local room state with the response data (token cleared)
         if (data.room) {
           setRoom(data.room);
@@ -326,6 +332,9 @@ export default function RoomDetailDialog({
         toast({ title: 'Uspješno', description: 'Gost je odjavljen, QR kod je nevažeći' });
         onRoomUpdated();
         setActiveTab('info');
+        // Open housekeeper assignment dialog
+        setCheckoutRoomData({ roomId, roomNumber });
+        setShowHousekeeperDialog(true);
       } else {
         const error = await response.json();
         toast({ title: 'Greška', description: error.error, variant: 'destructive' });
@@ -887,6 +896,24 @@ export default function RoomDetailDialog({
           </TabsContent>
         </Tabs>
       </DialogContent>
+
+      {/* Housekeeper assignment dialog after checkout */}
+      {checkoutRoomData && (
+        <SelectHousekeeperDialog
+          open={showHousekeeperDialog}
+          onOpenChange={setShowHousekeeperDialog}
+          roomId={checkoutRoomData.roomId}
+          roomNumber={checkoutRoomData.roomNumber}
+          onTaskCreated={() => {
+            toast({ title: 'Uspješno', description: 'Sobarica je obaviještena o čišćenju sobe' });
+            setCheckoutRoomData(null);
+            onRoomUpdated();
+          }}
+          onSkip={() => {
+            setCheckoutRoomData(null);
+          }}
+        />
+      )}
     </Dialog>
   );
 }
