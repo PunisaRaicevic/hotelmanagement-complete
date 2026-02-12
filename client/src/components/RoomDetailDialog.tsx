@@ -34,6 +34,8 @@ import {
   Home,
   ArrowLeft,
   Forward,
+  Bell,
+  PlayCircle,
 } from 'lucide-react';
 import GuestRequestChat from './GuestRequestChat';
 import SelectHousekeeperDialog from './SelectHousekeeperDialog';
@@ -80,6 +82,19 @@ interface GuestServiceRequest {
   forwarded_by_name?: string;
 }
 
+interface HousekeepingTask {
+  id: string;
+  room_id: string;
+  assigned_to_name?: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'inspected' | 'needs_rework';
+  priority: string;
+  guest_requests?: string;
+  issues_found?: string;
+  created_at: string;
+  started_at?: string;
+  completed_at?: string;
+}
+
 interface RoomDetailDialogProps {
   room: Room | null;
   open: boolean;
@@ -118,6 +133,14 @@ const bedTypeLabels: Record<string, string> = {
   twin: 'Twin',
   king: 'King',
   queen: 'Queen',
+};
+
+const taskStatusConfig: Record<string, { label: string; color: string }> = {
+  pending: { label: 'Čeka', color: 'text-yellow-700 bg-yellow-100' },
+  in_progress: { label: 'U toku', color: 'text-blue-700 bg-blue-100' },
+  completed: { label: 'Završeno', color: 'text-green-700 bg-green-100' },
+  inspected: { label: 'Pregledano', color: 'text-purple-700 bg-purple-100' },
+  needs_rework: { label: 'Potrebna dorada', color: 'text-red-700 bg-red-100' },
 };
 
 const requestTypeLabels: Record<string, string> = {
@@ -161,6 +184,9 @@ export default function RoomDetailDialog({
   const [isForwarding, setIsForwarding] = useState(false);
   const [showHousekeeperDialog, setShowHousekeeperDialog] = useState(false);
   const [checkoutRoomData, setCheckoutRoomData] = useState<{ roomId: string; roomNumber: string } | null>(null);
+  const [activeTask, setActiveTask] = useState<HousekeepingTask | null>(null);
+  const [isLoadingTask, setIsLoadingTask] = useState(false);
+  const [issuesText, setIssuesText] = useState('');
 
   // Local room state that can be updated after check-in
   const [room, setRoom] = useState<Room | null>(roomProp);
@@ -214,6 +240,92 @@ export default function RoomDetailDialog({
       }
     } catch (error) {
       console.error('Error fetching guest requests:', error);
+    }
+  };
+
+  const fetchActiveTask = async () => {
+    if (!room) return;
+    setIsLoadingTask(true);
+    try {
+      const response = await fetch(getApiUrl(`/api/housekeeping/tasks?room_id=${room.id}`), {
+        headers: getAuthHeaders(),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const tasks: HousekeepingTask[] = data.tasks || data || [];
+        // Find the most recent non-completed/non-inspected task, or fall back to the latest
+        const active = tasks.find(
+          (t) => t.status !== 'completed' && t.status !== 'inspected'
+        ) || (tasks.length > 0 ? tasks[0] : null);
+        setActiveTask(active);
+        if (active?.issues_found) {
+          setIssuesText(active.issues_found);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching housekeeping task:', error);
+    } finally {
+      setIsLoadingTask(false);
+    }
+  };
+
+  useEffect(() => {
+    if (room) {
+      fetchActiveTask();
+    }
+  }, [room?.id]);
+
+  const handleAcceptTask = async () => {
+    if (!activeTask) return;
+    setIsLoading(true);
+    try {
+      const response = await fetch(getApiUrl(`/api/housekeeping/tasks/${activeTask.id}`), {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify({ status: 'in_progress' }),
+      });
+      if (response.ok) {
+        toast({ title: 'Uspješno', description: 'Zadatak je prihvaćen' });
+        onRoomUpdated();
+        await fetchActiveTask();
+      } else {
+        const error = await response.json();
+        toast({ title: 'Greška', description: error.error || 'Nije moguće prihvatiti zadatak', variant: 'destructive' });
+      }
+    } catch (error) {
+      toast({ title: 'Greška', description: 'Došlo je do greške', variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCompleteTask = async () => {
+    if (!activeTask) return;
+    setIsLoading(true);
+    try {
+      const response = await fetch(getApiUrl(`/api/housekeeping/tasks/${activeTask.id}`), {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify({ status: 'completed', issues_found: issuesText || undefined }),
+      });
+      if (response.ok) {
+        toast({ title: 'Uspješno', description: 'Čišćenje je označeno kao završeno' });
+        onRoomUpdated();
+        await fetchActiveTask();
+      } else {
+        const error = await response.json();
+        toast({ title: 'Greška', description: error.error || 'Nije moguće završiti zadatak', variant: 'destructive' });
+      }
+    } catch (error) {
+      toast({ title: 'Greška', description: 'Došlo je do greške', variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -567,6 +679,114 @@ export default function RoomDetailDialog({
                 </div>
               )}
             </Card>
+
+            {/* Housekeeping Task Card */}
+            {activeTask && (
+              <Card className="p-4 border-amber-200 bg-amber-50/50 dark:bg-amber-950/20">
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <Bell className="w-4 h-4" />
+                  Obavijest o čišćenju
+                </h3>
+                <div className="space-y-2 text-sm">
+                  {activeTask.assigned_to_name && (
+                    <div className="flex items-center gap-2">
+                      <User className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">Sobarica:</span>
+                      <span className="font-medium">{activeTask.assigned_to_name}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">Status:</span>
+                    <Badge className={taskStatusConfig[activeTask.status]?.color || ''}>
+                      {taskStatusConfig[activeTask.status]?.label || activeTask.status}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">Prioritet:</span>
+                    <Badge variant={activeTask.priority === 'urgent' ? 'destructive' : 'secondary'}>
+                      {activeTask.priority === 'urgent' ? 'Hitno' : 'Normalan'}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">Kreirano:</span>
+                    <span className="font-medium">{formatDateTime(activeTask.created_at)}</span>
+                  </div>
+                  {activeTask.guest_requests && (
+                    <div className="flex items-start gap-2">
+                      <MessageSquare className="w-4 h-4 text-muted-foreground mt-0.5" />
+                      <span className="text-muted-foreground">Poruka:</span>
+                      <span className="font-medium">{activeTask.guest_requests}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Actions based on status */}
+                {activeTask.status === 'pending' && (
+                  <div className="mt-4 pt-3 border-t">
+                    <Button
+                      className="w-full bg-yellow-500 hover:bg-yellow-600 text-white"
+                      onClick={handleAcceptTask}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      ) : (
+                        <PlayCircle className="w-4 h-4 mr-2" />
+                      )}
+                      Prihvati zadatak
+                    </Button>
+                  </div>
+                )}
+
+                {activeTask.status === 'in_progress' && (
+                  <div className="mt-4 pt-3 border-t space-y-3">
+                    <div>
+                      <Label htmlFor="issues_found" className="text-sm font-medium">
+                        Napomene (opcionalno)
+                      </Label>
+                      <Textarea
+                        id="issues_found"
+                        placeholder="Nešto nedostaje, polomljeno, itd."
+                        value={issuesText}
+                        onChange={(e) => setIssuesText(e.target.value)}
+                        className="mt-1"
+                        rows={3}
+                      />
+                    </div>
+                    <Button
+                      className="w-full bg-green-600 hover:bg-green-700 text-white"
+                      onClick={handleCompleteTask}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      ) : (
+                        <CheckCircle2 className="w-4 h-4 mr-2" />
+                      )}
+                      Završi čišćenje
+                    </Button>
+                  </div>
+                )}
+
+                {activeTask.status === 'completed' && (
+                  <div className="mt-4 pt-3 border-t">
+                    {activeTask.issues_found && (
+                      <div className="p-2 bg-muted rounded text-sm mb-2">
+                        <span className="text-muted-foreground">Napomene: </span>
+                        {activeTask.issues_found}
+                      </div>
+                    )}
+                    <Badge className="bg-green-100 text-green-700">
+                      <CheckCircle2 className="w-3 h-3 mr-1" />
+                      Završeno {activeTask.completed_at ? formatDateTime(activeTask.completed_at) : ''}
+                    </Badge>
+                  </div>
+                )}
+              </Card>
+            )}
           </TabsContent>
 
           {/* Check-in Tab */}
@@ -908,6 +1128,7 @@ export default function RoomDetailDialog({
             toast({ title: 'Uspješno', description: 'Sobarica je obaviještena o čišćenju sobe' });
             setCheckoutRoomData(null);
             onRoomUpdated();
+            fetchActiveTask();
           }}
           onSkip={() => {
             setCheckoutRoomData(null);
