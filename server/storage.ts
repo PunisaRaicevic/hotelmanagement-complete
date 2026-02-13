@@ -75,7 +75,7 @@ export interface IStorage {
   getRoomStatusHistory(roomId: string): Promise<RoomStatusHistory[]>;
 
   // Housekeeping - Tasks
-  getHousekeepingTasks(): Promise<HousekeepingTask[]>;
+  getHousekeepingTasks(activeOnly?: boolean): Promise<HousekeepingTask[]>;
   getHousekeepingTaskById(id: string): Promise<HousekeepingTask | undefined>;
   getHousekeepingTasksByRoom(roomId: string): Promise<HousekeepingTask[]>;
   getHousekeepingTasksByAssignee(userId: string): Promise<HousekeepingTask[]>;
@@ -647,13 +647,20 @@ export class SupabaseStorage implements IStorage {
   // HOUSEKEEPING - TASKS
   // =============================================
 
-  async getHousekeepingTasks(): Promise<HousekeepingTask[]> {
-    const { data, error } = await supabase
+  async getHousekeepingTasks(activeOnly: boolean = false): Promise<HousekeepingTask[]> {
+    let query = supabase
       .from('housekeeping_tasks')
-      .select('*')
+      .select('*');
+
+    if (activeOnly) {
+      query = query.in('status', ['pending', 'in_progress', 'needs_rework']);
+    }
+
+    query = query
       .order('scheduled_date', { ascending: true })
       .order('priority', { ascending: false });
 
+    const { data, error } = await query;
     if (error) throw error;
     return (data || []) as HousekeepingTask[];
   }

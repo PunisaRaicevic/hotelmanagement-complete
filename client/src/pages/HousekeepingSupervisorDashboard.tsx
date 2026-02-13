@@ -318,7 +318,7 @@ export default function HousekeepingSupervisorDashboard() {
     try {
       const [roomsRes, tasksRes, housekeepersRes, guestRequestsRes] = await Promise.all([
         fetch(getApiUrl('/api/rooms'), { credentials: 'include', headers: getAuthHeaders() }),
-        fetch(getApiUrl('/api/housekeeping/tasks'), { credentials: 'include', headers: getAuthHeaders() }),
+        fetch(getApiUrl('/api/housekeeping/tasks?active_only=true'), { credentials: 'include', headers: getAuthHeaders() }),
         fetch(getApiUrl('/api/housekeepers'), { credentials: 'include', headers: getAuthHeaders() }),
         fetch(getApiUrl('/api/guest-requests'), { credentials: 'include', headers: getAuthHeaders() }),
       ]);

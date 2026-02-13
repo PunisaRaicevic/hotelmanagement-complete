@@ -199,6 +199,7 @@ const getRoomStatusSummary = (room: Room, task?: HousekeepingTask): string => {
   if (room.status === 'out_of_order') return 'Van funkcije';
   if (room.status === 'do_not_disturb') return 'Ne uznemiravaj';
   if (task) {
+    if (task.status === 'needs_rework') return 'Potrebna dorada';
     if (task.status === 'in_progress' && task.assigned_to_name) {
       return `Čisti: ${task.assigned_to_name}`;
     }
@@ -254,9 +255,14 @@ export default function RoomGridView({ rooms, tasks = [], onRoomClick }: RoomGri
     inspected: floorRooms.filter((r) => r.status === 'inspected').length,
   });
 
-  // Get task for room
+  // Get active task for room - prefer in_progress over pending, most recent first
   const getTaskForRoom = (roomId: string) => {
-    return tasks.find((t) => t.room_id === roomId && ['pending', 'in_progress'].includes(t.status));
+    const roomTasks = tasks.filter((t) => t.room_id === roomId && ['pending', 'in_progress', 'needs_rework'].includes(t.status));
+    if (roomTasks.length === 0) return undefined;
+    // Prefer in_progress tasks, then needs_rework, then pending
+    const statusPriority: Record<string, number> = { in_progress: 0, needs_rework: 1, pending: 2 };
+    roomTasks.sort((a, b) => (statusPriority[a.status] ?? 9) - (statusPriority[b.status] ?? 9));
+    return roomTasks[0];
   };
 
   const RoomTile = ({ room }: { room: Room }) => {

@@ -2211,9 +2211,11 @@ ${scheduledTasksFormatted}`;
   // ----- HOUSEKEEPING TASKS -----
 
   // Get all housekeeping tasks
+  // Use ?active_only=true to get only pending/in_progress/needs_rework tasks (for dashboard)
   app.get("/api/housekeeping/tasks", requireHousekeepingAccess, async (req, res) => {
     try {
-      const { room_id, assigned_to, date } = req.query;
+      const { room_id, assigned_to, date, active_only } = req.query;
+      const activeOnly = active_only === 'true';
 
       let tasks;
       if (room_id) {
@@ -2223,7 +2225,7 @@ ${scheduledTasksFormatted}`;
       } else if (date) {
         tasks = await storage.getHousekeepingTasksByDate(date as string);
       } else {
-        tasks = await storage.getHousekeepingTasks();
+        tasks = await storage.getHousekeepingTasks(activeOnly);
       }
 
       res.json({ tasks });
@@ -2331,18 +2333,28 @@ ${scheduledTasksFormatted}`;
 
         if (updateData.status === 'completed' && currentTask.status !== 'completed') {
           updateData.completed_at = new Date().toISOString();
-          // Update room status to clean
-          await storage.updateRoom(currentTask.room_id, { status: 'clean' });
+          // Update room status to clean and reset occupancy if it was checkout
+          const room = await storage.getRoomById(currentTask.room_id);
+          const roomUpdate: any = { status: 'clean', last_cleaned_at: new Date().toISOString() };
+          if (room?.occupancy_status === 'checkout') {
+            roomUpdate.occupancy_status = 'vacant';
+          }
+          await storage.updateRoom(currentTask.room_id, roomUpdate);
         }
 
         if (updateData.status === 'inspected') {
           updateData.inspected_at = new Date().toISOString();
-          // Update room status to inspected
-          await storage.updateRoom(currentTask.room_id, {
+          // Update room status to inspected and reset occupancy if it was checkout
+          const roomForInspect = await storage.getRoomById(currentTask.room_id);
+          const inspectUpdate: any = {
             status: 'inspected',
             last_inspected_at: new Date().toISOString(),
             last_inspected_by: sessionUser.id
-          } as any);
+          };
+          if (roomForInspect?.occupancy_status === 'checkout') {
+            inspectUpdate.occupancy_status = 'vacant';
+          }
+          await storage.updateRoom(currentTask.room_id, inspectUpdate);
         }
 
         if (updateData.status === 'needs_rework') {
