@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import { QRCodeSVG } from 'qrcode.react';
 import {
   User,
@@ -176,6 +177,7 @@ export default function RoomDetailDialog({
   onRoomUpdated,
 }: RoomDetailDialogProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('info');
   const [isLoading, setIsLoading] = useState(false);
   const [isSendingToDisplay, setIsSendingToDisplay] = useState(false);
@@ -377,7 +379,7 @@ export default function RoomDetailDialog({
       const token = localStorage.getItem('authToken');
       console.log('Starting check-in for room:', room.id);
 
-      const response = await fetch(`/api/rooms/${room.id}/checkin`, {
+      const response = await fetch(getApiUrl(`/api/rooms/${room.id}/checkin`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -424,7 +426,7 @@ export default function RoomDetailDialog({
     setIsLoading(true);
     try {
       const token = localStorage.getItem('authToken');
-      const response = await fetch(`/api/rooms/${room.id}/checkout`, {
+      const response = await fetch(getApiUrl(`/api/rooms/${room.id}/checkout`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -465,7 +467,7 @@ export default function RoomDetailDialog({
     setIsSendingToDisplay(true);
     try {
       const token = localStorage.getItem('authToken');
-      const response = await fetch(`/api/rooms/${room.id}/show-qr-to-display`, {
+      const response = await fetch(getApiUrl(`/api/rooms/${room.id}/show-qr-to-display`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -537,10 +539,10 @@ export default function RoomDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-y-auto p-3 sm:p-6">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-3">
-            <span className="text-2xl font-bold">Soba {room.room_number}</span>
+          <DialogTitle className="flex items-center gap-2 sm:gap-3 flex-wrap">
+            <span className="text-xl sm:text-2xl font-bold">Soba {room.room_number}</span>
             <div className={`w-3 h-3 rounded-full ${status.color}`} />
             <Badge className={occupancy.color}>{occupancy.label}</Badge>
           </DialogTitle>
@@ -548,12 +550,12 @@ export default function RoomDetailDialog({
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="info">Info</TabsTrigger>
-            <TabsTrigger value="checkin">Check-in</TabsTrigger>
-            <TabsTrigger value="qrcode" disabled={!hasActiveToken}>
+            <TabsTrigger value="info" className="text-xs sm:text-sm px-1 sm:px-3">Info</TabsTrigger>
+            <TabsTrigger value="checkin" className="text-xs sm:text-sm px-1 sm:px-3">Check-in</TabsTrigger>
+            <TabsTrigger value="qrcode" disabled={!hasActiveToken} className="text-xs sm:text-sm px-1 sm:px-3">
               QR Kod
             </TabsTrigger>
-            <TabsTrigger value="requests">Zahtjevi</TabsTrigger>
+            <TabsTrigger value="requests" className="text-xs sm:text-sm px-1 sm:px-3">Zahtjevi</TabsTrigger>
           </TabsList>
 
           {/* Info Tab */}
@@ -563,24 +565,24 @@ export default function RoomDetailDialog({
                 <Building2 className="w-4 h-4" />
                 Detalji sobe
               </h3>
-              <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 text-sm">
                 <div className="flex items-center gap-2">
-                  <Building2 className="w-4 h-4 text-muted-foreground" />
+                  <Building2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                   <span className="text-muted-foreground">Sprat:</span>
                   <span className="font-medium">{room.floor}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-muted-foreground" />
+                  <Sparkles className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                   <span className="text-muted-foreground">Kategorija:</span>
                   <span className="font-medium">{categoryLabels[room.category] || room.category}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Bed className="w-4 h-4 text-muted-foreground" />
+                  <Bed className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                   <span className="text-muted-foreground">Krevet:</span>
                   <span className="font-medium">{bedTypeLabels[room.bed_type || 'double']}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Users className="w-4 h-4 text-muted-foreground" />
+                  <Users className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                   <span className="text-muted-foreground">Kapacitet:</span>
                   <span className="font-medium">{room.max_occupancy || 2} osoba</span>
                 </div>
@@ -608,14 +610,14 @@ export default function RoomDetailDialog({
                   <User className="w-4 h-4" />
                   Podaci o gostu
                 </h3>
-                <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 text-sm">
                   <div className="flex items-center gap-2">
-                    <User className="w-4 h-4 text-muted-foreground" />
+                    <User className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                     <span className="text-muted-foreground">Ime:</span>
-                    <span className="font-medium">{room.guest_name}</span>
+                    <span className="font-medium truncate">{room.guest_name}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4 text-muted-foreground" />
+                    <Users className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                     <span className="text-muted-foreground">Broj gostiju:</span>
                     <span className="font-medium">{room.guest_count || 1}</span>
                   </div>
@@ -660,14 +662,14 @@ export default function RoomDetailDialog({
                 <Sparkles className="w-4 h-4" />
                 Čišćenje i pregled
               </h3>
-              <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 text-sm">
                 <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-muted-foreground" />
+                  <Clock className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                   <span className="text-muted-foreground">Zadnje čišćenje:</span>
                   <span className="font-medium">{formatDateTime(room.last_cleaned_at)}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Eye className="w-4 h-4 text-muted-foreground" />
+                  <Eye className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                   <span className="text-muted-foreground">Zadnji pregled:</span>
                   <span className="font-medium">{formatDateTime(room.last_inspected_at)}</span>
                 </div>
@@ -723,51 +725,71 @@ export default function RoomDetailDialog({
                   )}
                 </div>
 
-                {/* Actions based on status */}
+                {/* Actions based on status and role */}
                 {activeTask.status === 'pending' && (
                   <div className="mt-4 pt-3 border-t">
-                    <Button
-                      className="w-full bg-yellow-500 hover:bg-yellow-600 text-white"
-                      onClick={handleAcceptTask}
-                      disabled={isLoading}
-                    >
-                      {isLoading ? (
-                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      ) : (
-                        <PlayCircle className="w-4 h-4 mr-2" />
-                      )}
-                      Prihvati zadatak
-                    </Button>
+                    {user?.role === 'sobarica' ? (
+                      <Button
+                        className="w-full bg-yellow-500 hover:bg-yellow-600 text-white"
+                        onClick={handleAcceptTask}
+                        disabled={isLoading}
+                      >
+                        {isLoading ? (
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        ) : (
+                          <PlayCircle className="w-4 h-4 mr-2" />
+                        )}
+                        Prihvati zadatak
+                      </Button>
+                    ) : (
+                      <div className="flex items-center gap-2 p-3 bg-amber-100 dark:bg-amber-950/40 rounded-lg text-sm">
+                        <Clock className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                        <span className="text-amber-800 dark:text-amber-300">
+                          Zadatak dodijeljen{activeTask.assigned_to_name ? ` sobarici ${activeTask.assigned_to_name}` : ''}. Čeka se prihvat.
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {activeTask.status === 'in_progress' && (
                   <div className="mt-4 pt-3 border-t space-y-3">
-                    <div>
-                      <Label htmlFor="issues_found" className="text-sm font-medium">
-                        Napomene (opcionalno)
-                      </Label>
-                      <Textarea
-                        id="issues_found"
-                        placeholder="Nešto nedostaje, polomljeno, itd."
-                        value={issuesText}
-                        onChange={(e) => setIssuesText(e.target.value)}
-                        className="mt-1"
-                        rows={3}
-                      />
-                    </div>
-                    <Button
-                      className="w-full bg-green-600 hover:bg-green-700 text-white"
-                      onClick={handleCompleteTask}
-                      disabled={isLoading}
-                    >
-                      {isLoading ? (
-                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      ) : (
-                        <CheckCircle2 className="w-4 h-4 mr-2" />
-                      )}
-                      Završi čišćenje
-                    </Button>
+                    {user?.role === 'sobarica' ? (
+                      <>
+                        <div>
+                          <Label htmlFor="issues_found" className="text-sm font-medium">
+                            Napomene (opcionalno)
+                          </Label>
+                          <Textarea
+                            id="issues_found"
+                            placeholder="Nešto nedostaje, polomljeno, itd."
+                            value={issuesText}
+                            onChange={(e) => setIssuesText(e.target.value)}
+                            className="mt-1"
+                            rows={3}
+                          />
+                        </div>
+                        <Button
+                          className="w-full bg-green-600 hover:bg-green-700 text-white"
+                          onClick={handleCompleteTask}
+                          disabled={isLoading}
+                        >
+                          {isLoading ? (
+                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          ) : (
+                            <CheckCircle2 className="w-4 h-4 mr-2" />
+                          )}
+                          Završi čišćenje
+                        </Button>
+                      </>
+                    ) : (
+                      <div className="flex items-center gap-2 p-3 bg-blue-100 dark:bg-blue-950/40 rounded-lg text-sm">
+                        <Loader2 className="w-4 h-4 text-blue-600 animate-spin flex-shrink-0" />
+                        <span className="text-blue-800 dark:text-blue-300">
+                          {activeTask.assigned_to_name || 'Sobarica'} čisti sobu. Zadatak u toku{activeTask.started_at ? ` od ${formatDateTime(activeTask.started_at)}` : ''}.
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -804,15 +826,16 @@ export default function RoomDetailDialog({
                   <p className="text-sm text-muted-foreground">Prvo odjavite trenutnog gosta.</p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="col-span-2">
+                <div className="space-y-3 sm:space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                    <div className="sm:col-span-2">
                       <Label htmlFor="guest_name">Ime gosta *</Label>
                       <Input
                         id="guest_name"
                         value={checkInData.guest_name}
                         onChange={(e) => setCheckInData({ ...checkInData, guest_name: e.target.value })}
                         placeholder="Unesite ime i prezime"
+                        className="mt-1"
                       />
                     </div>
                     <div>
@@ -824,18 +847,22 @@ export default function RoomDetailDialog({
                         max={room.max_occupancy || 10}
                         value={checkInData.guest_count}
                         onChange={(e) => setCheckInData({ ...checkInData, guest_count: parseInt(e.target.value) || 1 })}
+                        className="mt-1"
                       />
                     </div>
                     <div>
                       <Label htmlFor="guest_phone">Telefon</Label>
                       <Input
                         id="guest_phone"
+                        type="number"
+                        inputMode="tel"
                         value={checkInData.guest_phone}
                         onChange={(e) => setCheckInData({ ...checkInData, guest_phone: e.target.value })}
                         placeholder="+387..."
+                        className="mt-1"
                       />
                     </div>
-                    <div className="col-span-2">
+                    <div className="sm:col-span-2">
                       <Label htmlFor="guest_email">Email</Label>
                       <Input
                         id="guest_email"
@@ -843,6 +870,7 @@ export default function RoomDetailDialog({
                         value={checkInData.guest_email}
                         onChange={(e) => setCheckInData({ ...checkInData, guest_email: e.target.value })}
                         placeholder="email@example.com"
+                        className="mt-1"
                       />
                     </div>
                     <div>
@@ -852,6 +880,7 @@ export default function RoomDetailDialog({
                         type="date"
                         value={checkInData.checkin_date}
                         onChange={(e) => setCheckInData({ ...checkInData, checkin_date: e.target.value })}
+                        className="mt-1"
                       />
                     </div>
                     <div>
@@ -861,6 +890,7 @@ export default function RoomDetailDialog({
                         type="date"
                         value={checkInData.checkout_date}
                         onChange={(e) => setCheckInData({ ...checkInData, checkout_date: e.target.value })}
+                        className="mt-1"
                       />
                     </div>
                   </div>
