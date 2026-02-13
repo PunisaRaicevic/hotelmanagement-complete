@@ -24,6 +24,7 @@ import {
   Sparkles,
   Bell,
   ChevronRight,
+  X,
 } from 'lucide-react';
 
 interface Room {
@@ -213,16 +214,16 @@ export default function AdminModuleSelector() {
 
           {/* Top Navigation Bar - Apple style */}
           <div className="sticky top-0 z-50 backdrop-blur-xl bg-white/70 border-b border-gray-200/50">
-            <div className="max-w-[1800px] mx-auto px-6 py-4">
+            <div className="max-w-[1800px] mx-auto px-3 py-2 sm:px-6 sm:py-4">
               <div className="flex items-center justify-between">
                 {/* Logo & Title */}
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-gray-900 flex items-center justify-center">
-                    <Home className="w-4 h-4 text-white" />
+                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gray-900 flex items-center justify-center">
+                    <Home className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
                   </div>
                   <div>
-                    <h1 className="text-lg font-semibold text-gray-900">Hotel Manager</h1>
-                    <p className="text-xs text-gray-400">{rooms.length} soba • {user?.fullName}</p>
+                    <h1 className="text-base sm:text-lg font-semibold text-gray-900">Hotel Manager</h1>
+                    <p className="text-xs text-gray-400 hidden sm:block">{rooms.length} soba • {user?.fullName}</p>
                   </div>
                 </div>
 
@@ -247,11 +248,186 @@ export default function AdminModuleSelector() {
             </div>
           </div>
 
-          <div className="max-w-[1800px] mx-auto p-6">
+          <div className="max-w-[1800px] mx-auto p-2 sm:p-3 lg:p-6">
+            {/* Mobile Sidebar - Horizontal compact bar */}
+            <div className="lg:hidden mb-4">
+              <div className="bg-white/80 backdrop-blur-xl rounded-2xl p-2 shadow-sm border border-gray-200/50">
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  <div className="flex-shrink-0">
+                    <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 px-1">Zahtjevi</p>
+                    <div className="flex gap-1.5">
+                      <button
+                        onClick={() => setSidebarView(sidebarView === 'tech-requests' ? null : 'tech-requests')}
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all duration-200 text-xs font-medium whitespace-nowrap ${
+                          sidebarView === 'tech-requests'
+                            ? 'bg-gray-900 text-white'
+                            : 'bg-gray-100 text-gray-700'
+                        }`}
+                      >
+                        <Wrench className="w-3.5 h-3.5" />
+                        Tehnički
+                        {techRequests.length > 0 && (
+                          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+                            sidebarView === 'tech-requests' ? 'bg-white/20' : 'bg-gray-200'
+                          }`}>
+                            {techRequests.length}
+                          </span>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => setSidebarView(sidebarView === 'hk-requests' ? null : 'hk-requests')}
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all duration-200 text-xs font-medium whitespace-nowrap ${
+                          sidebarView === 'hk-requests'
+                            ? 'bg-gray-900 text-white'
+                            : 'bg-gray-100 text-gray-700'
+                        }`}
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        HK
+                        {hkRequests.length > 0 && (
+                          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+                            sidebarView === 'hk-requests' ? 'bg-white/20' : 'bg-gray-200'
+                          }`}>
+                            {hkRequests.length}
+                          </span>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="w-px bg-gray-200 mx-1 self-stretch" />
+                  <div className="flex-shrink-0">
+                    <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 px-1">Osoblje</p>
+                    <div className="flex gap-1.5">
+                      <button
+                        onClick={() => setSidebarView(sidebarView === 'housekeepers' ? null : 'housekeepers')}
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all duration-200 text-xs font-medium whitespace-nowrap ${
+                          sidebarView === 'housekeepers'
+                            ? 'bg-gray-900 text-white'
+                            : 'bg-gray-100 text-gray-700'
+                        }`}
+                      >
+                        <Users className="w-3.5 h-3.5" />
+                        Sobarice
+                        <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+                          sidebarView === 'housekeepers' ? 'bg-white/20' : 'bg-gray-200'
+                        }`}>
+                          {housekeepers.length}
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => setSidebarView(sidebarView === 'technicians' ? null : 'technicians')}
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all duration-200 text-xs font-medium whitespace-nowrap ${
+                          sidebarView === 'technicians'
+                            ? 'bg-gray-900 text-white'
+                            : 'bg-gray-100 text-gray-700'
+                        }`}
+                      >
+                        <Settings className="w-3.5 h-3.5" />
+                        Tehničari
+                        <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+                          sidebarView === 'technicians' ? 'bg-white/20' : 'bg-gray-200'
+                        }`}>
+                          {technicians.length}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {/* Mobile Detail Panel */}
+              {sidebarView && (
+                <div className="lg:hidden mt-3 bg-white/80 backdrop-blur-xl rounded-2xl shadow-sm border border-gray-200/50 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                    <h4 className="font-medium text-gray-800 text-sm">
+                      {sidebarView === 'tech-requests' && 'Tehnički zahtjevi'}
+                      {sidebarView === 'hk-requests' && 'Housekeeping zahtjevi'}
+                      {sidebarView === 'housekeepers' && 'Sobarice'}
+                      {sidebarView === 'technicians' && 'Tehničari'}
+                    </h4>
+                    <button onClick={() => setSidebarView(null)} className="text-gray-400 hover:text-gray-600 p-1">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <ScrollArea className="h-60">
+                    <div className="p-3 space-y-2">
+                      {sidebarView === 'tech-requests' && (
+                        techRequests.length > 0 ? techRequests.map(request => (
+                          <button key={request.id} onClick={() => handleRequestClick(request)} className="w-full p-3 hover:bg-gray-50 rounded-xl transition-all duration-200 text-left">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="font-medium text-gray-800 text-sm">Soba {request.room_number}</span>
+                              {request.priority === 'urgent' && <span className="w-2 h-2 rounded-full bg-red-500"></span>}
+                            </div>
+                            <p className="text-xs text-gray-500 line-clamp-2">{request.description}</p>
+                          </button>
+                        )) : <div className="text-center py-6 text-gray-400"><p className="text-sm">Nema zahtjeva</p></div>
+                      )}
+                      {sidebarView === 'hk-requests' && (
+                        hkRequests.length > 0 ? hkRequests.map(request => (
+                          <button key={request.id} onClick={() => handleRequestClick(request)} className="w-full p-3 hover:bg-gray-50 rounded-xl transition-all duration-200 text-left">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="font-medium text-gray-800 text-sm">Soba {request.room_number}</span>
+                              {request.priority === 'urgent' && <span className="w-2 h-2 rounded-full bg-red-500"></span>}
+                            </div>
+                            <p className="text-xs text-gray-500 line-clamp-2">{request.description}</p>
+                          </button>
+                        )) : <div className="text-center py-6 text-gray-400"><p className="text-sm">Nema zahtjeva</p></div>
+                      )}
+                      {sidebarView === 'housekeepers' && (
+                        housekeepers.length > 0 ? housekeepers.map(hk => {
+                          const tasks = housekeepingTasks.filter(t => t.assigned_to === hk.id);
+                          const inProgress = tasks.filter(t => t.status === 'in_progress').length;
+                          const completed = tasks.filter(t => ['completed', 'inspected'].includes(t.status)).length;
+                          return (
+                            <button key={hk.id} onClick={() => { setSelectedStaff({ type: 'housekeeper', data: hk }); setIsStaffDialogOpen(true); }} className="w-full p-3 hover:bg-gray-50 rounded-xl transition-all duration-200">
+                              <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center">
+                                  <span className="text-gray-600 font-medium text-sm">{hk.full_name.charAt(0)}</span>
+                                </div>
+                                <div className="flex-1 text-left">
+                                  <p className="font-medium text-gray-800 text-sm">{hk.full_name}</p>
+                                  <p className="text-xs text-gray-400">
+                                    {inProgress > 0 ? `${inProgress} u toku` : ''}{inProgress > 0 && completed > 0 ? ' · ' : ''}{completed > 0 ? `${completed} završeno` : ''}{inProgress === 0 && completed === 0 ? 'Bez zadataka' : ''}
+                                  </p>
+                                </div>
+                                <ChevronRight className="w-4 h-4 text-gray-300" />
+                              </div>
+                            </button>
+                          );
+                        }) : <div className="text-center py-6 text-gray-400"><p className="text-sm">Nema sobarica</p></div>
+                      )}
+                      {sidebarView === 'technicians' && (
+                        technicians.length > 0 ? technicians.map(tech => {
+                          const tasks = maintenanceTasks.filter(t => t.assigned_to_name === tech.full_name);
+                          const inProgress = tasks.filter(t => t.status === 'in_progress').length;
+                          const completed = tasks.filter(t => t.status === 'completed').length;
+                          return (
+                            <button key={tech.id} onClick={() => { setSelectedStaff({ type: 'technician', data: tech }); setIsStaffDialogOpen(true); }} className="w-full p-3 hover:bg-gray-50 rounded-xl transition-all duration-200">
+                              <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center">
+                                  <span className="text-gray-600 font-medium text-sm">{tech.full_name.charAt(0)}</span>
+                                </div>
+                                <div className="flex-1 text-left">
+                                  <p className="font-medium text-gray-800 text-sm">{tech.full_name}</p>
+                                  <p className="text-xs text-gray-400">
+                                    {inProgress > 0 ? `${inProgress} u toku` : ''}{inProgress > 0 && completed > 0 ? ' · ' : ''}{completed > 0 ? `${completed} završeno` : ''}{inProgress === 0 && completed === 0 ? 'Bez zadataka' : ''}
+                                  </p>
+                                </div>
+                                <ChevronRight className="w-4 h-4 text-gray-300" />
+                              </div>
+                            </button>
+                          );
+                        }) : <div className="text-center py-6 text-gray-400"><p className="text-sm">Nema tehničara</p></div>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </div>
+              )}
+            </div>
+
             <div className="flex gap-6">
 
-              {/* Sidebar - Minimal Apple Style */}
-              <div className="w-72 flex-shrink-0 space-y-3">
+              {/* Sidebar - Minimal Apple Style (Desktop only) */}
+              <div className="hidden lg:block w-72 flex-shrink-0 space-y-3">
 
                 {/* Zahtjevi Gostiju */}
                 <div className="bg-white/80 backdrop-blur-xl rounded-2xl p-4 shadow-sm border border-gray-200/50">
@@ -488,11 +664,11 @@ export default function AdminModuleSelector() {
 
               {/* Main Content - Room Grid */}
               <div className="flex-1">
-                <div className="bg-white/80 backdrop-blur-xl rounded-2xl p-5 shadow-sm border border-gray-200/50">
-                  <div className="flex items-center justify-between mb-4">
+                <div className="bg-white/80 backdrop-blur-xl rounded-xl sm:rounded-2xl p-2 sm:p-3 lg:p-5 shadow-sm border border-gray-200/50">
+                  <div className="flex items-center justify-between mb-2 sm:mb-4">
                     <div>
-                      <h2 className="text-lg font-semibold text-gray-800">Sobe</h2>
-                      <p className="text-xs text-gray-400">Pregled po spratovima</p>
+                      <h2 className="text-base sm:text-lg font-semibold text-gray-800">Sobe</h2>
+                      <p className="text-xs text-gray-400 hidden sm:block">Pregled po spratovima</p>
                     </div>
                   </div>
                   <RoomGridView

@@ -293,17 +293,17 @@ export default function RoomGridView({ rooms, tasks = [], onRoomClick }: RoomGri
           <TooltipTrigger asChild>
             <Card
               className={`
-                relative p-4 cursor-pointer transition-all hover-elevate
+                relative p-2 sm:p-4 cursor-pointer transition-all hover-elevate
                 border-l-4 ${config.borderColor} ${config.bgColor}
                 ${isUrgent ? 'ring-2 ring-red-400 ring-offset-1' : ''}
-                w-full min-h-[180px] flex flex-col overflow-hidden
+                w-full min-h-[120px] sm:min-h-[180px] flex flex-col overflow-hidden
               `}
               onClick={() => onRoomClick(room)}
             >
               {/* Header: Room Number + Status Indicator */}
               <div className="flex items-start justify-between mb-2">
                 <div>
-                  <span className="text-3xl font-bold text-gray-900 dark:text-white">
+                  <span className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
                     {room.room_number}
                   </span>
                   {/* Short status description under room number */}
@@ -565,25 +565,25 @@ export default function RoomGridView({ rooms, tasks = [], onRoomClick }: RoomGri
   return (
     <div className="space-y-4">
       {/* Filters & Controls */}
-      <div className="p-3 bg-muted/30 rounded-xl">
-        <div className="flex flex-wrap items-center gap-3">
+      <div className="p-2 sm:p-3 bg-muted/30 rounded-xl">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {/* Search */}
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-2.5 top-3 text-muted-foreground" />
+          <div className="relative w-full sm:w-auto">
+            <Search className="w-4 h-4 absolute left-2.5 top-2.5 sm:top-3 text-muted-foreground" />
             <Input
               placeholder="Traži sobu..."
-              className="pl-8 h-10 w-48 rounded-lg"
+              className="pl-8 h-9 sm:h-10 w-full sm:w-48 rounded-lg text-sm"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
 
           {/* Status Filters */}
-          <div className="flex gap-1 flex-wrap">
+          <div className="flex gap-1 flex-wrap overflow-x-auto">
             <Button
               size="sm"
               variant={statusFilter === null ? 'default' : 'outline'}
-              className="h-9 text-xs"
+              className="h-7 sm:h-9 text-[10px] sm:text-xs px-2 sm:px-3"
               onClick={() => setStatusFilter(null)}
             >
               Sve ({rooms.length})
@@ -591,37 +591,37 @@ export default function RoomGridView({ rooms, tasks = [], onRoomClick }: RoomGri
             <Button
               size="sm"
               variant={statusFilter === 'dirty' ? 'default' : 'outline'}
-              className="h-9 text-xs bg-red-50 hover:bg-red-100 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:border-red-800 dark:hover:bg-red-950/50"
+              className="h-7 sm:h-9 text-[10px] sm:text-xs px-2 sm:px-3 bg-red-50 hover:bg-red-100 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:border-red-800 dark:hover:bg-red-950/50"
               onClick={() => setStatusFilter(statusFilter === 'dirty' ? null : 'dirty')}
             >
-              <div className="w-2 h-2 rounded-full bg-red-500 mr-1.5" />
+              <div className="w-2 h-2 rounded-full bg-red-500 mr-1" />
               Prljave ({statusCounts.dirty})
             </Button>
             <Button
               size="sm"
               variant={statusFilter === 'in_cleaning' ? 'default' : 'outline'}
-              className="h-9 text-xs bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-950/30 dark:text-yellow-300 dark:border-yellow-800 dark:hover:bg-yellow-950/50"
+              className="h-7 sm:h-9 text-[10px] sm:text-xs px-2 sm:px-3 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-950/30 dark:text-yellow-300 dark:border-yellow-800 dark:hover:bg-yellow-950/50"
               onClick={() => setStatusFilter(statusFilter === 'in_cleaning' ? null : 'in_cleaning')}
             >
-              <div className="w-2 h-2 rounded-full bg-yellow-500 mr-1.5" />
+              <div className="w-2 h-2 rounded-full bg-yellow-500 mr-1" />
               U čišćenju ({statusCounts.in_cleaning})
             </Button>
             <Button
               size="sm"
               variant={statusFilter === 'clean' ? 'default' : 'outline'}
-              className="h-9 text-xs bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-300 dark:border-green-800 dark:hover:bg-green-950/50"
+              className="h-7 sm:h-9 text-[10px] sm:text-xs px-2 sm:px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-300 dark:border-green-800 dark:hover:bg-green-950/50"
               onClick={() => setStatusFilter(statusFilter === 'clean' ? null : 'clean')}
             >
-              <div className="w-2 h-2 rounded-full bg-green-500 mr-1.5" />
+              <div className="w-2 h-2 rounded-full bg-green-500 mr-1" />
               Čiste ({statusCounts.clean})
             </Button>
             <Button
               size="sm"
               variant={statusFilter === 'inspected' ? 'default' : 'outline'}
-              className="h-9 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-800 dark:hover:bg-blue-950/50"
+              className="h-7 sm:h-9 text-[10px] sm:text-xs px-2 sm:px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-800 dark:hover:bg-blue-950/50"
               onClick={() => setStatusFilter(statusFilter === 'inspected' ? null : 'inspected')}
             >
-              <div className="w-2 h-2 rounded-full bg-blue-500 mr-1.5" />
+              <div className="w-2 h-2 rounded-full bg-blue-500 mr-1" />
               Pregledane ({statusCounts.inspected})
             </Button>
           </div>
@@ -631,24 +631,24 @@ export default function RoomGridView({ rooms, tasks = [], onRoomClick }: RoomGri
             <Button
               size="sm"
               variant={viewMode === 'floor' ? 'default' : 'outline'}
-              className="h-9"
+              className="h-7 sm:h-9 w-7 sm:w-9 p-0"
               onClick={() => setViewMode('floor')}
             >
-              <Building2 className="w-4 h-4" />
+              <Building2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </Button>
             <Button
               size="sm"
               variant={viewMode === 'grid' ? 'default' : 'outline'}
-              className="h-9"
+              className="h-7 sm:h-9 w-7 sm:w-9 p-0"
               onClick={() => setViewMode('grid')}
             >
-              <Grid3X3 className="w-4 h-4" />
+              <Grid3X3 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </Button>
           </div>
         </div>
 
         {/* Occupancy Quick Filters */}
-        <div className="flex gap-2 flex-wrap mt-3">
+        <div className="flex gap-1.5 sm:gap-2 flex-wrap mt-2 sm:mt-3">
           <span className="text-xs font-medium text-muted-foreground self-center">Zauzetost:</span>
           <Badge
             variant={occupancyFilter === null ? 'default' : 'outline'}
@@ -693,12 +693,12 @@ export default function RoomGridView({ rooms, tasks = [], onRoomClick }: RoomGri
             return (
               <div key={floor}>
                 {/* Floor Header */}
-                <div className="flex items-center gap-2 mb-3 pb-2 border-b-2 border-primary/20">
-                  <div className="p-1.5 rounded-lg bg-primary/10">
-                    <Building2 className="w-5 h-5 text-primary" />
+                <div className="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3 pb-2 border-b-2 border-primary/20">
+                  <div className="p-1 sm:p-1.5 rounded-lg bg-primary/10">
+                    <Building2 className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
                   </div>
-                  <h3 className="font-semibold text-lg">Sprat {floor}</h3>
-                  <Badge variant="secondary" className="ml-2">
+                  <h3 className="font-semibold text-base sm:text-lg">Sprat {floor}</h3>
+                  <Badge variant="secondary" className="ml-1 sm:ml-2 text-[10px] sm:text-xs">
                     {floorRooms.length} soba
                   </Badge>
                   <div className="flex items-center gap-1.5 ml-auto">
@@ -730,7 +730,7 @@ export default function RoomGridView({ rooms, tasks = [], onRoomClick }: RoomGri
                 </div>
 
                 {/* Floor Rooms Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3">
                   {floorRooms.map((room) => (
                     <RoomTile key={room.id} room={room} />
                   ))}
@@ -741,7 +741,7 @@ export default function RoomGridView({ rooms, tasks = [], onRoomClick }: RoomGri
         </div>
       ) : (
         // Simple grid view
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3">
           {filteredRooms
             .sort((a, b) => a.room_number.localeCompare(b.room_number, undefined, { numeric: true }))
             .map((room) => (

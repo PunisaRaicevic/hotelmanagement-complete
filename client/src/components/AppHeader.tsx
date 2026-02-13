@@ -173,12 +173,12 @@ export default function AppHeader() {
   }, []);
 
   return (
-    <header className="flex items-center justify-between px-4 py-4 border-b bg-background sticky top-0 z-50">
-      <div className="flex items-center gap-3">
-        <h1 className="text-xl font-semibold">{t('hotelManagement')}</h1>
+    <header className="flex items-center justify-between px-2 py-2 sm:px-4 sm:py-4 border-b bg-background sticky top-0 z-50">
+      <div className="flex items-center gap-2 sm:gap-3">
+        <h1 className="text-base sm:text-xl font-semibold truncate">{t('hotelManagement')}</h1>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 sm:gap-2">
         {/* View Mode Toggle (Mobile/Web) */}
         <ViewModeToggle />
 

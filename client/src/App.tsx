@@ -152,7 +152,7 @@ function Router() {
   return (
     <div className="flex flex-col h-screen w-full overflow-hidden">
       <AppHeader />
-      <main className="flex-1 overflow-y-auto p-6">
+      <main className="flex-1 overflow-y-auto p-2 sm:p-4 lg:p-6">
         <Switch>
           <Route path="/" component={Dashboard} />
           <Route path="/tasks" component={TasksPage} />
