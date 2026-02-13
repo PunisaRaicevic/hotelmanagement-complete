@@ -283,14 +283,18 @@ export default function RoomGridView({ rooms, tasks = [], onRoomClick }: RoomGri
       return 'Minibar - provjeri stanje';
     })();
 
-    // Notification status
+    // Assignment & notification status
     const notificationStatus = (() => {
       if (!task) return null;
       if (!task.assigned_to) return null;
-      if (task.notification_sent_at) {
-        return { sent: true, label: `Obaviještena: ${task.assigned_to_name || 'Sobarica'}` };
+      const name = task.assigned_to_name || 'Sobarica';
+      if (task.status === 'in_progress') {
+        return { sent: true, label: `${name} čisti` };
       }
-      return { sent: false, label: 'Obavještenje nije poslano' };
+      if (task.notification_sent_at) {
+        return { sent: true, label: `Dodijeljeno: ${name}` };
+      }
+      return { sent: true, label: `Dodijeljeno: ${name}` };
     })();
 
     return (
