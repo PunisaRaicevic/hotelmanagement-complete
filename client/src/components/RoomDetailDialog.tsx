@@ -745,7 +745,9 @@ export default function RoomDetailDialog({
                       <div className="flex items-center gap-2 p-3 bg-amber-100 dark:bg-amber-950/40 rounded-lg text-sm">
                         <Clock className="w-4 h-4 text-amber-600 flex-shrink-0" />
                         <span className="text-amber-800 dark:text-amber-300">
-                          Zadatak dodijeljen{activeTask.assigned_to_name ? ` sobarici ${activeTask.assigned_to_name}` : ''}. Čeka se prihvat.
+                          {activeTask.assigned_to_name
+                            ? `Zadatak dodijeljen sobarici ${activeTask.assigned_to_name}. Čeka se prihvat.`
+                            : 'Zadatak kreiran. Čeka se dodjela sobarici.'}
                         </span>
                       </div>
                     )}
