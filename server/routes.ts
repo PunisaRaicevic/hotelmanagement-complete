@@ -2023,6 +2023,22 @@ ${scheduledTasksFormatted}`;
         return res.status(404).json({ error: "Request not found" });
       }
 
+      // When a maintenance request is completed, clear matching issues_found
+      // from active housekeeping tasks for the same room
+      if (updateData.status === 'completed' && request.request_type === 'maintenance' && request.room_id) {
+        try {
+          const roomTasks = await storage.getHousekeepingTasksByRoom(request.room_id);
+          const activeTasks = roomTasks.filter(t => ['pending', 'in_progress'].includes(t.status));
+          for (const task of activeTasks) {
+            if (task.issues_found && task.issues_found.toLowerCase().includes(request.description?.toLowerCase() || '')) {
+              await storage.updateHousekeepingTask(task.id, { issues_found: null } as any);
+            }
+          }
+        } catch (err) {
+          console.error('Error clearing issues_found after request completion:', err);
+        }
+      }
+
       res.json({ request });
     } catch (error) {
       console.error("Error updating guest request:", error);

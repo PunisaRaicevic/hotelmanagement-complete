@@ -419,7 +419,7 @@ export default function RoomGridView({ rooms, tasks = [], onRoomClick }: RoomGri
                       <span className="line-clamp-2">{task.guest_requests}</span>
                     </div>
                   )}
-                  {task.issues_found && (
+                  {task.issues_found && task.status !== 'pending' && (
                     <div className="flex items-start gap-1.5 text-xs text-red-600 mt-1">
                       <MessageSquareWarning className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
                       <span className="line-clamp-2">{task.issues_found}</span>
