@@ -220,6 +220,11 @@ export default function RoomDetailDialog({
         checkout_date: room.checkout_date?.split('T')[0] || '',
       });
 
+      // Reset state when switching rooms
+      setGuestRequests([]);
+      setSelectedRequest(null);
+      setActiveTab('info');
+
       // Fetch guest requests for this room
       fetchGuestRequests();
     }

@@ -1667,7 +1667,7 @@ ${scheduledTasksFormatted}`;
             if (count < minCount) {
               minCount = count;
               assignedTo = hk.id;
-              assignedToName = hk.name;
+              assignedToName = hk.full_name;
             }
           }
         }
