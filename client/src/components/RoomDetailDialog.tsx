@@ -184,8 +184,8 @@ export default function RoomDetailDialog({
   const [guestRequests, setGuestRequests] = useState<GuestServiceRequest[]>([]);
   const [selectedRequest, setSelectedRequest] = useState<GuestServiceRequest | null>(null);
   const [isForwarding, setIsForwarding] = useState(false);
-  const [showHousekeeperDialog, setShowHousekeeperDialog] = useState(false);
-  const [checkoutRoomData, setCheckoutRoomData] = useState<{ roomId: string; roomNumber: string } | null>(null);
+  const [showHousekeeperDialog, setShowHousekeeperDialog] = useState(false);  // kept for manual re-assignment
+  const [checkoutRoomData, setCheckoutRoomData] = useState<{ roomId: string; roomNumber: string } | null>(null);  // kept for manual re-assignment
   const [activeTask, setActiveTask] = useState<HousekeepingTask | null>(null);
   const [isLoadingTask, setIsLoadingTask] = useState(false);
   const [issuesText, setIssuesText] = useState('');
@@ -436,19 +436,21 @@ export default function RoomDetailDialog({
 
       if (response.ok) {
         const data = await response.json();
-        // Save room data for housekeeper dialog before updating state
-        const roomId = room.id;
-        const roomNumber = room.room_number;
         // Update local room state with the response data (token cleared)
         if (data.room) {
           setRoom(data.room);
         }
-        toast({ title: 'Uspješno', description: 'Gost je odjavljen, QR kod je nevažeći' });
+        // Show toast with auto-assignment info
+        if (data.assignedHousekeeperName) {
+          toast({ title: 'Uspješno', description: `Gost odjavljen. Checkout čišćenje dodijeljeno: ${data.assignedHousekeeperName}` });
+        } else if (data.housekeepingTask) {
+          toast({ title: 'Uspješno', description: 'Gost odjavljen. Checkout nalog kreiran (nema dostupnih sobarica za dodjelu)' });
+        } else {
+          toast({ title: 'Uspješno', description: 'Gost je odjavljen, QR kod je nevažeći' });
+        }
         onRoomUpdated();
         setActiveTab('info');
-        // Open housekeeper assignment dialog
-        setCheckoutRoomData({ roomId, roomNumber });
-        setShowHousekeeperDialog(true);
+        fetchActiveTask();
       } else {
         const error = await response.json();
         toast({ title: 'Greška', description: error.error, variant: 'destructive' });

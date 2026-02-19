@@ -1649,7 +1649,67 @@ ${scheduledTasksFormatted}`;
         status: 'dirty', // Mark room as needing cleaning
       } as any);
 
-      res.json({ room: updatedRoom, message: "Guest checked out, QR code invalidated" });
+      // Auto-create checkout housekeeping task and assign to least-busy housekeeper
+      let createdTask = null;
+      let assignedHousekeeperName: string | null = null;
+      try {
+        const housekeepers = await storage.getUsersByRole('sobarica');
+        const activeTaskCounts = await storage.getActiveTaskCountByAssignee();
+
+        let assignedTo: string | null = null;
+        let assignedToName: string | null = null;
+
+        if (housekeepers.length > 0) {
+          // Find housekeeper with fewest active tasks
+          let minCount = Infinity;
+          for (const hk of housekeepers) {
+            const count = activeTaskCounts[hk.id] || 0;
+            if (count < minCount) {
+              minCount = count;
+              assignedTo = hk.id;
+              assignedToName = hk.name;
+            }
+          }
+        }
+
+        assignedHousekeeperName = assignedToName;
+
+        createdTask = await storage.createHousekeepingTask({
+          room_id: id,
+          room_number: room.room_number,
+          cleaning_type: 'checkout',
+          assigned_to: assignedTo,
+          assigned_to_name: assignedToName,
+          priority: 'normal',
+          scheduled_date: new Date().toISOString(),
+        });
+
+        // Send push notification to assigned housekeeper
+        if (assignedTo) {
+          sendPushToAllUserDevices(
+            assignedTo,
+            `Nova cleaning task - Soba ${room.room_number}`,
+            `Checkout čišćenje`,
+            createdTask.id,
+            'normal'
+          ).then((result) => {
+            console.log(`✅ [CHECKOUT] Push poslat sobarici ${assignedToName}:`, result);
+          }).catch((error) => {
+            console.error(`⚠️ [CHECKOUT] Greška pri slanju push-a:`, error);
+          });
+        }
+
+        console.log(`✅ [CHECKOUT] Auto-kreiran task za sobu ${room.room_number}, dodijeljen: ${assignedToName || 'nikome'}`);
+      } catch (taskError) {
+        console.error("Error auto-creating checkout task:", taskError);
+      }
+
+      res.json({
+        room: updatedRoom,
+        message: "Guest checked out, QR code invalidated",
+        housekeepingTask: createdTask,
+        assignedHousekeeperName
+      });
     } catch (error) {
       console.error("Error checking out guest:", error);
       res.status(500).json({ error: "Internal server error" });

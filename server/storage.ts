@@ -80,6 +80,7 @@ export interface IStorage {
   getHousekeepingTasksByRoom(roomId: string): Promise<HousekeepingTask[]>;
   getHousekeepingTasksByAssignee(userId: string): Promise<HousekeepingTask[]>;
   getHousekeepingTasksByDate(date: string): Promise<HousekeepingTask[]>;
+  getActiveTaskCountByAssignee(): Promise<Record<string, number>>;
   createHousekeepingTask(task: Partial<InsertHousekeepingTask>): Promise<HousekeepingTask>;
   updateHousekeepingTask(id: string, data: Partial<HousekeepingTask>): Promise<HousekeepingTask | undefined>;
   deleteHousekeepingTask(id: string): Promise<boolean>;
@@ -716,6 +717,23 @@ export class SupabaseStorage implements IStorage {
 
     if (error) throw error;
     return (data || []) as HousekeepingTask[];
+  }
+
+  async getActiveTaskCountByAssignee(): Promise<Record<string, number>> {
+    const { data, error } = await supabase
+      .from('housekeeping_tasks')
+      .select('assigned_to')
+      .in('status', ['pending', 'in_progress'])
+      .not('assigned_to', 'is', null);
+
+    if (error) throw error;
+
+    const counts: Record<string, number> = {};
+    for (const row of (data || [])) {
+      const assignee = row.assigned_to as string;
+      counts[assignee] = (counts[assignee] || 0) + 1;
+    }
+    return counts;
   }
 
   async createHousekeepingTask(taskData: Partial<InsertHousekeepingTask>): Promise<HousekeepingTask> {
