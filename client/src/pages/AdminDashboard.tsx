@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { UserPlus, ClipboardList, CheckCircle, Clock, Users, Edit, BarChart3, Printer, Download, Calendar, History, RefreshCw, Brain, X } from 'lucide-react';
+import { UserPlus, ClipboardList, CheckCircle, Clock, Users, Edit, BarChart3, Printer, Download, Calendar, History, RefreshCw, X } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -21,7 +21,7 @@ import CreateTaskDialog from '@/components/CreateTaskDialog';
 import EditUserDialog from '@/components/EditUserDialog';
 import TaskDetailsDialog from '@/components/TaskDetailsDialog';
 import EditTaskDialog from '@/components/EditTaskDialog';
-import AdminAIChat from '@/components/AdminAIChat';
+
 import { PeriodPicker } from '@/components/PeriodPicker';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
@@ -81,7 +81,7 @@ export default function AdminDashboard() {
   const [tasksPeriodFilter, setTasksPeriodFilter] = useState<string>('7d'); // Default 7 days
   const [tasksStatusFilter, setTasksStatusFilter] = useState<string>('all'); // Status filter for tasks list
   const [tasksTypeFilter, setTasksTypeFilter] = useState<string>('all'); // Type filter: all, recurring, one_time
-  const [aiChatOpen, setAiChatOpen] = useState(false);
+
   const [historyPeriodFilter, setHistoryPeriodFilter] = useState<string>('7d'); // History period filter
   const [historyStatusFilter, setHistoryStatusFilter] = useState<string>('all'); // History status filter
   const [historyPerPage, setHistoryPerPage] = useState<number>(10); // History items per page
@@ -362,14 +362,6 @@ export default function AdminDashboard() {
             {user?.fullName} - {user?.role}
           </p>
         </div>
-        <Button 
-          onClick={() => setAiChatOpen(true)}
-          className="gap-3 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-800 text-white text-base"
-          data-testid="button-ai-chat"
-        >
-          <Brain className="w-6 h-6" />
-          AI Analiza
-        </Button>
       </div>
 
       {/* Statistics */}
@@ -1527,23 +1519,6 @@ export default function AdminDashboard() {
         taskId={editTaskId}
       />
 
-      {/* AI Chat Dialog */}
-      <Dialog open={aiChatOpen} onOpenChange={setAiChatOpen}>
-        <DialogContent className="max-w-2xl h-[600px] flex flex-col">
-          <DialogHeader className="pb-2">
-            <DialogTitle className="flex items-center gap-2">
-              <Brain className="w-5 h-5" />
-              AI Analiza Podataka
-            </DialogTitle>
-            <p className="text-sm text-muted-foreground">
-              Pitajte AI o trendovima, statistikama i preporukama za unapredenje rada
-            </p>
-          </DialogHeader>
-          <div className="flex-1 overflow-hidden">
-            <AdminAIChat />
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
