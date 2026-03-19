@@ -6,7 +6,7 @@ import { Loader } from '@googlemaps/js-api-loader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, MapPin, Clock, Users } from 'lucide-react';
+import { RefreshCw, MapPin, Clock, Users, AlertTriangle } from 'lucide-react';
 
 interface UserLocation {
   id: string;
@@ -49,8 +49,10 @@ export default function StaffLocationsPage() {
   const { t } = useTranslation();
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<google.maps.Map | null>(null);
-  const markersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const markersRef = useRef<google.maps.Marker[]>([]);
+  const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [mapError, setMapError] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<UserLocation | null>(null);
 
   const { data, isLoading, refetch } = useQuery<{ locations: UserLocation[] }>({
@@ -64,28 +66,35 @@ export default function StaffLocationsPage() {
   // Load Google Maps
   useEffect(() => {
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-    if (!apiKey || mapLoaded) return;
+    if (!apiKey) {
+      setMapError('Google Maps API ključ nije konfigurisan (VITE_GOOGLE_MAPS_API_KEY)');
+      return;
+    }
+    if (mapLoaded || googleMapRef.current) return;
+
+    console.log('[MAP] Loading Google Maps with key:', apiKey.substring(0, 10) + '...');
 
     const loader = new Loader({
       apiKey,
       version: 'weekly',
-      libraries: ['marker'],
     });
 
     loader.importLibrary('maps').then(() => {
-      loader.importLibrary('marker').then(() => {
-        if (mapRef.current && !googleMapRef.current) {
-          googleMapRef.current = new google.maps.Map(mapRef.current, {
-            center: { lat: 42.29, lng: 18.84 }, // Montenegro default
-            zoom: 14,
-            mapId: 'staff-locations-map',
-            mapTypeControl: true,
-            streetViewControl: false,
-            fullscreenControl: true,
-          });
-          setMapLoaded(true);
-        }
-      });
+      if (mapRef.current && !googleMapRef.current) {
+        googleMapRef.current = new google.maps.Map(mapRef.current, {
+          center: { lat: 42.29, lng: 18.84 }, // Montenegro default
+          zoom: 14,
+          mapTypeControl: true,
+          streetViewControl: false,
+          fullscreenControl: true,
+        });
+        infoWindowRef.current = new google.maps.InfoWindow();
+        setMapLoaded(true);
+        console.log('[MAP] Google Maps loaded successfully');
+      }
+    }).catch((err) => {
+      console.error('[MAP] Failed to load Google Maps:', err);
+      setMapError(`Greška pri učitavanju mape: ${err.message}`);
     });
   }, []);
 
@@ -94,7 +103,9 @@ export default function StaffLocationsPage() {
     if (!googleMapRef.current || !mapLoaded) return;
 
     // Clear existing markers
-    markersRef.current.forEach(marker => marker.map = null);
+    markersRef.current.forEach(marker => {
+      marker.setMap(null);
+    });
     markersRef.current = [];
 
     if (locations.length === 0) return;
@@ -105,38 +116,41 @@ export default function StaffLocationsPage() {
       const position = { lat: loc.latitude, lng: loc.longitude };
       bounds.extend(position);
 
-      // Create custom marker element
-      const markerEl = document.createElement('div');
-      markerEl.style.cssText = `
-        display: flex; flex-direction: column; align-items: center; cursor: pointer;
-      `;
-
-      const pin = document.createElement('div');
       const color = ROLE_COLORS[loc.role] || '#6b7280';
-      pin.style.cssText = `
-        background: ${color}; color: white; padding: 4px 8px; border-radius: 12px;
-        font-size: 11px; font-weight: 600; white-space: nowrap; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-        border: 2px solid white;
-      `;
-      pin.textContent = loc.full_name;
-      markerEl.appendChild(pin);
 
-      const dot = document.createElement('div');
-      dot.style.cssText = `
-        width: 8px; height: 8px; background: ${color}; border-radius: 50%;
-        margin-top: 2px; box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-      `;
-      markerEl.appendChild(dot);
-
-      const marker = new google.maps.marker.AdvancedMarkerElement({
+      const marker = new google.maps.Marker({
         map: googleMapRef.current!,
         position,
-        content: markerEl,
         title: loc.full_name,
+        label: {
+          text: loc.full_name.charAt(0),
+          color: 'white',
+          fontWeight: 'bold',
+          fontSize: '12px',
+        },
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 14,
+          fillColor: color,
+          fillOpacity: 1,
+          strokeColor: 'white',
+          strokeWeight: 3,
+        },
       });
 
       marker.addListener('click', () => {
         setSelectedUser(loc);
+        if (infoWindowRef.current) {
+          infoWindowRef.current.setContent(`
+            <div style="padding: 8px; min-width: 150px;">
+              <div style="font-weight: 600; font-size: 14px; margin-bottom: 4px;">${loc.full_name}</div>
+              <div style="color: #666; font-size: 12px;">${t(loc.role)}</div>
+              ${loc.department ? `<div style="color: #666; font-size: 12px;">${t(loc.department)}</div>` : ''}
+              <div style="color: #999; font-size: 11px; margin-top: 4px;">Ažurirano: ${formatTimeAgo(loc.location_updated_at)}</div>
+            </div>
+          `);
+          infoWindowRef.current.open(googleMapRef.current!, marker);
+        }
       });
 
       markersRef.current.push(marker);
@@ -148,7 +162,7 @@ export default function StaffLocationsPage() {
       googleMapRef.current.setCenter({ lat: locations[0].latitude, lng: locations[0].longitude });
       googleMapRef.current.setZoom(16);
     }
-  }, [locations, mapLoaded]);
+  }, [locations, mapLoaded, t]);
 
   useEffect(() => {
     updateMarkers();
@@ -179,10 +193,19 @@ export default function StaffLocationsPage() {
         {/* Map */}
         <div className="lg:col-span-3">
           <Card>
-            <CardContent className="p-0">
-              <div ref={mapRef} className="w-full h-[600px] rounded-lg" />
+            <CardContent className="p-0 relative">
+              {mapError ? (
+                <div className="w-full h-[600px] rounded-lg flex items-center justify-center bg-gray-50">
+                  <div className="text-center p-6">
+                    <AlertTriangle className="h-12 w-12 text-amber-500 mx-auto mb-3" />
+                    <p className="text-sm text-muted-foreground">{mapError}</p>
+                  </div>
+                </div>
+              ) : (
+                <div ref={mapRef} className="w-full h-[600px] rounded-lg" />
+              )}
               {isLoading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-background/80">
+                <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-lg">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
                 </div>
               )}
@@ -199,7 +222,7 @@ export default function StaffLocationsPage() {
             <CardContent className="space-y-2">
               {locations.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  Nema korisnika sa aktivnom lokacijom
+                  Nema korisnika sa aktivnom lokacijom. Korisnici moraju dozvoliti GPS u browseru.
                 </p>
               ) : (
                 locations.map((loc) => (
