@@ -21,7 +21,9 @@ export function useGeolocation(userId: string | undefined) {
     if (Capacitor.isNativePlatform()) {
       const startBackgroundTracking = async () => {
         try {
-          const { BackgroundGeolocation } = await import('@capacitor-community/background-geolocation');
+          // Use variable to prevent Vite from statically analyzing this native-only import
+          const bgGeoModule = '@capacitor-community/background-geolocation';
+          const { BackgroundGeolocation } = await import(/* @vite-ignore */ bgGeoModule);
 
           const watcherId = await BackgroundGeolocation.addWatcher(
             {
@@ -83,7 +85,8 @@ export function useGeolocation(userId: string | undefined) {
 
       // Cleanup native background tracking
       if (bgWatcherRef.current && Capacitor.isNativePlatform()) {
-        import('@capacitor-community/background-geolocation').then(({ BackgroundGeolocation }) => {
+        const bgGeoModule = '@capacitor-community/background-geolocation';
+        import(/* @vite-ignore */ bgGeoModule).then(({ BackgroundGeolocation }: any) => {
           BackgroundGeolocation.removeWatcher({ id: bgWatcherRef.current! });
           bgWatcherRef.current = null;
           console.log('[GEO BG] Background tracking stopped');
