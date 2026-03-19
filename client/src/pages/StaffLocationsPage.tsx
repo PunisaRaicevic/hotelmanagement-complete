@@ -8,7 +8,7 @@ import { Redirect } from 'wouter';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, MapPin, Clock, Users, AlertTriangle, WifiOff } from 'lucide-react';
+import { RefreshCw, MapPin, Clock, Users, AlertTriangle, WifiOff, Wifi, CircleOff } from 'lucide-react';
 
 interface UserLocation {
   id: string;
@@ -20,7 +20,15 @@ interface UserLocation {
   location_updated_at: string | null;
 }
 
-interface UserNoGps {
+interface UserOnlineNoGps {
+  id: string;
+  full_name: string;
+  role: string;
+  department: string | null;
+  last_active_at: string | null;
+}
+
+interface UserOffline {
   id: string;
   full_name: string;
   role: string;
@@ -67,7 +75,7 @@ export default function StaffLocationsPage() {
 
   const isAdmin = user?.role === 'admin';
 
-  const { data, isLoading, refetch } = useQuery<{ locations: UserLocation[]; noGps: UserNoGps[] }>({
+  const { data, isLoading, refetch } = useQuery<{ locations: UserLocation[]; onlineNoGps: UserOnlineNoGps[]; offline: UserOffline[] }>({
     queryKey: ['/api/users/locations'],
     queryFn: getQueryFn({ on401: 'throw' }),
     refetchInterval: 30000,
@@ -79,7 +87,8 @@ export default function StaffLocationsPage() {
   }
 
   const locations = data?.locations || [];
-  const noGps = data?.noGps || [];
+  const onlineNoGps = data?.onlineNoGps || [];
+  const offline = data?.offline || [];
 
   // Load Google Maps
   useEffect(() => {
@@ -193,16 +202,20 @@ export default function StaffLocationsPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Badge variant="outline" className="gap-1">
-            <Users className="h-3 w-3" />
-            {locations.length} online
+          <Badge variant="outline" className="gap-1 border-green-300 text-green-700">
+            <MapPin className="h-3 w-3" />
+            {locations.length} GPS
           </Badge>
-          {noGps.length > 0 && (
-            <Badge variant="outline" className="gap-1 border-red-300 text-red-600">
+          {onlineNoGps.length > 0 && (
+            <Badge variant="outline" className="gap-1 border-amber-300 text-amber-700">
               <WifiOff className="h-3 w-3" />
-              {noGps.length} bez GPS
+              {onlineNoGps.length} bez GPS
             </Badge>
           )}
+          <Badge variant="outline" className="gap-1 border-gray-300 text-gray-500">
+            <CircleOff className="h-3 w-3" />
+            {offline.length} offline
+          </Badge>
           <Button variant="outline" size="sm" onClick={() => refetch()}>
             <RefreshCw className="h-4 w-4 mr-1" />
             Osvježi
@@ -280,27 +293,49 @@ export default function StaffLocationsPage() {
             </CardContent>
           </Card>
 
-          {/* Users without GPS */}
-          {noGps.length > 0 && (
-            <Card className="border-red-200 bg-red-50/50">
+          {/* Online but no GPS */}
+          {onlineNoGps.length > 0 && (
+            <Card className="border-amber-200 bg-amber-50/50">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-1 text-red-700">
-                  <WifiOff className="h-4 w-4" />
-                  GPS isključen ({noGps.length})
+                <CardTitle className="text-sm font-medium flex items-center gap-1 text-amber-700">
+                  <Wifi className="h-4 w-4" />
+                  Online - GPS isključen ({onlineNoGps.length})
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-1.5">
-                {noGps.map((user) => (
-                  <div key={user.id} className="flex items-center gap-2 p-1.5 rounded-md">
-                    <div
-                      className="w-3 h-3 rounded-full shrink-0 opacity-40"
-                      style={{ backgroundColor: ROLE_COLORS[user.role] || '#6b7280' }}
-                    />
+                {onlineNoGps.map((u) => (
+                  <div key={u.id} className="flex items-center gap-2 p-1.5 rounded-md">
+                    <div className="w-3 h-3 rounded-full shrink-0 bg-amber-400" />
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate text-red-800">{user.full_name}</p>
+                      <p className="text-sm font-medium truncate text-amber-800">{u.full_name}</p>
                     </div>
-                    <Badge variant="outline" className="text-[10px] shrink-0 border-red-300 text-red-600">
-                      {t(user.role)}
+                    <Badge variant="outline" className="text-[10px] shrink-0 border-amber-300 text-amber-600">
+                      {t(u.role)}
+                    </Badge>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Offline users */}
+          {offline.length > 0 && (
+            <Card className="border-gray-200 bg-gray-50/50">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-1 text-gray-500">
+                  <CircleOff className="h-4 w-4" />
+                  Offline ({offline.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-1.5">
+                {offline.map((u) => (
+                  <div key={u.id} className="flex items-center gap-2 p-1.5 rounded-md">
+                    <div className="w-3 h-3 rounded-full shrink-0 bg-gray-300" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate text-gray-400">{u.full_name}</p>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] shrink-0 border-gray-200 text-gray-400">
+                      {t(u.role)}
                     </Badge>
                   </div>
                 ))}

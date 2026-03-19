@@ -2453,6 +2453,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Heartbeat - mark user as online
+  app.post("/api/users/heartbeat", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      await storage.updateUser(userId, { last_active_at: new Date() } as any);
+      res.json({ ok: true });
+    } catch (error) {
+      console.error("Error updating heartbeat:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Update user location (authenticated users send their GPS coordinates)
   app.post("/api/users/location", requireAuth, async (req, res) => {
     try {
@@ -2473,6 +2485,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         latitude: lat.toString(),
         longitude: lng.toString(),
         location_updated_at: new Date(),
+        last_active_at: new Date(),
       } as any);
 
       res.json({ ok: true });
@@ -2482,14 +2495,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin: Get all user locations + users without GPS
+  // Admin: Get all user locations + online status
   app.get("/api/users/locations", requireAdmin, async (req, res) => {
     try {
       const users = await storage.getUsers();
       const activeUsers = users.filter((u: any) => u.is_active && u.role !== 'guest_display');
+      const ONLINE_THRESHOLD_MS = 3 * 60 * 1000; // 3 minutes
+      const now = Date.now();
 
+      const isOnline = (u: any) => u.last_active_at && (now - new Date(u.last_active_at).getTime()) < ONLINE_THRESHOLD_MS;
+      const hasGps = (u: any) => u.latitude && u.longitude && u.location_updated_at && (now - new Date(u.location_updated_at).getTime()) < ONLINE_THRESHOLD_MS;
+
+      // Online + GPS active
       const locations = activeUsers
-        .filter((u: any) => u.latitude && u.longitude)
+        .filter((u: any) => hasGps(u))
         .map((u: any) => ({
           id: u.id,
           full_name: u.full_name,
@@ -2500,8 +2519,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           location_updated_at: u.location_updated_at,
         }));
 
-      const noGps = activeUsers
-        .filter((u: any) => !u.latitude || !u.longitude)
+      // Online but no GPS
+      const onlineNoGps = activeUsers
+        .filter((u: any) => isOnline(u) && !hasGps(u))
+        .map((u: any) => ({
+          id: u.id,
+          full_name: u.full_name,
+          role: u.role,
+          department: u.department,
+          last_active_at: u.last_active_at,
+        }));
+
+      // Offline (not active recently)
+      const offline = activeUsers
+        .filter((u: any) => !isOnline(u) && !hasGps(u))
         .map((u: any) => ({
           id: u.id,
           full_name: u.full_name,
@@ -2509,7 +2540,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           department: u.department,
         }));
 
-      res.json({ locations, noGps });
+      res.json({ locations, onlineNoGps, offline });
     } catch (error) {
       console.error("Error fetching user locations:", error);
       res.status(500).json({ error: "Internal server error" });

@@ -21,6 +21,7 @@ export const users = pgTable("users", {
   latitude: text("latitude"),
   longitude: text("longitude"),
   location_updated_at: timestamp("location_updated_at", { withTimezone: true }),
+  last_active_at: timestamp("last_active_at", { withTimezone: true }),
   created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

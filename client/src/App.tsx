@@ -20,6 +20,7 @@ import { IonApp, setupIonicReact } from "@ionic/react";
 import { Capacitor } from "@capacitor/core";
 import { useFCM } from "@/hooks/useFCM";
 import { useGeolocation } from "@/hooks/useGeolocation";
+import { useHeartbeat } from "@/hooks/useHeartbeat";
 import { messaging, getToken } from "./firebase";
 
 setupIonicReact({
@@ -70,6 +71,7 @@ function Router() {
   console.log(`[Router] Current user:`, user?.fullName || 'NOT LOGGED IN', 'ID:', user?.id ? `${user.id.substring(0, 8)}...` : 'UNDEFINED');
   useFCM(user?.id);
   useGeolocation(user?.id);
+  useHeartbeat(user?.id);
 
   useEffect(() => {
     if (!user?.id) return;
