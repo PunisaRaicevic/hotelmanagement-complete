@@ -6,7 +6,7 @@ import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, MapPin, Clock, Users, AlertTriangle } from 'lucide-react';
+import { RefreshCw, MapPin, Clock, Users, AlertTriangle, WifiOff } from 'lucide-react';
 
 interface UserLocation {
   id: string;
@@ -16,6 +16,13 @@ interface UserLocation {
   latitude: number;
   longitude: number;
   location_updated_at: string | null;
+}
+
+interface UserNoGps {
+  id: string;
+  full_name: string;
+  role: string;
+  department: string | null;
 }
 
 const ROLE_COLORS: Record<string, string> = {
@@ -55,13 +62,14 @@ export default function StaffLocationsPage() {
   const [mapError, setMapError] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<UserLocation | null>(null);
 
-  const { data, isLoading, refetch } = useQuery<{ locations: UserLocation[] }>({
+  const { data, isLoading, refetch } = useQuery<{ locations: UserLocation[]; noGps: UserNoGps[] }>({
     queryKey: ['/api/users/locations'],
     queryFn: getQueryFn({ on401: 'throw' }),
     refetchInterval: 30000,
   });
 
   const locations = data?.locations || [];
+  const noGps = data?.noGps || [];
 
   // Load Google Maps
   useEffect(() => {
@@ -179,6 +187,12 @@ export default function StaffLocationsPage() {
             <Users className="h-3 w-3" />
             {locations.length} online
           </Badge>
+          {noGps.length > 0 && (
+            <Badge variant="outline" className="gap-1 border-red-300 text-red-600">
+              <WifiOff className="h-3 w-3" />
+              {noGps.length} bez GPS
+            </Badge>
+          )}
           <Button variant="outline" size="sm" onClick={() => refetch()}>
             <RefreshCw className="h-4 w-4 mr-1" />
             Osvježi
@@ -255,6 +269,34 @@ export default function StaffLocationsPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Users without GPS */}
+          {noGps.length > 0 && (
+            <Card className="border-red-200 bg-red-50/50">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-1 text-red-700">
+                  <WifiOff className="h-4 w-4" />
+                  GPS isključen ({noGps.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-1.5">
+                {noGps.map((user) => (
+                  <div key={user.id} className="flex items-center gap-2 p-1.5 rounded-md">
+                    <div
+                      className="w-3 h-3 rounded-full shrink-0 opacity-40"
+                      style={{ backgroundColor: ROLE_COLORS[user.role] || '#6b7280' }}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate text-red-800">{user.full_name}</p>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] shrink-0 border-red-300 text-red-600">
+                      {t(user.role)}
+                    </Badge>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Selected user info */}
           {selectedUser && (

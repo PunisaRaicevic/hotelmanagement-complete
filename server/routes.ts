@@ -2482,12 +2482,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin: Get all user locations
+  // Admin: Get all user locations + users without GPS
   app.get("/api/users/locations", requireAdmin, async (req, res) => {
     try {
       const users = await storage.getUsers();
-      const locations = users
-        .filter((u: any) => u.is_active && u.latitude && u.longitude)
+      const activeUsers = users.filter((u: any) => u.is_active && u.role !== 'guest_display');
+
+      const locations = activeUsers
+        .filter((u: any) => u.latitude && u.longitude)
         .map((u: any) => ({
           id: u.id,
           full_name: u.full_name,
@@ -2497,7 +2499,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           longitude: parseFloat(u.longitude),
           location_updated_at: u.location_updated_at,
         }));
-      res.json({ locations });
+
+      const noGps = activeUsers
+        .filter((u: any) => !u.latitude || !u.longitude)
+        .map((u: any) => ({
+          id: u.id,
+          full_name: u.full_name,
+          role: u.role,
+          department: u.department,
+        }));
+
+      res.json({ locations, noGps });
     } catch (error) {
       console.error("Error fetching user locations:", error);
       res.status(500).json({ error: "Internal server error" });
