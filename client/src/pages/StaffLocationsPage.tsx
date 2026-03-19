@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getQueryFn } from '@/lib/queryClient';
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
 import { useAuth } from '@/contexts/AuthContext';
+import { Redirect } from 'wouter';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -74,13 +75,7 @@ export default function StaffLocationsPage() {
   });
 
   if (!isAdmin) {
-    return (
-      <div className="text-center text-muted-foreground mt-12">
-        <AlertTriangle className="h-12 w-12 mx-auto mb-3 text-amber-500" />
-        <h2 className="text-xl font-medium mb-2">Pristup odbijen</h2>
-        <p>Samo administrator može pristupiti lokacijama osoblja.</p>
-      </div>
-    );
+    return <Redirect to="/" />;
   }
 
   const locations = data?.locations || [];
