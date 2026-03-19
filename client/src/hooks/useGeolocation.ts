@@ -1,8 +1,27 @@
 import { useEffect, useRef } from 'react';
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import { apiRequest } from '@/lib/queryClient';
 
 const LOCATION_INTERVAL_MS = 60000; // Web fallback: every 60 seconds
+
+// Register the native plugin directly — no JS bundle needed
+interface BackgroundGeolocationPlugin {
+  addWatcher(
+    options: {
+      backgroundMessage?: string;
+      backgroundTitle?: string;
+      requestPermissions?: boolean;
+      stale?: boolean;
+      distanceFilter?: number;
+    },
+    callback: (position?: any, error?: any) => void
+  ): Promise<string>;
+  removeWatcher(options: { id: string }): Promise<void>;
+}
+
+const BackgroundGeolocation = registerPlugin<BackgroundGeolocationPlugin>(
+  'BackgroundGeolocation'
+);
 
 export function useGeolocation(userId: string | undefined) {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -22,10 +41,6 @@ export function useGeolocation(userId: string | undefined) {
     if (Capacitor.isNativePlatform()) {
       const startBackgroundTracking = async () => {
         try {
-          // Use variable to prevent Vite from statically analyzing this native-only import
-          const bgGeoModule = '@capacitor-community/background-geolocation';
-          const { BackgroundGeolocation } = await import(/* @vite-ignore */ bgGeoModule);
-
           const watcherId = await BackgroundGeolocation.addWatcher(
             {
               backgroundMessage: 'Praćenje lokacije je aktivno',
@@ -34,7 +49,7 @@ export function useGeolocation(userId: string | undefined) {
               stale: false,
               distanceFilter: 10, // meters
             },
-            (location: any, error: any) => {
+            (location, error) => {
               if (error) {
                 if (error.code !== 'NOT_AUTHORIZED') {
                   console.warn('[GEO BG] Error:', error.message);
@@ -51,14 +66,14 @@ export function useGeolocation(userId: string | undefined) {
           console.log('[GEO BG] Background tracking started, watcher:', watcherId);
         } catch (err: any) {
           console.error('[GEO BG] Failed to start background tracking:', err.message);
-          // Fallback to web geolocation + app resume listener
+          // Fallback to web geolocation
           startWebTracking();
         }
       };
 
       startBackgroundTracking();
 
-      // Also send location when app comes back to foreground (belt and suspenders)
+      // Also send location when app comes back to foreground
       import('@capacitor/app').then(({ App }) => {
         App.addListener('appStateChange', ({ isActive }) => {
           if (isActive) {
@@ -98,12 +113,9 @@ export function useGeolocation(userId: string | undefined) {
 
       // Cleanup native background tracking
       if (bgWatcherRef.current && Capacitor.isNativePlatform()) {
-        const bgGeoModule = '@capacitor-community/background-geolocation';
-        import(/* @vite-ignore */ bgGeoModule).then(({ BackgroundGeolocation }: any) => {
-          BackgroundGeolocation.removeWatcher({ id: bgWatcherRef.current! });
-          bgWatcherRef.current = null;
-          console.log('[GEO BG] Background tracking stopped');
-        });
+        BackgroundGeolocation.removeWatcher({ id: bgWatcherRef.current });
+        bgWatcherRef.current = null;
+        console.log('[GEO BG] Background tracking stopped');
       }
     };
   }, [userId]);
