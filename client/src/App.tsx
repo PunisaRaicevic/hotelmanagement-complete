@@ -13,11 +13,13 @@ import Dashboard from "@/pages/Dashboard";
 import TasksPage from "@/pages/TasksPage";
 import UsersPage from "@/pages/UsersPage";
 import NotFound from "@/pages/not-found";
+import StaffLocationsPage from "@/pages/StaffLocationsPage";
 import GuestRequestPage from "@/pages/GuestRequestPage";
 import GuestDisplayPage from "@/pages/GuestDisplayPage";
 import { IonApp, setupIonicReact } from "@ionic/react";
 import { Capacitor } from "@capacitor/core";
 import { useFCM } from "@/hooks/useFCM";
+import { useGeolocation } from "@/hooks/useGeolocation";
 import { messaging, getToken } from "./firebase";
 
 setupIonicReact({
@@ -67,6 +69,7 @@ function Router() {
 
   console.log(`[Router] Current user:`, user?.fullName || 'NOT LOGGED IN', 'ID:', user?.id ? `${user.id.substring(0, 8)}...` : 'UNDEFINED');
   useFCM(user?.id);
+  useGeolocation(user?.id);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -157,6 +160,7 @@ function Router() {
           <Route path="/" component={Dashboard} />
           <Route path="/tasks" component={TasksPage} />
           <Route path="/users" component={UsersPage} />
+          <Route path="/staff-locations" component={StaffLocationsPage} />
           <Route path="/companies">
             <div className="text-center text-muted-foreground mt-12">
               <h2 className="text-2xl font-medium mb-2">

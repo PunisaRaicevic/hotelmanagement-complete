@@ -18,6 +18,7 @@ const resources = {
       users: 'Users',
       companies: 'External Companies',
       settings: 'Settings',
+      staffLocations: 'Staff Locations',
       logout: 'Logout',
       
       // Task Status
@@ -243,6 +244,7 @@ const resources = {
       users: 'Korisnici',
       companies: 'Eksterne firme',
       settings: 'Podešavanja',
+      staffLocations: 'Lokacije osoblja',
       logout: 'Odjavi se',
       
       // Task Status

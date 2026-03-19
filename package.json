@@ -31,6 +31,7 @@
     "@capacitor/live-updates": "^0.4.0",
     "@capacitor/local-notifications": "^7.0.3",
     "@capacitor/push-notifications": "^7.0.3",
+    "@googlemaps/js-api-loader": "^2.0.2",
     "@hookform/resolvers": "^3.10.0",
     "@ionic/pwa-elements": "^3.3.0",
     "@ionic/react": "^8.7.9",
@@ -88,7 +89,6 @@
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.453.0",
     "memorystore": "^1.6.7",
-
     "passport": "^0.7.0",
     "passport-local": "^1.0.0",
     "postgres": "^3.4.7",

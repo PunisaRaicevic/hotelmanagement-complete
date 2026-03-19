@@ -1,0 +1,277 @@
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useQuery } from '@tanstack/react-query';
+import { getQueryFn } from '@/lib/queryClient';
+import { Loader } from '@googlemaps/js-api-loader';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { RefreshCw, MapPin, Clock, Users } from 'lucide-react';
+
+interface UserLocation {
+  id: string;
+  full_name: string;
+  role: string;
+  department: string | null;
+  latitude: number;
+  longitude: number;
+  location_updated_at: string | null;
+}
+
+const ROLE_COLORS: Record<string, string> = {
+  admin: '#ef4444',
+  operater: '#f97316',
+  sef: '#8b5cf6',
+  radnik: '#3b82f6',
+  serviser: '#06b6d4',
+  recepcioner: '#10b981',
+  sobarica: '#ec4899',
+  sef_domacinstva: '#a855f7',
+  menadzer: '#f59e0b',
+};
+
+function formatTimeAgo(dateStr: string | null): string {
+  if (!dateStr) return 'N/A';
+  const now = new Date();
+  const date = new Date(dateStr);
+  const diffMs = now.getTime() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+
+  if (diffMin < 1) return 'Upravo sada';
+  if (diffMin < 60) return `${diffMin} min`;
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) return `${diffHours}h`;
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays}d`;
+}
+
+export default function StaffLocationsPage() {
+  const { t } = useTranslation();
+  const mapRef = useRef<HTMLDivElement>(null);
+  const googleMapRef = useRef<google.maps.Map | null>(null);
+  const markersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const [mapLoaded, setMapLoaded] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<UserLocation | null>(null);
+
+  const { data, isLoading, refetch } = useQuery<{ locations: UserLocation[] }>({
+    queryKey: ['/api/users/locations'],
+    queryFn: getQueryFn({ on401: 'throw' }),
+    refetchInterval: 30000,
+  });
+
+  const locations = data?.locations || [];
+
+  // Load Google Maps
+  useEffect(() => {
+    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+    if (!apiKey || mapLoaded) return;
+
+    const loader = new Loader({
+      apiKey,
+      version: 'weekly',
+      libraries: ['marker'],
+    });
+
+    loader.importLibrary('maps').then(() => {
+      loader.importLibrary('marker').then(() => {
+        if (mapRef.current && !googleMapRef.current) {
+          googleMapRef.current = new google.maps.Map(mapRef.current, {
+            center: { lat: 42.29, lng: 18.84 }, // Montenegro default
+            zoom: 14,
+            mapId: 'staff-locations-map',
+            mapTypeControl: true,
+            streetViewControl: false,
+            fullscreenControl: true,
+          });
+          setMapLoaded(true);
+        }
+      });
+    });
+  }, []);
+
+  // Update markers when locations change
+  const updateMarkers = useCallback(() => {
+    if (!googleMapRef.current || !mapLoaded) return;
+
+    // Clear existing markers
+    markersRef.current.forEach(marker => marker.map = null);
+    markersRef.current = [];
+
+    if (locations.length === 0) return;
+
+    const bounds = new google.maps.LatLngBounds();
+
+    locations.forEach((loc) => {
+      const position = { lat: loc.latitude, lng: loc.longitude };
+      bounds.extend(position);
+
+      // Create custom marker element
+      const markerEl = document.createElement('div');
+      markerEl.style.cssText = `
+        display: flex; flex-direction: column; align-items: center; cursor: pointer;
+      `;
+
+      const pin = document.createElement('div');
+      const color = ROLE_COLORS[loc.role] || '#6b7280';
+      pin.style.cssText = `
+        background: ${color}; color: white; padding: 4px 8px; border-radius: 12px;
+        font-size: 11px; font-weight: 600; white-space: nowrap; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        border: 2px solid white;
+      `;
+      pin.textContent = loc.full_name;
+      markerEl.appendChild(pin);
+
+      const dot = document.createElement('div');
+      dot.style.cssText = `
+        width: 8px; height: 8px; background: ${color}; border-radius: 50%;
+        margin-top: 2px; box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+      `;
+      markerEl.appendChild(dot);
+
+      const marker = new google.maps.marker.AdvancedMarkerElement({
+        map: googleMapRef.current!,
+        position,
+        content: markerEl,
+        title: loc.full_name,
+      });
+
+      marker.addListener('click', () => {
+        setSelectedUser(loc);
+      });
+
+      markersRef.current.push(marker);
+    });
+
+    if (locations.length > 1) {
+      googleMapRef.current.fitBounds(bounds, 80);
+    } else if (locations.length === 1) {
+      googleMapRef.current.setCenter({ lat: locations[0].latitude, lng: locations[0].longitude });
+      googleMapRef.current.setZoom(16);
+    }
+  }, [locations, mapLoaded]);
+
+  useEffect(() => {
+    updateMarkers();
+  }, [updateMarkers]);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">{t('staffLocations')}</h1>
+          <p className="text-muted-foreground text-sm">
+            GPS lokacije aktivnih korisnika u realnom vremenu
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Badge variant="outline" className="gap-1">
+            <Users className="h-3 w-3" />
+            {locations.length} online
+          </Badge>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            <RefreshCw className="h-4 w-4 mr-1" />
+            Osvježi
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        {/* Map */}
+        <div className="lg:col-span-3">
+          <Card>
+            <CardContent className="p-0">
+              <div ref={mapRef} className="w-full h-[600px] rounded-lg" />
+              {isLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-background/80">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Sidebar - User list */}
+        <div className="space-y-3">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Osoblje na mapi</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {locations.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Nema korisnika sa aktivnom lokacijom
+                </p>
+              ) : (
+                locations.map((loc) => (
+                  <div
+                    key={loc.id}
+                    className={`flex items-center gap-2 p-2 rounded-md cursor-pointer transition-colors hover:bg-muted ${
+                      selectedUser?.id === loc.id ? 'bg-muted ring-1 ring-primary' : ''
+                    }`}
+                    onClick={() => {
+                      setSelectedUser(loc);
+                      if (googleMapRef.current) {
+                        googleMapRef.current.panTo({ lat: loc.latitude, lng: loc.longitude });
+                        googleMapRef.current.setZoom(17);
+                      }
+                    }}
+                  >
+                    <div
+                      className="w-3 h-3 rounded-full shrink-0"
+                      style={{ backgroundColor: ROLE_COLORS[loc.role] || '#6b7280' }}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate">{loc.full_name}</p>
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        {formatTimeAgo(loc.location_updated_at)}
+                      </div>
+                    </div>
+                    <Badge variant="secondary" className="text-[10px] shrink-0">
+                      {t(loc.role)}
+                    </Badge>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Selected user info */}
+          {selectedUser && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-1">
+                  <MapPin className="h-4 w-4" />
+                  {selectedUser.full_name}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-1 text-sm">
+                <p><span className="text-muted-foreground">Rola:</span> {t(selectedUser.role)}</p>
+                {selectedUser.department && (
+                  <p><span className="text-muted-foreground">Odjeljenje:</span> {t(selectedUser.department)}</p>
+                )}
+                <p><span className="text-muted-foreground">Koordinate:</span> {selectedUser.latitude.toFixed(5)}, {selectedUser.longitude.toFixed(5)}</p>
+                <p><span className="text-muted-foreground">Ažurirano:</span> {formatTimeAgo(selectedUser.location_updated_at)}</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Legend */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Legenda</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1">
+              {Object.entries(ROLE_COLORS).map(([role, color]) => (
+                <div key={role} className="flex items-center gap-2 text-xs">
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
+                  <span>{t(role)}</span>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}

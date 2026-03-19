@@ -2453,6 +2453,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update user location (authenticated users send their GPS coordinates)
+  app.post("/api/users/location", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      const { latitude, longitude } = req.body;
+
+      if (latitude === undefined || longitude === undefined) {
+        return res.status(400).json({ error: "Latitude and longitude are required" });
+      }
+
+      const lat = parseFloat(latitude);
+      const lng = parseFloat(longitude);
+      if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+        return res.status(400).json({ error: "Invalid coordinates" });
+      }
+
+      await storage.updateUser(userId, {
+        latitude: lat.toString(),
+        longitude: lng.toString(),
+        location_updated_at: new Date(),
+      } as any);
+
+      res.json({ ok: true });
+    } catch (error) {
+      console.error("Error updating user location:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Admin: Get all user locations
+  app.get("/api/users/locations", requireAdmin, async (req, res) => {
+    try {
+      const users = await storage.getUsers();
+      const locations = users
+        .filter((u: any) => u.is_active && u.latitude && u.longitude)
+        .map((u: any) => ({
+          id: u.id,
+          full_name: u.full_name,
+          role: u.role,
+          department: u.department,
+          latitude: parseFloat(u.latitude),
+          longitude: parseFloat(u.longitude),
+          location_updated_at: u.location_updated_at,
+        }));
+      res.json({ locations });
+    } catch (error) {
+      console.error("Error fetching user locations:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Get housekeepers (sobarica role)
   app.get("/api/housekeepers", requireHousekeepingAccess, async (req, res) => {
     try {
