@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { getQueryFn } from '@/lib/queryClient';
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -54,6 +55,7 @@ function formatTimeAgo(dateStr: string | null): string {
 
 export default function StaffLocationsPage() {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
@@ -62,11 +64,24 @@ export default function StaffLocationsPage() {
   const [mapError, setMapError] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<UserLocation | null>(null);
 
+  const isAdmin = user?.role === 'admin';
+
   const { data, isLoading, refetch } = useQuery<{ locations: UserLocation[]; noGps: UserNoGps[] }>({
     queryKey: ['/api/users/locations'],
     queryFn: getQueryFn({ on401: 'throw' }),
     refetchInterval: 30000,
+    enabled: isAdmin,
   });
+
+  if (!isAdmin) {
+    return (
+      <div className="text-center text-muted-foreground mt-12">
+        <AlertTriangle className="h-12 w-12 mx-auto mb-3 text-amber-500" />
+        <h2 className="text-xl font-medium mb-2">Pristup odbijen</h2>
+        <p>Samo administrator može pristupiti lokacijama osoblja.</p>
+      </div>
+    );
+  }
 
   const locations = data?.locations || [];
   const noGps = data?.noGps || [];
