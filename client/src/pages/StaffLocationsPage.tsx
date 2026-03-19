@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { getQueryFn } from '@/lib/queryClient';
-import { Loader } from '@googlemaps/js-api-loader';
+import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -74,12 +74,9 @@ export default function StaffLocationsPage() {
 
     console.log('[MAP] Loading Google Maps with key:', apiKey.substring(0, 10) + '...');
 
-    const loader = new Loader({
-      apiKey,
-      version: 'weekly',
-    });
+    setOptions({ apiKey, version: 'weekly' });
 
-    loader.importLibrary('maps').then(() => {
+    importLibrary('maps').then(() => {
       if (mapRef.current && !googleMapRef.current) {
         googleMapRef.current = new google.maps.Map(mapRef.current, {
           center: { lat: 42.29, lng: 18.84 }, // Montenegro default
@@ -92,7 +89,7 @@ export default function StaffLocationsPage() {
         setMapLoaded(true);
         console.log('[MAP] Google Maps loaded successfully');
       }
-    }).catch((err) => {
+    }).catch((err: any) => {
       console.error('[MAP] Failed to load Google Maps:', err);
       setMapError(`Greška pri učitavanju mape: ${err.message}`);
     });
