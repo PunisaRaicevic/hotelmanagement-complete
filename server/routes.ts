@@ -2481,8 +2481,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid coordinates" });
       }
 
-      const user = await storage.getUser(userId);
-      console.log(`[LOCATION] User ${user?.full_name || userId} sent location: ${lat.toFixed(5)}, ${lng.toFixed(5)} at ${new Date().toISOString()}`);
+      console.log(`[LOCATION] User ${userId} sent location: ${lat.toFixed(5)}, ${lng.toFixed(5)} at ${new Date().toISOString()}`);
 
       await storage.updateUser(userId, {
         latitude: lat.toString(),
