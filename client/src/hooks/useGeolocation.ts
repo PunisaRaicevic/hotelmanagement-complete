@@ -12,6 +12,7 @@ export function useGeolocation(userId: string | undefined) {
     if (!userId) return;
 
     const sendLocation = (lat: number, lng: number) => {
+      console.log('[GEO] Sending location:', lat.toFixed(5), lng.toFixed(5));
       apiRequest('POST', '/api/users/location', { latitude: lat, longitude: lng }).catch((err) =>
         console.warn('[GEO] Failed to send location:', err.message)
       );
@@ -33,7 +34,7 @@ export function useGeolocation(userId: string | undefined) {
               stale: false,
               distanceFilter: 10, // meters
             },
-            (location, error) => {
+            (location: any, error: any) => {
               if (error) {
                 if (error.code !== 'NOT_AUTHORIZED') {
                   console.warn('[GEO BG] Error:', error.message);
@@ -50,30 +51,42 @@ export function useGeolocation(userId: string | undefined) {
           console.log('[GEO BG] Background tracking started, watcher:', watcherId);
         } catch (err: any) {
           console.error('[GEO BG] Failed to start background tracking:', err.message);
-          // Fallback to web geolocation
+          // Fallback to web geolocation + app resume listener
           startWebTracking();
         }
       };
 
       startBackgroundTracking();
+
+      // Also send location when app comes back to foreground (belt and suspenders)
+      import('@capacitor/app').then(({ App }) => {
+        App.addListener('appStateChange', ({ isActive }) => {
+          if (isActive) {
+            console.log('[GEO] App resumed, sending fresh location');
+            fetchAndSendOnce();
+          }
+        });
+      }).catch(() => {});
+
     } else {
       // Web browser: use standard geolocation API
       startWebTracking();
     }
 
+    function fetchAndSendOnce() {
+      if (!('geolocation' in navigator)) return;
+      navigator.geolocation.getCurrentPosition(
+        (pos) => sendLocation(pos.coords.latitude, pos.coords.longitude),
+        (err) => console.warn('[GEO] Position unavailable:', err.message),
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    }
+
     function startWebTracking() {
       if (!('geolocation' in navigator)) return;
 
-      const fetchAndSend = () => {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => sendLocation(pos.coords.latitude, pos.coords.longitude),
-          (err) => console.warn('[GEO] Position unavailable:', err.message),
-          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-        );
-      };
-
-      fetchAndSend();
-      intervalRef.current = setInterval(fetchAndSend, LOCATION_INTERVAL_MS);
+      fetchAndSendOnce();
+      intervalRef.current = setInterval(fetchAndSendOnce, LOCATION_INTERVAL_MS);
     }
 
     return () => {
