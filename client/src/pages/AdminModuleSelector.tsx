@@ -25,7 +25,9 @@ import {
   Bell,
   ChevronRight,
   X,
+  MapPin,
 } from 'lucide-react';
+import { useLocation } from 'wouter';
 
 interface Room {
   id: string;
@@ -101,6 +103,7 @@ type SidebarView = 'tech-requests' | 'hk-requests' | 'housekeepers' | 'technicia
 export default function AdminModuleSelector() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
   // Data state
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -332,6 +335,19 @@ export default function AdminModuleSelector() {
                       </button>
                     </div>
                   </div>
+                  <div className="w-px bg-gray-200 mx-1 self-stretch" />
+                  <div className="flex-shrink-0">
+                    <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 px-1">Mapa</p>
+                    <div className="flex gap-1.5">
+                      <button
+                        onClick={() => setLocation('/staff-locations')}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all duration-200 text-xs font-medium whitespace-nowrap bg-gray-100 text-gray-700 hover:bg-emerald-100 hover:text-emerald-700"
+                      >
+                        <MapPin className="w-3.5 h-3.5" />
+                        Lokacije
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
               {/* Mobile Detail Panel */}
@@ -507,6 +523,20 @@ export default function AdminModuleSelector() {
                       }`}>
                         {technicians.length}
                       </span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Lokacije osoblja */}
+                <div className="bg-white/80 backdrop-blur-xl rounded-2xl p-4 shadow-sm border border-gray-200/50">
+                  <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-3 px-1">Mapa</p>
+                  <div className="space-y-1">
+                    <button
+                      onClick={() => setLocation('/staff-locations')}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 hover:bg-emerald-100 text-gray-700 hover:text-emerald-700"
+                    >
+                      <MapPin className="w-4 h-4" />
+                      <span className="flex-1 text-left text-sm font-medium">Lokacije osoblja</span>
                     </button>
                   </div>
                 </div>
