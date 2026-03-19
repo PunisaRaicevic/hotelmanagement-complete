@@ -4,25 +4,6 @@ import { apiRequest } from '@/lib/queryClient';
 
 const LOCATION_INTERVAL_MS = 60000; // Every 60 seconds
 
-// Register the native background geolocation plugin
-interface BackgroundGeolocationPlugin {
-  addWatcher(
-    options: {
-      backgroundMessage?: string;
-      backgroundTitle?: string;
-      requestPermissions?: boolean;
-      stale?: boolean;
-      distanceFilter?: number;
-    },
-    callback: (position?: any, error?: any) => void
-  ): Promise<string>;
-  removeWatcher(options: { id: string }): Promise<void>;
-}
-
-const BackgroundGeolocation = registerPlugin<BackgroundGeolocationPlugin>(
-  'BackgroundGeolocation'
-);
-
 export function useGeolocation(userId: string | undefined) {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const bgWatcherRef = useRef<string | null>(null);
@@ -38,16 +19,18 @@ export function useGeolocation(userId: string | undefined) {
       );
     };
 
-    // Always start web tracking (works as baseline on all platforms)
+    // Always start web tracking as baseline
     startWebTracking();
 
-    // Native mobile: ALSO try background geolocation plugin for screen-off tracking
+    // Native mobile: ALSO try background geolocation plugin
     if (Capacitor.isNativePlatform()) {
-      console.log('[GEO] Native platform detected, starting background tracking...');
+      console.log('[GEO] Native platform detected, attempting background tracking...');
 
       const startBackgroundTracking = async () => {
         try {
-          console.log('[GEO BG] Calling addWatcher...');
+          const BackgroundGeolocation = registerPlugin<any>('BackgroundGeolocation');
+          console.log('[GEO BG] Plugin registered, calling addWatcher...');
+
           const watcherId = await BackgroundGeolocation.addWatcher(
             {
               backgroundMessage: 'Praćenje lokacije je aktivno',
@@ -56,7 +39,7 @@ export function useGeolocation(userId: string | undefined) {
               stale: false,
               distanceFilter: 10,
             },
-            (location, error) => {
+            (location: any, error: any) => {
               if (error) {
                 console.warn('[GEO BG] Watcher error:', error.code, error.message);
                 return;
@@ -70,14 +53,13 @@ export function useGeolocation(userId: string | undefined) {
           bgWatcherRef.current = watcherId;
           console.log('[GEO BG] Background tracking STARTED, watcher ID:', watcherId);
         } catch (err: any) {
-          console.error('[GEO BG] FAILED to start background tracking:', err);
-          console.error('[GEO BG] Error details:', JSON.stringify(err));
+          console.error('[GEO BG] FAILED:', err?.message || err);
         }
       };
 
       startBackgroundTracking();
 
-      // Also send location when app comes back to foreground
+      // Send location when app comes back to foreground
       import('@capacitor/app').then(({ App }) => {
         App.addListener('appStateChange', ({ isActive }) => {
           if (isActive) {
@@ -87,9 +69,7 @@ export function useGeolocation(userId: string | undefined) {
         }).then((listener) => {
           appListenerRef.current = listener;
         });
-      }).catch((err) => {
-        console.warn('[GEO] Failed to add app state listener:', err);
-      });
+      }).catch(() => {});
     }
 
     function fetchAndSendOnce(source: string) {
@@ -113,8 +93,11 @@ export function useGeolocation(userId: string | undefined) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
-      if (bgWatcherRef.current && Capacitor.isNativePlatform()) {
-        BackgroundGeolocation.removeWatcher({ id: bgWatcherRef.current });
+      if (bgWatcherRef.current) {
+        try {
+          const BackgroundGeolocation = registerPlugin<any>('BackgroundGeolocation');
+          BackgroundGeolocation.removeWatcher({ id: bgWatcherRef.current });
+        } catch (e) {}
         bgWatcherRef.current = null;
       }
       if (appListenerRef.current) {
