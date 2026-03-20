@@ -8,7 +8,7 @@ import { Redirect } from 'wouter';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, MapPin, Clock, Users, AlertTriangle, WifiOff, Wifi, CircleOff } from 'lucide-react';
+import { RefreshCw, MapPin, Clock, AlertTriangle, CircleOff } from 'lucide-react';
 
 interface UserLocation {
   id: string;
@@ -18,6 +18,8 @@ interface UserLocation {
   latitude: number;
   longitude: number;
   location_updated_at: string | null;
+  last_active_at: string | null;
+  is_online: boolean;
 }
 
 interface UserOnlineNoGps {
@@ -33,6 +35,7 @@ interface UserOffline {
   full_name: string;
   role: string;
   department: string | null;
+  last_active_at: string | null;
 }
 
 const ROLE_COLORS: Record<string, string> = {
@@ -54,12 +57,12 @@ function formatTimeAgo(dateStr: string | null): string {
   const diffMs = now.getTime() - date.getTime();
   const diffMin = Math.floor(diffMs / 60000);
 
-  if (diffMin < 1) return 'Upravo sada';
-  if (diffMin < 60) return `${diffMin} min`;
+  if (diffMin < 1) return 'upravo sada';
+  if (diffMin < 60) return `prije ${diffMin} min`;
   const diffHours = Math.floor(diffMin / 60);
-  if (diffHours < 24) return `${diffHours}h`;
+  if (diffHours < 24) return `prije ${diffHours}h`;
   const diffDays = Math.floor(diffHours / 24);
-  return `${diffDays}d`;
+  return `prije ${diffDays}d`;
 }
 
 export default function StaffLocationsPage() {
@@ -90,6 +93,9 @@ export default function StaffLocationsPage() {
   const onlineNoGps = data?.onlineNoGps || [];
   const offline = data?.offline || [];
 
+  const onlineCount = locations.filter(l => l.is_online).length + onlineNoGps.length;
+  const totalOnMap = locations.length;
+
   // Load Google Maps
   useEffect(() => {
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
@@ -99,14 +105,12 @@ export default function StaffLocationsPage() {
     }
     if (mapLoaded || googleMapRef.current) return;
 
-    console.log('[MAP] Loading Google Maps with key:', apiKey.substring(0, 10) + '...');
-
     setOptions({ apiKey, version: 'weekly' });
 
     importLibrary('maps').then(() => {
       if (mapRef.current && !googleMapRef.current) {
         googleMapRef.current = new google.maps.Map(mapRef.current, {
-          center: { lat: 42.29, lng: 18.84 }, // Montenegro default
+          center: { lat: 42.29, lng: 18.84 },
           zoom: 14,
           mapTypeControl: true,
           streetViewControl: false,
@@ -114,10 +118,8 @@ export default function StaffLocationsPage() {
         });
         infoWindowRef.current = new google.maps.InfoWindow();
         setMapLoaded(true);
-        console.log('[MAP] Google Maps loaded successfully');
       }
     }).catch((err: any) => {
-      console.error('[MAP] Failed to load Google Maps:', err);
       setMapError(`Greška pri učitavanju mape: ${err.message}`);
     });
   }, []);
@@ -126,10 +128,7 @@ export default function StaffLocationsPage() {
   const updateMarkers = useCallback(() => {
     if (!googleMapRef.current || !mapLoaded) return;
 
-    // Clear existing markers
-    markersRef.current.forEach(marker => {
-      marker.setMap(null);
-    });
+    markersRef.current.forEach(marker => marker.setMap(null));
     markersRef.current = [];
 
     if (locations.length === 0) return;
@@ -141,6 +140,8 @@ export default function StaffLocationsPage() {
       bounds.extend(position);
 
       const color = ROLE_COLORS[loc.role] || '#6b7280';
+      // Dim the marker if user is offline (location is old)
+      const opacity = loc.is_online ? 1 : 0.5;
 
       const marker = new google.maps.Marker({
         map: googleMapRef.current!,
@@ -156,8 +157,8 @@ export default function StaffLocationsPage() {
           path: google.maps.SymbolPath.CIRCLE,
           scale: 14,
           fillColor: color,
-          fillOpacity: 1,
-          strokeColor: 'white',
+          fillOpacity: opacity,
+          strokeColor: loc.is_online ? '#22c55e' : '#9ca3af',
           strokeWeight: 3,
         },
       });
@@ -165,12 +166,17 @@ export default function StaffLocationsPage() {
       marker.addListener('click', () => {
         setSelectedUser(loc);
         if (infoWindowRef.current) {
+          const onlineHtml = loc.is_online
+            ? '<span style="color: #16a34a; font-weight: 600;">● Online</span>'
+            : '<span style="color: #9ca3af;">● Offline</span>';
           infoWindowRef.current.setContent(`
             <div style="padding: 8px; min-width: 150px;">
               <div style="font-weight: 600; font-size: 14px; margin-bottom: 4px;">${loc.full_name}</div>
+              <div style="font-size: 12px; margin-bottom: 2px;">${onlineHtml}</div>
               <div style="color: #666; font-size: 12px;">${t(loc.role)}</div>
               ${loc.department ? `<div style="color: #666; font-size: 12px;">${t(loc.department)}</div>` : ''}
-              <div style="color: #999; font-size: 11px; margin-top: 4px;">Ažurirano: ${formatTimeAgo(loc.location_updated_at)}</div>
+              <div style="color: #999; font-size: 11px; margin-top: 4px;">GPS: ${formatTimeAgo(loc.location_updated_at)}</div>
+              <div style="color: #999; font-size: 11px;">Aktivan: ${formatTimeAgo(loc.last_active_at)}</div>
             </div>
           `);
           infoWindowRef.current.open(googleMapRef.current!, marker);
@@ -198,20 +204,18 @@ export default function StaffLocationsPage() {
         <div>
           <h1 className="text-2xl font-bold">{t('staffLocations')}</h1>
           <p className="text-muted-foreground text-sm">
-            GPS lokacije aktivnih korisnika u realnom vremenu
+            Lokacije i status osoblja
           </p>
         </div>
         <div className="flex items-center gap-3">
           <Badge variant="outline" className="gap-1 border-green-300 text-green-700">
-            <MapPin className="h-3 w-3" />
-            {locations.length} GPS
+            <div className="w-2 h-2 rounded-full bg-green-500" />
+            {onlineCount} online
           </Badge>
-          {onlineNoGps.length > 0 && (
-            <Badge variant="outline" className="gap-1 border-amber-300 text-amber-700">
-              <WifiOff className="h-3 w-3" />
-              {onlineNoGps.length} bez GPS
-            </Badge>
-          )}
+          <Badge variant="outline" className="gap-1 border-blue-300 text-blue-700">
+            <MapPin className="h-3 w-3" />
+            {totalOnMap} na mapi
+          </Badge>
           <Badge variant="outline" className="gap-1 border-gray-300 text-gray-500">
             <CircleOff className="h-3 w-3" />
             {offline.length} offline
@@ -247,16 +251,20 @@ export default function StaffLocationsPage() {
           </Card>
         </div>
 
-        {/* Sidebar - User list */}
+        {/* Sidebar */}
         <div className="space-y-3">
+          {/* Users on map (with GPS) */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Osoblje na mapi</CardTitle>
+              <CardTitle className="text-sm font-medium flex items-center gap-1">
+                <MapPin className="h-4 w-4" />
+                Na mapi ({locations.length})
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {locations.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  Nema korisnika sa aktivnom lokacijom. Korisnici moraju dozvoliti GPS u browseru.
+                  Nema korisnika sa lokacijom.
                 </p>
               ) : (
                 locations.map((loc) => (
@@ -273,10 +281,18 @@ export default function StaffLocationsPage() {
                       }
                     }}
                   >
-                    <div
-                      className="w-3 h-3 rounded-full shrink-0"
-                      style={{ backgroundColor: ROLE_COLORS[loc.role] || '#6b7280' }}
-                    />
+                    {/* Online indicator */}
+                    <div className="relative shrink-0">
+                      <div
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                        style={{ backgroundColor: ROLE_COLORS[loc.role] || '#6b7280', opacity: loc.is_online ? 1 : 0.5 }}
+                      >
+                        {loc.full_name.charAt(0)}
+                      </div>
+                      <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${
+                        loc.is_online ? 'bg-green-500' : 'bg-gray-400'
+                      }`} />
+                    </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium truncate">{loc.full_name}</p>
                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -295,21 +311,30 @@ export default function StaffLocationsPage() {
 
           {/* Online but no GPS */}
           {onlineNoGps.length > 0 && (
-            <Card className="border-amber-200 bg-amber-50/50">
+            <Card className="border-green-200 bg-green-50/50">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-1 text-amber-700">
-                  <Wifi className="h-4 w-4" />
-                  Online - GPS isključen ({onlineNoGps.length})
+                <CardTitle className="text-sm font-medium flex items-center gap-1 text-green-700">
+                  <div className="w-2 h-2 rounded-full bg-green-500" />
+                  Online - bez GPS ({onlineNoGps.length})
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-1.5">
                 {onlineNoGps.map((u) => (
                   <div key={u.id} className="flex items-center gap-2 p-1.5 rounded-md">
-                    <div className="w-3 h-3 rounded-full shrink-0 bg-amber-400" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate text-amber-800">{u.full_name}</p>
+                    <div className="relative shrink-0">
+                      <div
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                        style={{ backgroundColor: ROLE_COLORS[u.role] || '#6b7280' }}
+                      >
+                        {u.full_name.charAt(0)}
+                      </div>
+                      <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white bg-green-500" />
                     </div>
-                    <Badge variant="outline" className="text-[10px] shrink-0 border-amber-300 text-amber-600">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate">{u.full_name}</p>
+                      <p className="text-xs text-muted-foreground">{formatTimeAgo(u.last_active_at)}</p>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] shrink-0 border-green-300 text-green-600">
                       {t(u.role)}
                     </Badge>
                   </div>
@@ -330,9 +355,20 @@ export default function StaffLocationsPage() {
               <CardContent className="space-y-1.5">
                 {offline.map((u) => (
                   <div key={u.id} className="flex items-center gap-2 p-1.5 rounded-md">
-                    <div className="w-3 h-3 rounded-full shrink-0 bg-gray-300" />
+                    <div className="relative shrink-0">
+                      <div
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold opacity-40"
+                        style={{ backgroundColor: ROLE_COLORS[u.role] || '#6b7280' }}
+                      >
+                        {u.full_name.charAt(0)}
+                      </div>
+                      <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white bg-gray-400" />
+                    </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium truncate text-gray-400">{u.full_name}</p>
+                      {u.last_active_at && (
+                        <p className="text-xs text-gray-400">{formatTimeAgo(u.last_active_at)}</p>
+                      )}
                     </div>
                     <Badge variant="outline" className="text-[10px] shrink-0 border-gray-200 text-gray-400">
                       {t(u.role)}
@@ -350,6 +386,11 @@ export default function StaffLocationsPage() {
                 <CardTitle className="text-sm font-medium flex items-center gap-1">
                   <MapPin className="h-4 w-4" />
                   {selectedUser.full_name}
+                  {selectedUser.is_online ? (
+                    <span className="text-green-600 text-xs ml-1">● Online</span>
+                  ) : (
+                    <span className="text-gray-400 text-xs ml-1">● Offline</span>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-1 text-sm">
@@ -358,7 +399,8 @@ export default function StaffLocationsPage() {
                   <p><span className="text-muted-foreground">Odjeljenje:</span> {t(selectedUser.department)}</p>
                 )}
                 <p><span className="text-muted-foreground">Koordinate:</span> {selectedUser.latitude.toFixed(5)}, {selectedUser.longitude.toFixed(5)}</p>
-                <p><span className="text-muted-foreground">Ažurirano:</span> {formatTimeAgo(selectedUser.location_updated_at)}</p>
+                <p><span className="text-muted-foreground">GPS ažuriran:</span> {formatTimeAgo(selectedUser.location_updated_at)}</p>
+                <p><span className="text-muted-foreground">Poslednja aktivnost:</span> {formatTimeAgo(selectedUser.last_active_at)}</p>
               </CardContent>
             </Card>
           )}
@@ -368,13 +410,23 @@ export default function StaffLocationsPage() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium">Legenda</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-1">
-              {Object.entries(ROLE_COLORS).map(([role, color]) => (
-                <div key={role} className="flex items-center gap-2 text-xs">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
-                  <span>{t(role)}</span>
-                </div>
-              ))}
+            <CardContent className="space-y-1.5">
+              <div className="flex items-center gap-2 text-xs">
+                <div className="w-3 h-3 rounded-full bg-green-500" />
+                <span>Online (aktivan)</span>
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                <div className="w-3 h-3 rounded-full bg-gray-400" />
+                <span>Offline</span>
+              </div>
+              <div className="border-t pt-1.5 mt-1.5">
+                {Object.entries(ROLE_COLORS).map(([role, color]) => (
+                  <div key={role} className="flex items-center gap-2 text-xs py-0.5">
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
+                    <span>{t(role)}</span>
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
         </div>

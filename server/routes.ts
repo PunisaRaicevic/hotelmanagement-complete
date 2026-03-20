@@ -2502,15 +2502,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const users = await storage.getUsers();
       const activeUsers = users.filter((u: any) => u.is_active && u.role !== 'guest_display');
-      const ONLINE_THRESHOLD_MS = 3 * 60 * 1000; // 3 minutes
+      const ONLINE_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes — user is "online" if active within this window
+      const LOCATION_THRESHOLD_MS = 60 * 60 * 1000; // 60 minutes — show location on map up to 1 hour
       const now = Date.now();
 
       const isOnline = (u: any) => u.last_active_at && (now - new Date(u.last_active_at).getTime()) < ONLINE_THRESHOLD_MS;
-      const hasGps = (u: any) => u.latitude && u.longitude && u.location_updated_at && (now - new Date(u.location_updated_at).getTime()) < ONLINE_THRESHOLD_MS;
+      const hasLocation = (u: any) => u.latitude && u.longitude && u.location_updated_at && (now - new Date(u.location_updated_at).getTime()) < LOCATION_THRESHOLD_MS;
 
-      // Online + GPS active
+      // All users with a recent GPS location (show on map)
       const locations = activeUsers
-        .filter((u: any) => hasGps(u))
+        .filter((u: any) => hasLocation(u))
         .map((u: any) => ({
           id: u.id,
           full_name: u.full_name,
@@ -2519,11 +2520,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           latitude: parseFloat(u.latitude),
           longitude: parseFloat(u.longitude),
           location_updated_at: u.location_updated_at,
+          last_active_at: u.last_active_at,
+          is_online: isOnline(u),
         }));
 
-      // Online but no GPS
+      // Online but no GPS location
       const onlineNoGps = activeUsers
-        .filter((u: any) => isOnline(u) && !hasGps(u))
+        .filter((u: any) => isOnline(u) && !hasLocation(u))
         .map((u: any) => ({
           id: u.id,
           full_name: u.full_name,
@@ -2532,14 +2535,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           last_active_at: u.last_active_at,
         }));
 
-      // Offline (not active recently)
+      // Offline (not active recently and no recent location)
       const offline = activeUsers
-        .filter((u: any) => !isOnline(u) && !hasGps(u))
+        .filter((u: any) => !isOnline(u) && !hasLocation(u))
         .map((u: any) => ({
           id: u.id,
           full_name: u.full_name,
           role: u.role,
           department: u.department,
+          last_active_at: u.last_active_at,
         }));
 
       res.json({ locations, onlineNoGps, offline });

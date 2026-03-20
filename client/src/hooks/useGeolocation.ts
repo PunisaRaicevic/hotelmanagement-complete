@@ -33,7 +33,7 @@ export function useGeolocation(userId: string | undefined) {
 
           const watcherId = await BackgroundGeolocation.addWatcher(
             {
-              backgroundMessage: 'Praćenje lokacije je aktivno',
+              backgroundMessage: 'Aplikacija radi u pozadini',
               backgroundTitle: 'Hotel Management',
               requestPermissions: true,
               stale: false,
