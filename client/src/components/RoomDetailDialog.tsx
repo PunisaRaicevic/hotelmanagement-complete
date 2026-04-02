@@ -258,6 +258,11 @@ const requestTypeLabels: Record<string, string> = {
   maintenance: 'Održavanje',
   housekeeping: 'Čišćenje',
   amenities: 'Potrepštine',
+  restaurant: 'Restoran',
+  spa: 'Spa & Wellness',
+  rent_a_car: 'Rent a Car',
+  excursion: 'Izleti & Ture',
+  other_services: 'Ostale usluge',
   other: 'Ostalo',
 };
 

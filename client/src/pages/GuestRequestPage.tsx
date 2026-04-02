@@ -14,7 +14,7 @@ import {
   Wrench,
   Sparkles,
   Package,
-  HelpCircle,
+  UtensilsCrossed,
   Send,
   Loader2,
   CheckCircle2,
@@ -27,6 +27,10 @@ import {
   Plus,
   Clock,
   Forward,
+  Car,
+  Compass,
+  Waves,
+  Gift,
 } from 'lucide-react';
 
 interface RoomInfo {
@@ -47,14 +51,18 @@ interface GuestRequest {
   forwarded_to_department?: string;
 }
 
-type RequestType = 'maintenance' | 'housekeeping' | 'amenities' | 'other';
+type RequestType = 'maintenance' | 'housekeeping' | 'amenities' | 'restaurant' | 'spa' | 'rent_a_car' | 'excursion' | 'other_services';
 type Priority = 'low' | 'normal' | 'urgent';
 
 const requestTypes = [
   { id: 'maintenance', label: 'Tehnički problem', description: 'Kvar, popravka, instalacija', icon: Wrench },
   { id: 'housekeeping', label: 'Čišćenje', description: 'Dodatno čišćenje, promjena posteljine', icon: Sparkles },
   { id: 'amenities', label: 'Potrepštine', description: 'Ručnici, sapun, toalet papir', icon: Package },
-  { id: 'other', label: 'Ostalo', description: 'Drugi zahtjevi ili pitanja', icon: HelpCircle },
+  { id: 'restaurant', label: 'Restoran', description: 'Rezervacija, room service, specijaliteti', icon: UtensilsCrossed },
+  { id: 'spa', label: 'Spa & Wellness', description: 'Masaža, sauna, bazen, tretmani', icon: Waves },
+  { id: 'rent_a_car', label: 'Rent a Car', description: 'Iznajmljivanje vozila, transfer', icon: Car },
+  { id: 'excursion', label: 'Izleti & Ture', description: 'Ekskurzije, razgledanje, avanture', icon: Compass },
+  { id: 'other_services', label: 'Ostale usluge', description: 'Poklon paketi, proslava, posebni zahtjevi', icon: Gift },
 ];
 
 const priorities = [
@@ -67,7 +75,11 @@ const categoryOptions: Record<RequestType, string[]> = {
   maintenance: ['Vodoinstalacije', 'Elektrika', 'Grijanje/Klima', 'TV/Internet', 'Vrata/Prozori', 'Ostalo'],
   housekeeping: ['Promjena posteljine', 'Čišćenje sobe', 'Čišćenje kupatila', 'Usisavanje', 'Ostalo'],
   amenities: ['Ručnici', 'Sapun/Šampon', 'Toalet papir', 'Voda za piće', 'Minibar', 'Ostalo'],
-  other: [],
+  restaurant: ['Rezervacija stola', 'Room Service', 'Doručak u sobu', 'Specijaliteti kuhinje', 'Torta/Proslava'],
+  spa: ['Masaža', 'Sauna', 'Bazen', 'Tretman lica', 'Tretman tijela', 'Paket wellness'],
+  rent_a_car: ['Iznajmljivanje auta', 'Aerodromski transfer', 'Privatni vozač', 'Dnevni najam'],
+  excursion: ['Razgledanje grada', 'Izlet brodom', 'Planinarenje', 'Vinski obilazak', 'Kulturna tura', 'Avantura'],
+  other_services: ['Poklon paket', 'Dekoracija sobe', 'Proslava rođendana', 'Buket cvijeća', 'Ostalo'],
 };
 
 export default function GuestRequestPage() {
@@ -221,6 +233,11 @@ export default function GuestRequestPage() {
       case 'maintenance': return 'Tehnički problem';
       case 'housekeeping': return 'Čišćenje';
       case 'amenities': return 'Potrepštine';
+      case 'restaurant': return 'Restoran';
+      case 'spa': return 'Spa & Wellness';
+      case 'rent_a_car': return 'Rent a Car';
+      case 'excursion': return 'Izleti & Ture';
+      case 'other_services': return 'Ostale usluge';
       case 'other': return 'Ostalo';
       default: return type;
     }
@@ -471,9 +488,9 @@ export default function GuestRequestPage() {
 
         {/* Request Type Selection */}
         <Card className="p-4 mb-4">
-          <Label className="text-sm font-medium mb-3 block">Vrsta zahtjeva *</Label>
-          <div className="grid grid-cols-2 gap-2">
-            {requestTypes.map((type) => {
+          <Label className="text-sm font-medium mb-3 block">Prijavi problem *</Label>
+          <div className="grid grid-cols-3 gap-2">
+            {requestTypes.slice(0, 3).map((type) => {
               const Icon = type.icon;
               const isSelected = requestType === type.id;
               return (
@@ -492,7 +509,40 @@ export default function GuestRequestPage() {
                 >
                   <Icon className={`w-5 h-5 mb-1 ${isSelected ? 'text-blue-600' : 'text-gray-500'}`} />
                   <p className="font-medium text-sm">{type.label}</p>
-                  <p className="text-xs text-muted-foreground">{type.description}</p>
+                  <p className="text-xs text-muted-foreground leading-tight">{type.description}</p>
+                </button>
+              );
+            })}
+          </div>
+        </Card>
+
+        {/* Hotel Services - revenue generating */}
+        <Card className="p-4 mb-4 border-emerald-200 bg-gradient-to-br from-emerald-50/50 to-white">
+          <Label className="text-sm font-medium mb-3 block flex items-center gap-2">
+            <Gift className="w-4 h-4 text-emerald-600" />
+            Hotelske usluge
+          </Label>
+          <div className="grid grid-cols-2 gap-2">
+            {requestTypes.slice(3).map((type) => {
+              const Icon = type.icon;
+              const isSelected = requestType === type.id;
+              return (
+                <button
+                  key={type.id}
+                  type="button"
+                  className={`p-3 rounded-lg border-2 text-left transition-all ${
+                    isSelected
+                      ? 'border-emerald-500 bg-emerald-50'
+                      : 'border-emerald-100 hover:border-emerald-300 bg-white'
+                  }`}
+                  onClick={() => {
+                    setRequestType(type.id as RequestType);
+                    setCategory('');
+                  }}
+                >
+                  <Icon className={`w-5 h-5 mb-1 ${isSelected ? 'text-emerald-600' : 'text-emerald-500'}`} />
+                  <p className="font-medium text-sm">{type.label}</p>
+                  <p className="text-xs text-muted-foreground leading-tight">{type.description}</p>
                 </button>
               );
             })}
