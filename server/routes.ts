@@ -2686,5 +2686,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==========================================
+  // Translation endpoint (MyMemory free API)
+  // ==========================================
+  app.post("/api/translate", requireAuth, async (req, res) => {
+    try {
+      const { text, from, to } = req.body;
+      if (!text || !to) {
+        return res.status(400).json({ error: "Text and target language are required" });
+      }
+
+      const sourceLang = from || 'auto';
+      const targetLang = to || 'sr';
+
+      // Use MyMemory free translation API (no key needed, 5000 chars/day limit per IP)
+      const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text.substring(0, 500))}&langpair=${sourceLang}|${targetLang}&de=hotel@translation.local`;
+
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (data.responseStatus === 200 && data.responseData?.translatedText) {
+        res.json({
+          translatedText: data.responseData.translatedText,
+          detectedLanguage: data.responseData.detectedLanguage || sourceLang,
+        });
+      } else {
+        res.status(502).json({ error: "Translation service unavailable" });
+      }
+    } catch (error) {
+      console.error("Translation error:", error);
+      res.status(500).json({ error: "Translation failed" });
+    }
+  });
+
   return server;
 }

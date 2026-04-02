@@ -38,6 +38,7 @@ import {
   Bell,
   PlayCircle,
   UserCheck,
+  Languages,
 } from 'lucide-react';
 import GuestRequestChat from './GuestRequestChat';
 import SelectHousekeeperDialog from './SelectHousekeeperDialog';
@@ -302,6 +303,7 @@ export default function RoomDetailDialog({
   const [isAssigning, setIsAssigning] = useState(false);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [showHousekeeperDialog, setShowHousekeeperDialog] = useState(false);  // kept for manual re-assignment
+  const [descTranslation, setDescTranslation] = useState<{ text: string; loading: boolean; showOriginal: boolean } | null>(null);
   const [checkoutRoomData, setCheckoutRoomData] = useState<{ roomId: string; roomNumber: string } | null>(null);  // kept for manual re-assignment
   const [activeTask, setActiveTask] = useState<HousekeepingTask | null>(null);
   const [isLoadingTask, setIsLoadingTask] = useState(false);
@@ -1361,7 +1363,7 @@ export default function RoomDetailDialog({
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setSelectedRequest(null)}
+                  onClick={() => { setSelectedRequest(null); setDescTranslation(null); }}
                   className="mb-2"
                 >
                   <ArrowLeft className="w-4 h-4 mr-1" />
@@ -1388,11 +1390,54 @@ export default function RoomDetailDialog({
                     )}
                   </div>
 
-                  <p className="text-sm mb-2">{selectedRequest.description}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {formatDateTime(selectedRequest.created_at)}
-                    {selectedRequest.guest_name && ` - ${selectedRequest.guest_name}`}
+                  <p className="text-sm mb-1">
+                    {descTranslation?.text && !descTranslation.showOriginal
+                      ? descTranslation.text
+                      : selectedRequest.description}
                   </p>
+                  {descTranslation?.text && !descTranslation.showOriginal && (
+                    <p className="text-[10px] text-muted-foreground italic mb-1">Prevedeno na srpski</p>
+                  )}
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className="text-xs text-muted-foreground">
+                      {formatDateTime(selectedRequest.created_at)}
+                      {selectedRequest.guest_name && ` - ${selectedRequest.guest_name}`}
+                    </p>
+                    <button
+                      onClick={async () => {
+                        if (descTranslation?.text) {
+                          setDescTranslation(prev => prev ? { ...prev, showOriginal: !prev.showOriginal } : null);
+                          return;
+                        }
+                        setDescTranslation({ text: '', loading: true, showOriginal: false });
+                        try {
+                          const token = localStorage.getItem('authToken');
+                          const res = await fetch(getApiUrl('/api/translate'), {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                            body: JSON.stringify({ text: selectedRequest.description, to: 'sr' }),
+                          });
+                          if (res.ok) {
+                            const data = await res.json();
+                            setDescTranslation({ text: data.translatedText, loading: false, showOriginal: false });
+                          } else {
+                            setDescTranslation({ text: 'Prevod nije dostupan', loading: false, showOriginal: false });
+                          }
+                        } catch {
+                          setDescTranslation({ text: 'Greška pri prevodu', loading: false, showOriginal: false });
+                        }
+                      }}
+                      className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-blue-600 transition-colors px-1.5 py-0.5 rounded hover:bg-blue-50"
+                      disabled={descTranslation?.loading}
+                    >
+                      {descTranslation?.loading ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <Languages className="w-3 h-3" />
+                      )}
+                      {!descTranslation?.text ? 'Prevedi' : descTranslation.showOriginal ? 'Prevod' : 'Original'}
+                    </button>
+                  </div>
 
                   {selectedRequest.forwarded_to_department && (
                     <div className="mt-3 p-2 bg-blue-50 dark:bg-blue-950/30 rounded text-sm flex items-center gap-2">
