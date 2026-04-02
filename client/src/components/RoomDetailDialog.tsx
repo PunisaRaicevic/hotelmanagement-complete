@@ -45,36 +45,45 @@ import { getApiUrl } from '@/lib/apiUrl';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
-// Inline assign dialog for guest requests
-function AssignHousekeeperDialog({
+// Inline assign dialog for guest requests - supports both housekeepers and technicians
+function AssignStaffDialog({
   open,
   onOpenChange,
   isAssigning,
   onAssign,
+  staffType = 'housekeeping',
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   isAssigning: boolean;
   onAssign: (id: string, name: string) => void;
+  staffType?: 'housekeeping' | 'maintenance';
 }) {
-  const [housekeepers, setHousekeepers] = useState<{ id: string; full_name: string; phone: string | null }[]>([]);
+  const [staffList, setStaffList] = useState<{ id: string; full_name: string; phone: string | null }[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const isHousekeeping = staffType === 'housekeeping';
+  const title = isHousekeeping ? 'Dodijeli sobarici' : 'Dodijeli serviseru';
+  const emptyMessage = isHousekeeping ? 'Nema dostupnih sobarica' : 'Nema dostupnih servisera';
+  const apiUrl = isHousekeeping ? '/api/housekeepers' : '/api/technicians';
+  const dataKey = isHousekeeping ? 'housekeepers' : 'technicians';
 
   useEffect(() => {
     if (!open) return;
     setSelected(null);
+    setLoading(true);
     const token = localStorage.getItem('authToken');
-    fetch(getApiUrl('/api/housekeepers'), {
+    fetch(getApiUrl(apiUrl), {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(r => r.json())
-      .then(data => setHousekeepers(data.housekeepers || []))
-      .catch(() => setHousekeepers([]))
+      .then(data => setStaffList(data[dataKey] || []))
+      .catch(() => setStaffList([]))
       .finally(() => setLoading(false));
-  }, [open]);
+  }, [open, apiUrl, dataKey]);
 
-  const selectedHk = housekeepers.find(h => h.id === selected);
+  const selectedStaff = staffList.find(h => h.id === selected);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -82,7 +91,7 @@ function AssignHousekeeperDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <UserCheck className="w-5 h-5 text-primary" />
-            Dodijeli sobarici
+            {title}
           </DialogTitle>
         </DialogHeader>
         <ScrollArea className="h-[250px] pr-2">
@@ -90,11 +99,11 @@ function AssignHousekeeperDialog({
             <div className="flex items-center justify-center h-full">
               <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
             </div>
-          ) : housekeepers.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">Nema dostupnih sobarica</p>
+          ) : staffList.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">{emptyMessage}</p>
           ) : (
             <div className="space-y-2">
-              {housekeepers.map(hk => (
+              {staffList.map(hk => (
                 <button
                   key={hk.id}
                   onClick={() => setSelected(hk.id)}
@@ -129,7 +138,7 @@ function AssignHousekeeperDialog({
           <Button
             size="sm"
             disabled={!selected || isAssigning}
-            onClick={() => selectedHk && onAssign(selectedHk.id, selectedHk.full_name)}
+            onClick={() => selectedStaff && onAssign(selectedStaff.id, selectedStaff.full_name)}
           >
             {isAssigning && <Loader2 className="w-4 h-4 animate-spin mr-1" />}
             Dodijeli i obavijesti
@@ -1214,11 +1223,64 @@ export default function RoomDetailDialog({
                     </div>
                   )}
 
-                  {/* Assign button - show for sef_domacinstva/admin when forwarded to housekeeping and not yet assigned */}
-                  {selectedRequest.forwarded_to_department === 'housekeeping' &&
+                  {/* Assign button - for sef_domacinstva: direct assign (auto-forwards if needed) */}
+                  {!selectedRequest.assigned_to &&
+                   selectedRequest.status !== 'completed' &&
+                   user?.role === 'sef_domacinstva' && (
+                    <div className="mt-3">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={async () => {
+                          // Auto-forward to housekeeping first if not yet forwarded
+                          if (!selectedRequest.forwarded_to_department) {
+                            await handleForwardRequest('housekeeping');
+                          }
+                          setShowAssignDialog(true);
+                        }}
+                        disabled={isForwarding}
+                      >
+                        {isForwarding ? (
+                          <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                        ) : (
+                          <UserCheck className="w-4 h-4 mr-1" />
+                        )}
+                        Dodijeli sobarici
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Assign button - for sef tehnicke: direct assign to technician (auto-forwards if needed) */}
+                  {!selectedRequest.assigned_to &&
+                   selectedRequest.status !== 'completed' &&
+                   user?.role === 'sef' && (
+                    <div className="mt-3">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={async () => {
+                          if (!selectedRequest.forwarded_to_department) {
+                            await handleForwardRequest('maintenance');
+                          }
+                          setShowAssignDialog(true);
+                        }}
+                        disabled={isForwarding}
+                      >
+                        {isForwarding ? (
+                          <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                        ) : (
+                          <UserCheck className="w-4 h-4 mr-1" />
+                        )}
+                        Dodijeli serviseru
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Assign button for admin - when already forwarded but not assigned */}
+                  {selectedRequest.forwarded_to_department &&
                    !selectedRequest.assigned_to &&
                    selectedRequest.status !== 'completed' &&
-                   user && ['sef_domacinstva', 'admin'].includes(user.role) && (
+                   user?.role === 'admin' && (
                     <div className="mt-3">
                       <Button
                         variant="default"
@@ -1226,46 +1288,43 @@ export default function RoomDetailDialog({
                         onClick={() => setShowAssignDialog(true)}
                       >
                         <UserCheck className="w-4 h-4 mr-1" />
-                        Dodijeli sobarici
+                        {selectedRequest.forwarded_to_department === 'housekeeping' ? 'Dodijeli sobarici' : 'Dodijeli serviseru'}
                       </Button>
                     </div>
                   )}
 
-                  {/* Forward buttons - only show if not yet forwarded */}
-                  {!selectedRequest.forwarded_to_department && selectedRequest.status !== 'completed' && (
+                  {/* Forward buttons - only for admin and recepcioner */}
+                  {!selectedRequest.forwarded_to_department && selectedRequest.status !== 'completed' &&
+                   user && ['admin', 'recepcioner'].includes(user.role) && (
                     <div className="mt-4 pt-3 border-t">
                       <p className="text-sm font-medium mb-2">Proslijedi zahtjev:</p>
                       <div className="flex gap-2">
-                        {user && ['admin', 'recepcioner', 'sef_domacinstva'].includes(user.role) && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleForwardRequest('housekeeping')}
-                            disabled={isForwarding}
-                          >
-                            {isForwarding ? (
-                              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                            ) : (
-                              <Home className="w-4 h-4 mr-1" />
-                            )}
-                            Domaćinstvu
-                          </Button>
-                        )}
-                        {user && ['admin', 'recepcioner', 'sef'].includes(user.role) && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleForwardRequest('maintenance')}
-                            disabled={isForwarding}
-                          >
-                            {isForwarding ? (
-                              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                            ) : (
-                              <Wrench className="w-4 h-4 mr-1" />
-                            )}
-                            Tehničkoj službi
-                          </Button>
-                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleForwardRequest('housekeeping')}
+                          disabled={isForwarding}
+                        >
+                          {isForwarding ? (
+                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                          ) : (
+                            <Home className="w-4 h-4 mr-1" />
+                          )}
+                          Domaćinstvu
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleForwardRequest('maintenance')}
+                          disabled={isForwarding}
+                        >
+                          {isForwarding ? (
+                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                          ) : (
+                            <Wrench className="w-4 h-4 mr-1" />
+                          )}
+                          Tehničkoj službi
+                        </Button>
                       </div>
                     </div>
                   )}
@@ -1341,13 +1400,18 @@ export default function RoomDetailDialog({
         </Tabs>
       </DialogContent>
 
-      {/* Assign guest request to housekeeper dialog */}
+      {/* Assign guest request to staff dialog */}
       {showAssignDialog && selectedRequest && (
-        <AssignHousekeeperDialog
+        <AssignStaffDialog
           open={showAssignDialog}
           onOpenChange={setShowAssignDialog}
           isAssigning={isAssigning}
           onAssign={handleAssignRequest}
+          staffType={
+            selectedRequest.forwarded_to_department === 'maintenance' || user?.role === 'sef'
+              ? 'maintenance'
+              : 'housekeeping'
+          }
         />
       )}
 

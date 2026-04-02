@@ -2096,14 +2096,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } as any);
       }
 
+      // Also update linked maintenance task if it exists
+      if (guestRequest.linked_task_id) {
+        await storage.updateTask(guestRequest.linked_task_id, {
+          assigned_to: assigned_to,
+          assigned_to_name: assigned_to_name,
+          status: 'assigned',
+        });
+      }
+
       // Send push notification to assigned staff member
+      const linkedTaskId = guestRequest.linked_housekeeping_task_id || guestRequest.linked_task_id;
       try {
         const { sendPushToAllUserDevices } = await import('./services/firebase');
         await sendPushToAllUserDevices(
           assigned_to,
           `Zadatak - Soba ${guestRequest.room_number}`,
           guestRequest.description.substring(0, 200),
-          guestRequest.linked_housekeeping_task_id || id,
+          linkedTaskId || id,
           guestRequest.priority
         );
       } catch (e) {
