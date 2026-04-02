@@ -1419,7 +1419,12 @@ export default function RoomDetailDialog({
                           });
                           if (res.ok) {
                             const data = await res.json();
-                            setDescTranslation({ text: data.translatedText, loading: false, showOriginal: false });
+                            const detected = data.detectedLanguage;
+                            if (detected && ['sr', 'hr', 'bs'].includes(detected)) {
+                              setDescTranslation({ text: 'Tekst je već na srpskom/hrvatskom', loading: false, showOriginal: true });
+                            } else {
+                              setDescTranslation({ text: data.translatedText, loading: false, showOriginal: false });
+                            }
                           } else {
                             setDescTranslation({ text: 'Prevod nije dostupan', loading: false, showOriginal: false });
                           }

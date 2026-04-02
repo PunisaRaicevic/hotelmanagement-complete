@@ -147,10 +147,18 @@ export default function GuestRequestChat({
 
       if (response.ok) {
         const data = await response.json();
-        setTranslations(prev => ({
-          ...prev,
-          [msgId]: { text: data.translatedText, loading: false, showOriginal: false }
-        }));
+        const detected = data.detectedLanguage;
+        if (detected && ['sr', 'hr', 'bs'].includes(detected)) {
+          setTranslations(prev => ({
+            ...prev,
+            [msgId]: { text: 'Tekst je već na srpskom', loading: false, showOriginal: true }
+          }));
+        } else {
+          setTranslations(prev => ({
+            ...prev,
+            [msgId]: { text: data.translatedText, loading: false, showOriginal: false }
+          }));
+        }
       } else {
         setTranslations(prev => ({
           ...prev,

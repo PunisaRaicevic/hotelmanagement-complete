@@ -2687,7 +2687,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ==========================================
-  // Translation endpoint (MyMemory free API)
+  // Translation endpoint (Google Translate unofficial API)
   // ==========================================
   app.post("/api/translate", requireAuth, async (req, res) => {
     try {
@@ -2698,18 +2698,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const sourceLang = from || 'auto';
       const targetLang = to || 'sr';
+      const truncated = text.substring(0, 1000);
 
-      // Use MyMemory free translation API (no key needed, 5000 chars/day limit per IP)
-      const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text.substring(0, 500))}&langpair=${sourceLang}|${targetLang}&de=hotel@translation.local`;
+      // Google Translate free endpoint (no API key needed)
+      const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sourceLang}&tl=${targetLang}&dt=t&q=${encodeURIComponent(truncated)}`;
 
       const response = await fetch(url);
       const data = await response.json();
 
-      if (data.responseStatus === 200 && data.responseData?.translatedText) {
-        res.json({
-          translatedText: data.responseData.translatedText,
-          detectedLanguage: data.responseData.detectedLanguage || sourceLang,
-        });
+      if (data && data[0]) {
+        // data[0] is array of translation segments, each [translatedText, originalText]
+        const translatedText = data[0].map((seg: any) => seg[0]).join('');
+        const detectedLang = data[2] || sourceLang;
+
+        // If detected language is already the target, let the user know
+        if (detectedLang === targetLang && sourceLang === 'auto') {
+          res.json({
+            translatedText: translatedText,
+            detectedLanguage: detectedLang,
+            alreadyTargetLang: true,
+          });
+        } else {
+          res.json({
+            translatedText,
+            detectedLanguage: detectedLang,
+          });
+        }
       } else {
         res.status(502).json({ error: "Translation service unavailable" });
       }
