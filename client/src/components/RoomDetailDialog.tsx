@@ -695,14 +695,29 @@ export default function RoomDetailDialog({
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="info" className="text-xs sm:text-sm px-1 sm:px-3">Info</TabsTrigger>
-            <TabsTrigger value="checkin" className="text-xs sm:text-sm px-1 sm:px-3">Check-in</TabsTrigger>
-            <TabsTrigger value="qrcode" disabled={!hasActiveToken} className="text-xs sm:text-sm px-1 sm:px-3">
-              QR Kod
-            </TabsTrigger>
-            <TabsTrigger value="requests" className="text-xs sm:text-sm px-1 sm:px-3">Zahtjevi</TabsTrigger>
-          </TabsList>
+          {(() => {
+            const canCheckinOut = user && ['admin', 'recepcioner'].includes(user.role);
+            const canSeeRequests = user && ['admin', 'recepcioner', 'sef_domacinstva'].includes(user.role);
+            // Tailwind needs static class names: grid-cols-1 grid-cols-2 grid-cols-3 grid-cols-4
+            const tabCount = 1 + (canCheckinOut ? 2 : 0) + (canSeeRequests ? 1 : 0);
+            const gridClass = tabCount === 4 ? 'grid-cols-4' : tabCount === 3 ? 'grid-cols-3' : tabCount === 2 ? 'grid-cols-2' : 'grid-cols-1';
+            return (
+              <TabsList className={`grid w-full ${gridClass}`}>
+                <TabsTrigger value="info" className="text-xs sm:text-sm px-1 sm:px-3">Info</TabsTrigger>
+                {canCheckinOut && (
+                  <TabsTrigger value="checkin" className="text-xs sm:text-sm px-1 sm:px-3">Check-in</TabsTrigger>
+                )}
+                {canCheckinOut && (
+                  <TabsTrigger value="qrcode" disabled={!hasActiveToken} className="text-xs sm:text-sm px-1 sm:px-3">
+                    QR Kod
+                  </TabsTrigger>
+                )}
+                {canSeeRequests && (
+                  <TabsTrigger value="requests" className="text-xs sm:text-sm px-1 sm:px-3">Zahtjevi</TabsTrigger>
+                )}
+              </TabsList>
+            );
+          })()}
 
           {/* Info Tab */}
           <TabsContent value="info" className="space-y-4">
@@ -793,12 +808,14 @@ export default function RoomDetailDialog({
                   </div>
                 </div>
 
-                <div className="mt-4 pt-3 border-t flex justify-end">
-                  <Button variant="destructive" onClick={handleCheckOut} disabled={isLoading}>
-                    {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <LogOut className="w-4 h-4 mr-2" />}
-                    Odjavi gosta
-                  </Button>
-                </div>
+                {user && ['admin', 'recepcioner'].includes(user.role) && (
+                  <div className="mt-4 pt-3 border-t flex justify-end">
+                    <Button variant="destructive" onClick={handleCheckOut} disabled={isLoading}>
+                      {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <LogOut className="w-4 h-4 mr-2" />}
+                      Odjavi gosta
+                    </Button>
+                  </div>
+                )}
               </Card>
             )}
 
