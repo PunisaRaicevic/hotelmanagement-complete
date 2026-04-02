@@ -2055,6 +2055,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Assign guest service request to a specific staff member (sef_domacinstva or admin)
+  app.post("/api/guest-requests/:id/assign", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { assigned_to, assigned_to_name } = req.body;
+
+      if (!assigned_to || !assigned_to_name) {
+        return res.status(400).json({ error: "assigned_to and assigned_to_name are required" });
+      }
+
+      const sessionUser = await storage.getUserById(req.session.userId);
+      if (!sessionUser) {
+        return res.status(401).json({ error: "Invalid session" });
+      }
+
+      // Only sef_domacinstva, sef, or admin can assign
+      if (!['sef_domacinstva', 'sef', 'admin'].includes(sessionUser.role)) {
+        return res.status(403).json({ error: "Not authorized to assign requests" });
+      }
+
+      const guestRequest = await storage.getGuestServiceRequestById(id);
+      if (!guestRequest) {
+        return res.status(404).json({ error: "Request not found" });
+      }
+
+      // Update guest request with assignment
+      const updatedRequest = await storage.updateGuestServiceRequest(id, {
+        assigned_to,
+        assigned_to_name,
+        status: 'in_progress',
+      });
+
+      // Also update linked housekeeping task if it exists
+      if (guestRequest.linked_housekeeping_task_id) {
+        await storage.updateHousekeepingTask(guestRequest.linked_housekeeping_task_id, {
+          assigned_to,
+          assigned_to_name,
+          status: 'in_progress',
+        } as any);
+      }
+
+      // Send push notification to assigned staff member
+      try {
+        const { sendPushToAllUserDevices } = await import('./services/firebase');
+        await sendPushToAllUserDevices(
+          assigned_to,
+          `Zadatak - Soba ${guestRequest.room_number}`,
+          guestRequest.description.substring(0, 200),
+          guestRequest.linked_housekeeping_task_id || id,
+          guestRequest.priority
+        );
+      } catch (e) {
+        console.error('Error sending push notification to assigned staff:', e);
+      }
+
+      res.json({ request: updatedRequest });
+    } catch (error) {
+      console.error("Error assigning guest request:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Get messages for a guest request (staff only)
   app.get("/api/guest-requests/:id/messages", requireAuth, async (req, res) => {
     try {
@@ -2243,6 +2305,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
             roomUpdate.occupancy_status = 'vacant';
           }
           await storage.updateRoom(currentTask.room_id, roomUpdate);
+
+          // Auto-complete linked guest service request
+          try {
+            const allRequests = await storage.getGuestServiceRequests();
+            const linkedRequest = allRequests.find(r => r.linked_housekeeping_task_id === id);
+            if (linkedRequest && linkedRequest.status !== 'completed') {
+              await storage.updateGuestServiceRequest(linkedRequest.id, {
+                status: 'completed',
+                resolved_at: new Date().toISOString(),
+                resolved_by: sessionUser.id,
+              });
+              console.log(`[HOUSEKEEPING] Auto-completed guest request ${linkedRequest.id} for room ${currentTask.room_number}`);
+            }
+          } catch (err) {
+            console.error('Error auto-completing linked guest request:', err);
+          }
         }
 
         if (updateData.status === 'inspected') {
@@ -2258,6 +2336,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
             inspectUpdate.occupancy_status = 'vacant';
           }
           await storage.updateRoom(currentTask.room_id, inspectUpdate);
+
+          // Auto-complete linked guest service request on inspection
+          try {
+            const allReqs = await storage.getGuestServiceRequests();
+            const linkedReq = allReqs.find(r => r.linked_housekeeping_task_id === id);
+            if (linkedReq && linkedReq.status !== 'completed') {
+              await storage.updateGuestServiceRequest(linkedReq.id, {
+                status: 'completed',
+                resolved_at: new Date().toISOString(),
+                resolved_by: sessionUser.id,
+              });
+              console.log(`[HOUSEKEEPING] Auto-completed guest request ${linkedReq.id} after inspection`);
+            }
+          } catch (err) {
+            console.error('Error auto-completing linked guest request after inspection:', err);
+          }
         }
 
         if (updateData.status === 'needs_rework') {

@@ -37,10 +37,108 @@ import {
   Forward,
   Bell,
   PlayCircle,
+  UserCheck,
 } from 'lucide-react';
 import GuestRequestChat from './GuestRequestChat';
 import SelectHousekeeperDialog from './SelectHousekeeperDialog';
 import { getApiUrl } from '@/lib/apiUrl';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+
+// Inline assign dialog for guest requests
+function AssignHousekeeperDialog({
+  open,
+  onOpenChange,
+  isAssigning,
+  onAssign,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  isAssigning: boolean;
+  onAssign: (id: string, name: string) => void;
+}) {
+  const [housekeepers, setHousekeepers] = useState<{ id: string; full_name: string; phone: string | null }[]>([]);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!open) return;
+    setSelected(null);
+    const token = localStorage.getItem('authToken');
+    fetch(getApiUrl('/api/housekeepers'), {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.json())
+      .then(data => setHousekeepers(data.housekeepers || []))
+      .catch(() => setHousekeepers([]))
+      .finally(() => setLoading(false));
+  }, [open]);
+
+  const selectedHk = housekeepers.find(h => h.id === selected);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <UserCheck className="w-5 h-5 text-primary" />
+            Dodijeli sobarici
+          </DialogTitle>
+        </DialogHeader>
+        <ScrollArea className="h-[250px] pr-2">
+          {loading ? (
+            <div className="flex items-center justify-center h-full">
+              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : housekeepers.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">Nema dostupnih sobarica</p>
+          ) : (
+            <div className="space-y-2">
+              {housekeepers.map(hk => (
+                <button
+                  key={hk.id}
+                  onClick={() => setSelected(hk.id)}
+                  className={`w-full p-3 rounded-md border-2 transition-all text-left flex items-center gap-3 ${
+                    selected === hk.id ? 'border-primary bg-primary/5' : 'border-border hover:bg-accent'
+                  }`}
+                >
+                  <Avatar className="w-9 h-9">
+                    <AvatarFallback className="text-xs">
+                      {hk.full_name.split(' ').map(n => n[0]).join('')}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-medium text-sm">{hk.full_name}</p>
+                    {hk.phone && <p className="text-xs text-muted-foreground">{hk.phone}</p>}
+                  </div>
+                  {selected === hk.id && (
+                    <Badge variant="default" className="ml-auto text-xs">
+                      <UserCheck className="w-3 h-3 mr-1" />
+                      Izabrana
+                    </Badge>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </ScrollArea>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+            Otkaži
+          </Button>
+          <Button
+            size="sm"
+            disabled={!selected || isAssigning}
+            onClick={() => selectedHk && onAssign(selectedHk.id, selectedHk.full_name)}
+          >
+            {isAssigning && <Loader2 className="w-4 h-4 animate-spin mr-1" />}
+            Dodijeli i obavijesti
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 interface Room {
   id: string;
@@ -81,6 +179,9 @@ interface GuestServiceRequest {
   forwarded_to_department?: string;
   forwarded_at?: string;
   forwarded_by_name?: string;
+  assigned_to?: string;
+  assigned_to_name?: string;
+  linked_housekeeping_task_id?: string;
 }
 
 interface HousekeepingTask {
@@ -184,6 +285,8 @@ export default function RoomDetailDialog({
   const [guestRequests, setGuestRequests] = useState<GuestServiceRequest[]>([]);
   const [selectedRequest, setSelectedRequest] = useState<GuestServiceRequest | null>(null);
   const [isForwarding, setIsForwarding] = useState(false);
+  const [isAssigning, setIsAssigning] = useState(false);
+  const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [showHousekeeperDialog, setShowHousekeeperDialog] = useState(false);  // kept for manual re-assignment
   const [checkoutRoomData, setCheckoutRoomData] = useState<{ roomId: string; roomNumber: string } | null>(null);  // kept for manual re-assignment
   const [activeTask, setActiveTask] = useState<HousekeepingTask | null>(null);
@@ -369,6 +472,42 @@ export default function RoomDetailDialog({
       toast({ title: 'Greška', description: 'Došlo je do greške', variant: 'destructive' });
     } finally {
       setIsForwarding(false);
+    }
+  };
+
+  const handleAssignRequest = async (assignedTo: string, assignedToName: string) => {
+    if (!selectedRequest) return;
+
+    setIsAssigning(true);
+    try {
+      const response = await fetch(getApiUrl(`/api/guest-requests/${selectedRequest.id}/assign`), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify({ assigned_to: assignedTo, assigned_to_name: assignedToName }),
+      });
+
+      if (response.ok) {
+        toast({
+          title: 'Dodijeljeno',
+          description: `Zahtjev dodijeljen: ${assignedToName}`,
+        });
+        const data = await response.json();
+        if (data.request) {
+          setSelectedRequest(data.request);
+        }
+        await fetchGuestRequests();
+        setShowAssignDialog(false);
+      } else {
+        const error = await response.json();
+        toast({ title: 'Greška', description: error.error, variant: 'destructive' });
+      }
+    } catch (error) {
+      toast({ title: 'Greška', description: 'Došlo je do greške', variant: 'destructive' });
+    } finally {
+      setIsAssigning(false);
     }
   };
 
@@ -1050,6 +1189,31 @@ export default function RoomDetailDialog({
                     </div>
                   )}
 
+                  {/* Assignment info */}
+                  {selectedRequest.assigned_to_name && (
+                    <div className="mt-2 p-2 bg-green-50 dark:bg-green-950/30 rounded text-sm flex items-center gap-2">
+                      <UserCheck className="w-4 h-4 text-green-600" />
+                      <span>Dodijeljeno: {selectedRequest.assigned_to_name}</span>
+                    </div>
+                  )}
+
+                  {/* Assign button - show for sef_domacinstva/admin when forwarded to housekeeping and not yet assigned */}
+                  {selectedRequest.forwarded_to_department === 'housekeeping' &&
+                   !selectedRequest.assigned_to &&
+                   selectedRequest.status !== 'completed' &&
+                   user && ['sef_domacinstva', 'admin'].includes(user.role) && (
+                    <div className="mt-3">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => setShowAssignDialog(true)}
+                      >
+                        <UserCheck className="w-4 h-4 mr-1" />
+                        Dodijeli sobarici
+                      </Button>
+                    </div>
+                  )}
+
                   {/* Forward buttons - only show if not yet forwarded */}
                   {!selectedRequest.forwarded_to_department && selectedRequest.status !== 'completed' && (
                     <div className="mt-4 pt-3 border-t">
@@ -1155,6 +1319,16 @@ export default function RoomDetailDialog({
           </TabsContent>
         </Tabs>
       </DialogContent>
+
+      {/* Assign guest request to housekeeper dialog */}
+      {showAssignDialog && selectedRequest && (
+        <AssignHousekeeperDialog
+          open={showAssignDialog}
+          onOpenChange={setShowAssignDialog}
+          isAssigning={isAssigning}
+          onAssign={handleAssignRequest}
+        />
+      )}
 
       {/* Housekeeper assignment dialog after checkout */}
       {checkoutRoomData && (
