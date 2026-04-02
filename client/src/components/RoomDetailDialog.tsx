@@ -301,6 +301,8 @@ export default function RoomDetailDialog({
   const [activeTask, setActiveTask] = useState<HousekeepingTask | null>(null);
   const [isLoadingTask, setIsLoadingTask] = useState(false);
   const [issuesText, setIssuesText] = useState('');
+  const [repairHistory, setRepairHistory] = useState<any[]>([]);
+  const [isLoadingRepairs, setIsLoadingRepairs] = useState(false);
 
   // Local room state that can be updated after check-in
   const [room, setRoom] = useState<Room | null>(roomProp);
@@ -388,9 +390,31 @@ export default function RoomDetailDialog({
     }
   };
 
+  const fetchRepairHistory = async () => {
+    if (!room) return;
+    setIsLoadingRepairs(true);
+    try {
+      const response = await fetch(getApiUrl(`/api/tasks/by-room/${room.room_number}`), {
+        headers: getAuthHeaders(),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setRepairHistory(data.tasks || []);
+      }
+    } catch (error) {
+      console.error('Error fetching repair history:', error);
+    } finally {
+      setIsLoadingRepairs(false);
+    }
+  };
+
   useEffect(() => {
     if (room) {
       fetchActiveTask();
+      // Fetch repair history for sef tehnicke
+      if (user?.role === 'sef') {
+        fetchRepairHistory();
+      }
     }
   }, [room?.id]);
 
@@ -932,8 +956,8 @@ export default function RoomDetailDialog({
               </Card>
             )}
 
-            {/* Room Activity Log - for sef_domacinstva, sef, admin */}
-            {user && ['sef_domacinstva', 'sef', 'admin'].includes(user.role) && (
+            {/* Room Activity Log - for sef_domacinstva and admin (guest-focused) */}
+            {user && ['sef_domacinstva', 'admin'].includes(user.role) && (
               <Card className="p-4">
                 <h3 className="font-semibold mb-3 flex items-center gap-2">
                   <Clipboard className="w-4 h-4" />
@@ -1009,6 +1033,80 @@ export default function RoomDetailDialog({
                 ) : !activeTask ? (
                   <p className="text-sm text-muted-foreground text-center py-4">Nema aktivnosti za ovu sobu</p>
                 ) : null}
+              </Card>
+            )}
+
+            {/* Room Repair History - for sef tehnicke (all maintenance tasks since app installation) */}
+            {user?.role === 'sef' && (
+              <Card className="p-4">
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <Wrench className="w-4 h-4" />
+                  Istorija popravki
+                </h3>
+
+                {isLoadingRepairs ? (
+                  <div className="flex items-center justify-center py-6">
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : repairHistory.length > 0 ? (
+                  <div className="space-y-2">
+                    {repairHistory.map((task: any) => {
+                      const statusLabel =
+                        task.status === 'completed' ? 'Završeno' :
+                        task.status === 'in_progress' ? 'U toku' :
+                        task.status === 'pending' ? 'Čeka' :
+                        task.status === 'assigned' ? 'Dodijeljeno' :
+                        task.status === 'inspected' ? 'Pregledano' :
+                        task.status;
+                      const statusColor =
+                        task.status === 'completed' ? 'text-green-700 bg-green-100' :
+                        task.status === 'in_progress' ? 'text-blue-700 bg-blue-100' :
+                        task.status === 'pending' ? 'text-yellow-700 bg-yellow-100' :
+                        task.status === 'assigned' ? 'text-purple-700 bg-purple-100' :
+                        'text-gray-700 bg-gray-100';
+
+                      return (
+                        <div
+                          key={task.id}
+                          className={`p-3 rounded-lg text-sm border ${
+                            task.status === 'completed' ? 'bg-muted/30 border-muted' : 'bg-background border-border'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-medium flex items-center gap-1.5">
+                              <Wrench className="w-3.5 h-3.5" />
+                              {task.title}
+                            </span>
+                            <Badge className={statusColor} variant="secondary">
+                              {statusLabel}
+                            </Badge>
+                          </div>
+                          {task.description && (
+                            <p className="text-xs text-muted-foreground line-clamp-2">{task.description}</p>
+                          )}
+                          <div className="text-muted-foreground text-xs mt-1 flex items-center justify-between">
+                            <span>{formatDateTime(task.created_at)}</span>
+                            {task.assigned_to_name && (
+                              <span className="flex items-center gap-1">
+                                <UserCheck className="w-3 h-3" />
+                                {task.assigned_to_name}
+                              </span>
+                            )}
+                          </div>
+                          {task.completed_at && (
+                            <p className="text-xs text-green-600 mt-0.5">
+                              Završeno: {formatDateTime(task.completed_at)}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    Nema zabilježenih popravki za ovu sobu
+                  </p>
+                )}
               </Card>
             )}
 

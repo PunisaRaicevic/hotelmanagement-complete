@@ -838,6 +838,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all maintenance tasks for a specific room (repair history)
+  app.get("/api/tasks/by-room/:roomNumber", requireAuth, async (req, res) => {
+    try {
+      const { roomNumber } = req.params;
+      const allTasks = await storage.getTasks();
+      const roomTasks = allTasks.filter(
+        (t: any) => t.room_number === roomNumber || (t.location && t.location.includes(roomNumber))
+      );
+      // Sort newest first
+      roomTasks.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      res.json({ tasks: roomTasks });
+    } catch (error) {
+      console.error("Error fetching room tasks:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   app.post("/api/tasks", requireAuth, async (req, res) => {
     console.log("📥 [POST /api/tasks] Request received");
     try {
