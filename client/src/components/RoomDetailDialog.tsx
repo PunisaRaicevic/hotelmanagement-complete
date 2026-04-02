@@ -697,7 +697,7 @@ export default function RoomDetailDialog({
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           {(() => {
             const canCheckinOut = user && ['admin', 'recepcioner'].includes(user.role);
-            const canSeeRequests = user && ['admin', 'recepcioner', 'sef_domacinstva'].includes(user.role);
+            const canSeeRequests = user && ['admin', 'recepcioner', 'sef_domacinstva', 'sef'].includes(user.role);
             // Tailwind needs static class names: grid-cols-1 grid-cols-2 grid-cols-3 grid-cols-4
             const tabCount = 1 + (canCheckinOut ? 2 : 0) + (canSeeRequests ? 1 : 0);
             const gridClass = tabCount === 4 ? 'grid-cols-4' : tabCount === 3 ? 'grid-cols-3' : tabCount === 2 ? 'grid-cols-2' : 'grid-cols-1';
@@ -1236,32 +1236,36 @@ export default function RoomDetailDialog({
                     <div className="mt-4 pt-3 border-t">
                       <p className="text-sm font-medium mb-2">Proslijedi zahtjev:</p>
                       <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleForwardRequest('housekeeping')}
-                          disabled={isForwarding}
-                        >
-                          {isForwarding ? (
-                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                          ) : (
-                            <Home className="w-4 h-4 mr-1" />
-                          )}
-                          Domaćinstvu
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleForwardRequest('maintenance')}
-                          disabled={isForwarding}
-                        >
-                          {isForwarding ? (
-                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                          ) : (
-                            <Wrench className="w-4 h-4 mr-1" />
-                          )}
-                          Tehničkoj službi
-                        </Button>
+                        {user && ['admin', 'recepcioner', 'sef_domacinstva'].includes(user.role) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleForwardRequest('housekeeping')}
+                            disabled={isForwarding}
+                          >
+                            {isForwarding ? (
+                              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                            ) : (
+                              <Home className="w-4 h-4 mr-1" />
+                            )}
+                            Domaćinstvu
+                          </Button>
+                        )}
+                        {user && ['admin', 'recepcioner', 'sef'].includes(user.role) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleForwardRequest('maintenance')}
+                            disabled={isForwarding}
+                          >
+                            {isForwarding ? (
+                              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                            ) : (
+                              <Wrench className="w-4 h-4 mr-1" />
+                            )}
+                            Tehničkoj službi
+                          </Button>
+                        )}
                       </div>
                     </div>
                   )}
