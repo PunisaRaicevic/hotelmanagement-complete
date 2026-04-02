@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'wouter';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import GuestRequestChat from '@/components/GuestRequestChat';
 import {
@@ -31,6 +32,9 @@ import {
   Compass,
   Waves,
   Gift,
+  Camera,
+  ImageIcon,
+  X,
 } from 'lucide-react';
 
 interface RoomInfo {
@@ -102,6 +106,9 @@ export default function GuestRequestPage() {
   const [guestName, setGuestName] = useState('');
   const [guestPhone, setGuestPhone] = useState('');
   const [priority, setPriority] = useState<Priority>('normal');
+  const [showRequestDialog, setShowRequestDialog] = useState(false);
+  const [photos, setPhotos] = useState<{ id: string; dataUrl: string }[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Function to fetch guest requests
   const fetchMyRequests = async (showLoading = true) => {
@@ -174,6 +181,7 @@ export default function GuestRequestPage() {
           guest_name: guestName,
           guest_phone: guestPhone,
           priority,
+          images: photos.map(p => p.dataUrl),
         }),
       });
 
@@ -197,9 +205,40 @@ export default function GuestRequestPage() {
     setCategory('');
     setDescription('');
     setPriority('normal');
+    setPhotos([]);
+    setShowRequestDialog(false);
     setStatus('valid');
     // Refresh requests when returning to form
     fetchMyRequests(false);
+  };
+
+  const openRequestDialog = (type: RequestType) => {
+    setRequestType(type);
+    setCategory('');
+    setDescription('');
+    setPriority('normal');
+    setPhotos([]);
+    setShowRequestDialog(true);
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (!file.type.startsWith('image/')) continue;
+      if (file.size > 5 * 1024 * 1024) {
+        toast({ title: 'Prevelika slika', description: 'Maksimalna veličina je 5MB', variant: 'destructive' });
+        continue;
+      }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const dataUrl = e.target?.result as string;
+        setPhotos(prev => [...prev, { id: `photo-${Date.now()}-${i}`, dataUrl }]);
+      };
+      reader.readAsDataURL(file);
+    }
+    event.target.value = '';
   };
 
   const viewMyRequests = () => {
@@ -486,28 +525,20 @@ export default function GuestRequestPage() {
           </Card>
         )}
 
-        {/* Request Type Selection */}
+        {/* Request Type Selection - Problems */}
         <Card className="p-4 mb-4">
-          <Label className="text-sm font-medium mb-3 block">Prijavi problem *</Label>
+          <Label className="text-sm font-medium mb-3 block">Prijavi problem</Label>
           <div className="grid grid-cols-3 gap-2">
             {requestTypes.slice(0, 3).map((type) => {
               const Icon = type.icon;
-              const isSelected = requestType === type.id;
               return (
                 <button
                   key={type.id}
                   type="button"
-                  className={`p-3 rounded-lg border-2 text-left transition-all ${
-                    isSelected
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                  onClick={() => {
-                    setRequestType(type.id as RequestType);
-                    setCategory('');
-                  }}
+                  className="p-3 rounded-lg border-2 border-gray-200 hover:border-blue-400 hover:bg-blue-50 text-left transition-all active:scale-95"
+                  onClick={() => openRequestDialog(type.id as RequestType)}
                 >
-                  <Icon className={`w-5 h-5 mb-1 ${isSelected ? 'text-blue-600' : 'text-gray-500'}`} />
+                  <Icon className="w-5 h-5 mb-1 text-gray-500" />
                   <p className="font-medium text-sm">{type.label}</p>
                   <p className="text-xs text-muted-foreground leading-tight">{type.description}</p>
                 </button>
@@ -525,22 +556,14 @@ export default function GuestRequestPage() {
           <div className="grid grid-cols-2 gap-2">
             {requestTypes.slice(3).map((type) => {
               const Icon = type.icon;
-              const isSelected = requestType === type.id;
               return (
                 <button
                   key={type.id}
                   type="button"
-                  className={`p-3 rounded-lg border-2 text-left transition-all ${
-                    isSelected
-                      ? 'border-emerald-500 bg-emerald-50'
-                      : 'border-emerald-100 hover:border-emerald-300 bg-white'
-                  }`}
-                  onClick={() => {
-                    setRequestType(type.id as RequestType);
-                    setCategory('');
-                  }}
+                  className="p-3 rounded-lg border-2 border-emerald-100 hover:border-emerald-400 hover:bg-emerald-50 bg-white text-left transition-all active:scale-95"
+                  onClick={() => openRequestDialog(type.id as RequestType)}
                 >
-                  <Icon className={`w-5 h-5 mb-1 ${isSelected ? 'text-emerald-600' : 'text-emerald-500'}`} />
+                  <Icon className="w-5 h-5 mb-1 text-emerald-500" />
                   <p className="font-medium text-sm">{type.label}</p>
                   <p className="text-xs text-muted-foreground leading-tight">{type.description}</p>
                 </button>
@@ -549,98 +572,164 @@ export default function GuestRequestPage() {
           </div>
         </Card>
 
-        {/* Category Selection (if applicable) */}
-        {requestType && categoryOptions[requestType].length > 0 && (
-          <Card className="p-4 mb-4">
-            <Label className="text-sm font-medium mb-3 block">Kategorija</Label>
-            <div className="flex flex-wrap gap-2">
-              {categoryOptions[requestType].map((cat) => (
-                <Button
-                  key={cat}
-                  type="button"
-                  variant={category === cat ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setCategory(cat)}
-                >
-                  {cat}
-                </Button>
-              ))}
-            </div>
-          </Card>
-        )}
-
-        {/* Description */}
-        <Card className="p-4 mb-4">
-          <Label htmlFor="description" className="text-sm font-medium mb-2 block">
-            Opišite vaš zahtjev *
-          </Label>
-          <Textarea
-            id="description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Detaljno opišite problem ili zahtjev..."
-            rows={4}
-          />
-        </Card>
-
-        {/* Priority */}
-        <Card className="p-4 mb-4">
-          <Label className="text-sm font-medium mb-3 block">Hitnost</Label>
-          <RadioGroup value={priority} onValueChange={(v) => setPriority(v as Priority)}>
-            <div className="flex gap-4">
-              {priorities.map((p) => (
-                <div key={p.id} className="flex items-center space-x-2">
-                  <RadioGroupItem value={p.id} id={p.id} />
-                  <Label htmlFor={p.id} className={`cursor-pointer ${p.color}`}>
-                    {p.label}
-                  </Label>
-                </div>
-              ))}
-            </div>
-          </RadioGroup>
-        </Card>
-
-        {/* Contact Info */}
-        <Card className="p-4 mb-4">
-          <Label className="text-sm font-medium mb-3 block">Vaši podaci (opciono)</Label>
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <User className="w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Vaše ime"
-                value={guestName}
-                onChange={(e) => setGuestName(e.target.value)}
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <Phone className="w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Broj telefona (za povratni poziv)"
-                value={guestPhone}
-                onChange={(e) => setGuestPhone(e.target.value)}
-              />
-            </div>
-          </div>
-        </Card>
-
-        {/* Submit Button */}
-        <Button
-          onClick={handleSubmit}
-          disabled={isSubmitting || !requestType || !description.trim()}
-          className="w-full h-12 text-lg"
-        >
-          {isSubmitting ? (
-            <Loader2 className="w-5 h-5 animate-spin mr-2" />
-          ) : (
-            <Send className="w-5 h-5 mr-2" />
-          )}
-          Pošalji zahtjev
-        </Button>
-
         {/* Footer */}
-        <p className="text-center text-xs text-muted-foreground mt-4 pb-safe">
+        <p className="text-center text-xs text-muted-foreground mt-2 pb-safe">
           Hvala što koristite našu uslugu. Osoblje će biti obaviješteno odmah.
         </p>
+
+        {/* Hidden file input for photo upload */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="hidden"
+          onChange={handleFileChange}
+        />
+
+        {/* Request Dialog - opens when guest clicks a type */}
+        <Dialog open={showRequestDialog} onOpenChange={(open) => { if (!open) setShowRequestDialog(false); }}>
+          <DialogContent className="max-w-md w-[95vw] max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                {requestType && (() => {
+                  const typeInfo = requestTypes.find(t => t.id === requestType);
+                  if (!typeInfo) return null;
+                  const Icon = typeInfo.icon;
+                  return (
+                    <>
+                      <Icon className="w-5 h-5" />
+                      {typeInfo.label}
+                    </>
+                  );
+                })()}
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              {/* Category chips */}
+              {requestType && categoryOptions[requestType].length > 0 && (
+                <div>
+                  <Label className="text-sm font-medium mb-2 block">Kategorija</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {categoryOptions[requestType].map((cat) => (
+                      <Button
+                        key={cat}
+                        type="button"
+                        variant={category === cat ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setCategory(cat === category ? '' : cat)}
+                      >
+                        {cat}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Description */}
+              <div>
+                <Label htmlFor="dialog-description" className="text-sm font-medium mb-2 block">
+                  Opišite vaš zahtjev *
+                </Label>
+                <Textarea
+                  id="dialog-description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Detaljno opišite problem ili zahtjev..."
+                  rows={3}
+                  autoFocus
+                />
+              </div>
+
+              {/* Photo Upload */}
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Fotografija (opciono)</Label>
+                <div className="flex flex-wrap gap-2">
+                  {photos.map((photo) => (
+                    <div key={photo.id} className="relative w-16 h-16 rounded-lg overflow-hidden border">
+                      <img src={photo.dataUrl} alt="" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        className="absolute top-0 right-0 bg-red-500 text-white rounded-bl p-0.5"
+                        onClick={() => setPhotos(prev => prev.filter(p => p.id !== photo.id))}
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                  {photos.length < 3 && (
+                    <button
+                      type="button"
+                      className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 hover:border-blue-400 flex flex-col items-center justify-center text-gray-400 hover:text-blue-500 transition-colors"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Camera className="w-5 h-5" />
+                      <span className="text-[10px] mt-0.5">Dodaj</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Priority */}
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Hitnost</Label>
+                <RadioGroup value={priority} onValueChange={(v) => setPriority(v as Priority)}>
+                  <div className="flex gap-4">
+                    {priorities.map((p) => (
+                      <div key={p.id} className="flex items-center space-x-2">
+                        <RadioGroupItem value={p.id} id={`dialog-${p.id}`} />
+                        <Label htmlFor={`dialog-${p.id}`} className={`cursor-pointer ${p.color}`}>
+                          {p.label}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                </RadioGroup>
+              </div>
+
+              {/* Contact Info */}
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Vaši podaci (opciono)</Label>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <User className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    <Input
+                      placeholder="Vaše ime"
+                      value={guestName}
+                      onChange={(e) => setGuestName(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    <Input
+                      placeholder="Broj telefona"
+                      value={guestPhone}
+                      onChange={(e) => setGuestPhone(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Submit */}
+              <Button
+                onClick={async () => {
+                  await handleSubmit();
+                  setShowRequestDialog(false);
+                }}
+                disabled={isSubmitting || !description.trim()}
+                className="w-full h-11"
+              >
+                {isSubmitting ? (
+                  <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                ) : (
+                  <Send className="w-5 h-5 mr-2" />
+                )}
+                Pošalji zahtjev
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* CSS for mobile scrolling and safe areas */}
