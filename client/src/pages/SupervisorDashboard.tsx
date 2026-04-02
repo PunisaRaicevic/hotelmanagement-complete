@@ -38,6 +38,160 @@ import CreateRecurringTaskDialog from '@/components/CreateRecurringTaskDialog';
 import TaskDetailsDialog from '@/components/TaskDetailsDialog';
 import EditTaskDialog from '@/components/EditTaskDialog';
 import { PhotoUpload, PhotoPreview } from '@/components/PhotoUpload';
+import { getApiUrl } from '@/lib/apiUrl';
+import { Input } from '@/components/ui/input';
+import { Wrench, Search, MessageSquare, AlertTriangle } from 'lucide-react';
+import RoomDetailDialog from '@/components/RoomDetailDialog';
+
+// Room type for maintenance view
+interface MaintenanceRoom {
+  id: string;
+  room_number: string;
+  floor: number;
+  category: string;
+  status: string;
+  occupancy_status: string;
+  guest_name?: string;
+  notes?: string;
+}
+
+interface MaintenanceTask {
+  id: string;
+  title: string;
+  description: string;
+  status: string;
+  priority: string;
+  room_number?: string;
+  assigned_to_name?: string;
+  created_at: string;
+  completed_at?: string;
+}
+
+function RoomsMaintenanceView() {
+  const [rooms, setRooms] = useState<MaintenanceRoom[]>([]);
+  const [tasks, setTasks] = useState<MaintenanceTask[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedRoom, setSelectedRoom] = useState<MaintenanceRoom | null>(null);
+  const [roomDialogOpen, setRoomDialogOpen] = useState(false);
+
+  const fetchData = async () => {
+    const token = localStorage.getItem('authToken');
+    const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+    try {
+      const [roomsRes, tasksRes] = await Promise.all([
+        fetch(getApiUrl('/api/rooms'), { credentials: 'include', headers }),
+        fetch(getApiUrl('/api/tasks'), { credentials: 'include', headers }),
+      ]);
+      if (roomsRes.ok) {
+        const data = await roomsRes.json();
+        setRooms(data.rooms || data || []);
+      }
+      if (tasksRes.ok) {
+        const data = await tasksRes.json();
+        setTasks(data.tasks || data || []);
+      }
+    } catch (e) {
+      console.error('Error fetching rooms/tasks:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchData(); }, []);
+
+  const getTasksForRoom = (roomNumber: string) =>
+    tasks.filter(t => t.room_number === roomNumber);
+
+  const getActiveTasksForRoom = (roomNumber: string) =>
+    getTasksForRoom(roomNumber).filter(t => !['completed', 'cancelled'].includes(t.status));
+
+  const filteredRooms = rooms.filter(r =>
+    r.room_number.includes(searchQuery) ||
+    r.guest_name?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const floors = [...new Set(filteredRooms.map(r => r.floor))].sort((a, b) => a - b);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Pretraži sobe..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <Button variant="outline" size="sm" onClick={() => { setLoading(true); fetchData(); }}>
+          <RefreshCw className="w-4 h-4" />
+        </Button>
+      </div>
+
+      {floors.map(floor => (
+        <div key={floor}>
+          <h3 className="text-sm font-medium text-muted-foreground mb-2">Sprat {floor}</h3>
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
+            {filteredRooms.filter(r => r.floor === floor).map(room => {
+              const activeTasks = getActiveTasksForRoom(room.room_number);
+              const allRoomTasks = getTasksForRoom(room.room_number);
+              const hasActiveMaintenance = activeTasks.length > 0;
+              const hasUrgent = activeTasks.some(t => t.priority === 'urgent');
+
+              return (
+                <div
+                  key={room.id}
+                  onClick={() => { setSelectedRoom(room); setRoomDialogOpen(true); }}
+                  className={`relative p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md text-center ${
+                    hasUrgent ? 'border-red-400 bg-red-50 dark:bg-red-950/20' :
+                    hasActiveMaintenance ? 'border-amber-400 bg-amber-50 dark:bg-amber-950/20' :
+                    'border-border bg-card hover:bg-accent/50'
+                  }`}
+                >
+                  {hasActiveMaintenance && (
+                    <div className="absolute -top-1.5 -right-1.5">
+                      <Badge variant={hasUrgent ? 'destructive' : 'secondary'} className="text-[10px] px-1.5 py-0">
+                        {activeTasks.length}
+                      </Badge>
+                    </div>
+                  )}
+                  <p className="font-bold text-lg">{room.room_number}</p>
+                  {room.occupancy_status === 'occupied' && room.guest_name && (
+                    <p className="text-[10px] text-muted-foreground truncate">{room.guest_name}</p>
+                  )}
+                  {allRoomTasks.length > 0 && (
+                    <div className="flex items-center justify-center gap-1 mt-1">
+                      <Wrench className="w-3 h-3 text-muted-foreground" />
+                      <span className="text-[10px] text-muted-foreground">{allRoomTasks.length}</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+
+      {/* Room Detail Dialog */}
+      <RoomDetailDialog
+        room={selectedRoom as any}
+        open={roomDialogOpen}
+        onOpenChange={setRoomDialogOpen}
+        onRoomUpdated={fetchData}
+      />
+    </div>
+  );
+}
 
 // Helper function to calculate elapsed time
 const getElapsedTime = (createdAt: Date): string => {
@@ -667,6 +821,13 @@ export default function SupervisorDashboard() {
         </CardContent>
       </Card>
 
+      <Tabs defaultValue="tasks-view" className="space-y-4">
+        <TabsList className="w-full grid grid-cols-2">
+          <TabsTrigger value="tasks-view">Zadaci</TabsTrigger>
+          <TabsTrigger value="rooms-view">Sobe</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="tasks-view">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Tasks Tabs */}
         <div className="lg:col-span-2">
@@ -1422,6 +1583,12 @@ export default function SupervisorDashboard() {
           </Card>
         </div>
       </div>
+        </TabsContent>
+
+        <TabsContent value="rooms-view">
+          <RoomsMaintenanceView />
+        </TabsContent>
+      </Tabs>
     </div>
   </>
   );
