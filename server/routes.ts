@@ -1244,7 +1244,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         req.session.username = payload.username;
         req.session.fullName = payload.fullName;
 
-        const allowedRoles = ['admin', 'sef_domacinstva', 'sobarica', 'recepcioner'];
+        const allowedRoles = ['admin', 'sef_domacinstva', 'sobarica', 'recepcioner', 'sef'];
         if (!allowedRoles.includes(payload.role)) {
           return res.status(403).json({ error: "Housekeeping access required" });
         }
@@ -1256,7 +1256,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(401).json({ error: "Authentication required" });
     }
 
-    const allowedRoles = ['admin', 'sef_domacinstva', 'sobarica', 'recepcioner'];
+    const allowedRoles = ['admin', 'sef_domacinstva', 'sobarica', 'recepcioner', 'sef'];
     if (!allowedRoles.includes(req.session.userRole)) {
       return res.status(403).json({ error: "Housekeeping access required" });
     }
