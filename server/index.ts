@@ -47,17 +47,35 @@ if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32) {
 
 // Session store setup
 import pg from "pg";
+
+// Use transaction pooler (port 6543) if available, fallback to session pooler (5432)
+const dbUrl = process.env.DATABASE_URL || '';
+const transactionPoolerUrl = dbUrl.replace(':5432/', ':6543/');
+
 const sessionPool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: process.env.DATABASE_POOLER_URL || transactionPoolerUrl || dbUrl,
   ssl: { rejectUnauthorized: false },
+  connectionTimeoutMillis: 10000,
+  idleTimeoutMillis: 30000,
+  max: 5,
 });
+
+sessionPool.on('error', (err) => {
+  console.error('Session pool error (non-fatal):', err.message);
+});
+
 const PgSession = ConnectPgSimple(session);
+const pgStore = new PgSession({
+  pool: sessionPool,
+  createTableIfMissing: true,
+  errorLog: (err: Error) => {
+    console.error('PgSession store error:', err.message);
+  },
+});
+
 app.use(
   session({
-    store: new PgSession({
-      pool: sessionPool,
-      createTableIfMissing: true,
-    }),
+    store: pgStore,
     secret: process.env.SESSION_SECRET || "default-dev-secret",
     resave: false,
     saveUninitialized: false,
@@ -135,8 +153,14 @@ app.use((req, res, next) => {
 
   const server = await registerRoutes(app);
 
+  if (app.get("env") === "development") {
+    await setupVite(app, server);
+  } else {
+    serveStatic(app);
+  }
+
   // ==========================================
-  // 3. GLOBAL ERROR HANDLER (Popravljen)
+  // 3. GLOBAL ERROR HANDLER (MORA biti POSLIJE serveStatic)
   // ==========================================
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     // Ignoriši greške "stream not readable" da ne ruše logove bezveze
@@ -150,14 +174,7 @@ app.use((req, res, next) => {
 
     console.error("Server Error:", err); // Loguj grešku u konzolu da vidiš šta je
     res.status(status).json({ message });
-    // OBRISANO: throw err; -> Ovo je rušilo server!
   });
-
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
-  }
 
   const port = parseInt(process.env.PORT || '5000', 10);
   server.listen(port, () => {
