@@ -854,8 +854,166 @@ export default function RoomDetailDialog({
               )}
             </Card>
 
-            {/* Housekeeping Task Card */}
-            {activeTask && (
+            {/* Active Task Actions - only for sobarica (accept/complete task) */}
+            {activeTask && user?.role === 'sobarica' && (
+              <Card className="p-4 border-amber-200 bg-amber-50/50 dark:bg-amber-950/20">
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <Bell className="w-4 h-4" />
+                  Aktivan zadatak
+                </h3>
+                <div className="space-y-2 text-sm mb-3">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">Status:</span>
+                    <Badge className={taskStatusConfig[activeTask.status]?.color || ''}>
+                      {taskStatusConfig[activeTask.status]?.label || activeTask.status}
+                    </Badge>
+                  </div>
+                  {activeTask.guest_requests && (
+                    <div className="flex items-start gap-2">
+                      <MessageSquare className="w-4 h-4 text-muted-foreground mt-0.5" />
+                      <span className="text-muted-foreground">Poruka:</span>
+                      <span className="font-medium">{activeTask.guest_requests}</span>
+                    </div>
+                  )}
+                </div>
+
+                {activeTask.status === 'pending' && (
+                  <Button
+                    className="w-full bg-yellow-500 hover:bg-yellow-600 text-white"
+                    onClick={handleAcceptTask}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <PlayCircle className="w-4 h-4 mr-2" />}
+                    Prihvati zadatak
+                  </Button>
+                )}
+
+                {activeTask.status === 'in_progress' && (
+                  <div className="space-y-3">
+                    <div>
+                      <Label htmlFor="issues_found" className="text-sm font-medium">
+                        Napomene (opcionalno)
+                      </Label>
+                      <Textarea
+                        id="issues_found"
+                        placeholder="Nešto nedostaje, polomljeno, itd."
+                        value={issuesText}
+                        onChange={(e) => setIssuesText(e.target.value)}
+                        className="mt-1"
+                        rows={3}
+                      />
+                    </div>
+                    <Button
+                      className="w-full bg-green-600 hover:bg-green-700 text-white"
+                      onClick={handleCompleteTask}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
+                      Završi čišćenje
+                    </Button>
+                  </div>
+                )}
+
+                {activeTask.status === 'completed' && (
+                  <div>
+                    {activeTask.issues_found && (
+                      <div className="p-2 bg-muted rounded text-sm mb-2">
+                        <span className="text-muted-foreground">Napomene: </span>
+                        {activeTask.issues_found}
+                      </div>
+                    )}
+                    <Badge className="bg-green-100 text-green-700">
+                      <CheckCircle2 className="w-3 h-3 mr-1" />
+                      Završeno {activeTask.completed_at ? formatDateTime(activeTask.completed_at) : ''}
+                    </Badge>
+                  </div>
+                )}
+              </Card>
+            )}
+
+            {/* Room Activity Log - for sef_domacinstva, sef, admin */}
+            {user && ['sef_domacinstva', 'sef', 'admin'].includes(user.role) && (
+              <Card className="p-4">
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <Clipboard className="w-4 h-4" />
+                  Aktivnosti tokom boravka
+                </h3>
+
+                {/* Active housekeeping task status */}
+                {activeTask && (
+                  <div className={`p-3 rounded-lg mb-3 text-sm ${
+                    activeTask.status === 'completed' ? 'bg-green-50 dark:bg-green-950/20 border border-green-200' :
+                    activeTask.status === 'in_progress' ? 'bg-blue-50 dark:bg-blue-950/20 border border-blue-200' :
+                    'bg-amber-50 dark:bg-amber-950/20 border border-amber-200'
+                  }`}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-medium flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        Čišćenje sobe
+                      </span>
+                      <Badge className={taskStatusConfig[activeTask.status]?.color || ''} variant="secondary">
+                        {taskStatusConfig[activeTask.status]?.label || activeTask.status}
+                      </Badge>
+                    </div>
+                    <div className="text-muted-foreground text-xs space-y-0.5 mt-1">
+                      {activeTask.assigned_to_name && <p>Sobarica: {activeTask.assigned_to_name}</p>}
+                      <p>Kreirano: {formatDateTime(activeTask.created_at)}</p>
+                      {activeTask.completed_at && <p>Završeno: {formatDateTime(activeTask.completed_at)}</p>}
+                      {activeTask.issues_found && (
+                        <p className="mt-1 text-foreground">Napomene: {activeTask.issues_found}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Guest requests as activity items */}
+                {guestRequests.length > 0 ? (
+                  <div className="space-y-2">
+                    {guestRequests.map((req) => (
+                      <div
+                        key={req.id}
+                        className={`p-3 rounded-lg text-sm border cursor-pointer hover:bg-accent/50 transition-colors ${
+                          req.status === 'completed' ? 'bg-muted/30 border-muted' : 'bg-background border-border'
+                        }`}
+                        onClick={() => { setActiveTab('requests'); setSelectedRequest(req); }}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-medium flex items-center gap-1.5">
+                            <MessageSquare className="w-3.5 h-3.5" />
+                            {requestTypeLabels[req.request_type] || req.request_type}
+                          </span>
+                          <Badge
+                            variant={req.status === 'completed' ? 'default' : req.status === 'new' ? 'destructive' : 'secondary'}
+                            className="text-xs"
+                          >
+                            {req.status === 'new' ? 'Novi' :
+                             req.status === 'seen' ? 'Viđen' :
+                             req.status === 'in_progress' ? 'U obradi' :
+                             req.status === 'completed' ? 'Završen' : req.status}
+                          </Badge>
+                        </div>
+                        <p className="text-xs">{req.description}</p>
+                        <div className="text-muted-foreground text-xs mt-1 flex items-center justify-between">
+                          <span>{formatDateTime(req.created_at)}{req.guest_name ? ` - ${req.guest_name}` : ''}</span>
+                          {req.assigned_to_name && (
+                            <span className="flex items-center gap-1">
+                              <UserCheck className="w-3 h-3" />
+                              {req.assigned_to_name}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : !activeTask ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">Nema aktivnosti za ovu sobu</p>
+                ) : null}
+              </Card>
+            )}
+
+            {/* Simple task status for non-supervisor roles (recepcioner etc) */}
+            {activeTask && user && !['sobarica', 'sef_domacinstva', 'sef', 'admin'].includes(user.role) && (
               <Card className="p-4 border-amber-200 bg-amber-50/50 dark:bg-amber-950/20">
                 <h3 className="font-semibold mb-3 flex items-center gap-2">
                   <Bell className="w-4 h-4" />
@@ -876,99 +1034,9 @@ export default function RoomDetailDialog({
                       {taskStatusConfig[activeTask.status]?.label || activeTask.status}
                     </Badge>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-muted-foreground">Prioritet:</span>
-                    <Badge variant={activeTask.priority === 'urgent' ? 'destructive' : 'secondary'}>
-                      {activeTask.priority === 'urgent' ? 'Hitno' : 'Normalan'}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-muted-foreground">Kreirano:</span>
-                    <span className="font-medium">{formatDateTime(activeTask.created_at)}</span>
-                  </div>
-                  {activeTask.guest_requests && (
-                    <div className="flex items-start gap-2">
-                      <MessageSquare className="w-4 h-4 text-muted-foreground mt-0.5" />
-                      <span className="text-muted-foreground">Poruka:</span>
-                      <span className="font-medium">{activeTask.guest_requests}</span>
-                    </div>
-                  )}
                 </div>
-
-                {/* Actions based on status and role */}
-                {activeTask.status === 'pending' && (
-                  <div className="mt-4 pt-3 border-t">
-                    {user?.role === 'sobarica' ? (
-                      <Button
-                        className="w-full bg-yellow-500 hover:bg-yellow-600 text-white"
-                        onClick={handleAcceptTask}
-                        disabled={isLoading}
-                      >
-                        {isLoading ? (
-                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                        ) : (
-                          <PlayCircle className="w-4 h-4 mr-2" />
-                        )}
-                        Prihvati zadatak
-                      </Button>
-                    ) : (
-                      <div className="flex items-center gap-2 p-3 bg-amber-100 dark:bg-amber-950/40 rounded-lg text-sm">
-                        <Clock className="w-4 h-4 text-amber-600 flex-shrink-0" />
-                        <span className="text-amber-800 dark:text-amber-300">
-                          {activeTask.assigned_to_name
-                            ? `Zadatak dodijeljen sobarici ${activeTask.assigned_to_name}. Čeka se prihvat.`
-                            : 'Zadatak kreiran. Čeka se dodjela sobarici.'}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {activeTask.status === 'in_progress' && (
-                  <div className="mt-4 pt-3 border-t space-y-3">
-                    {user?.role === 'sobarica' ? (
-                      <>
-                        <div>
-                          <Label htmlFor="issues_found" className="text-sm font-medium">
-                            Napomene (opcionalno)
-                          </Label>
-                          <Textarea
-                            id="issues_found"
-                            placeholder="Nešto nedostaje, polomljeno, itd."
-                            value={issuesText}
-                            onChange={(e) => setIssuesText(e.target.value)}
-                            className="mt-1"
-                            rows={3}
-                          />
-                        </div>
-                        <Button
-                          className="w-full bg-green-600 hover:bg-green-700 text-white"
-                          onClick={handleCompleteTask}
-                          disabled={isLoading}
-                        >
-                          {isLoading ? (
-                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                          ) : (
-                            <CheckCircle2 className="w-4 h-4 mr-2" />
-                          )}
-                          Završi čišćenje
-                        </Button>
-                      </>
-                    ) : (
-                      <div className="flex items-center gap-2 p-3 bg-blue-100 dark:bg-blue-950/40 rounded-lg text-sm">
-                        <Loader2 className="w-4 h-4 text-blue-600 animate-spin flex-shrink-0" />
-                        <span className="text-blue-800 dark:text-blue-300">
-                          {activeTask.assigned_to_name || 'Sobarica'} čisti sobu. Zadatak u toku{activeTask.started_at ? ` od ${formatDateTime(activeTask.started_at)}` : ''}.
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
-
                 {activeTask.status === 'completed' && (
-                  <div className="mt-4 pt-3 border-t">
+                  <div className="mt-3">
                     {activeTask.issues_found && (
                       <div className="p-2 bg-muted rounded text-sm mb-2">
                         <span className="text-muted-foreground">Napomene: </span>
@@ -979,6 +1047,24 @@ export default function RoomDetailDialog({
                       <CheckCircle2 className="w-3 h-3 mr-1" />
                       Završeno {activeTask.completed_at ? formatDateTime(activeTask.completed_at) : ''}
                     </Badge>
+                  </div>
+                )}
+                {activeTask.status === 'pending' && (
+                  <div className="mt-3 flex items-center gap-2 p-3 bg-amber-100 dark:bg-amber-950/40 rounded-lg text-sm">
+                    <Clock className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                    <span className="text-amber-800 dark:text-amber-300">
+                      {activeTask.assigned_to_name
+                        ? `Zadatak dodijeljen sobarici ${activeTask.assigned_to_name}. Čeka se prihvat.`
+                        : 'Zadatak kreiran. Čeka se dodjela sobarici.'}
+                    </span>
+                  </div>
+                )}
+                {activeTask.status === 'in_progress' && (
+                  <div className="mt-3 flex items-center gap-2 p-3 bg-blue-100 dark:bg-blue-950/40 rounded-lg text-sm">
+                    <Loader2 className="w-4 h-4 text-blue-600 animate-spin flex-shrink-0" />
+                    <span className="text-blue-800 dark:text-blue-300">
+                      {activeTask.assigned_to_name || 'Sobarica'} čisti sobu{activeTask.started_at ? ` od ${formatDateTime(activeTask.started_at)}` : ''}.
+                    </span>
                   </div>
                 )}
               </Card>
