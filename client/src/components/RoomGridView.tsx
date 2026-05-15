@@ -80,58 +80,63 @@ interface RoomGridViewProps {
   onRoomClick: (room: Room) => void;
 }
 
+// Monochrome navy tonal palette — reduce color noise.
+// Only TWO accent colors are used across the whole status system:
+//   • Gold = "premium / verified / active guest"
+//   • Muted red = real problems that need staff action (dirty, checkout)
+// Everything else is a different tone of navy.
 const statusConfig = {
   dirty: {
-    color: 'bg-red-500',
-    borderColor: 'border-red-400',
-    bgColor: 'bg-red-50 dark:bg-red-950/30',
+    color: 'bg-rose-500',
+    borderColor: 'border-rose-300',
+    bgColor: 'bg-rose-50 dark:bg-rose-950/20',
     label: 'Prljava',
     icon: XCircle,
   },
   in_cleaning: {
-    color: 'bg-yellow-500',
-    borderColor: 'border-yellow-400',
-    bgColor: 'bg-yellow-50 dark:bg-yellow-950/30',
+    color: 'bg-emerald-400',
+    borderColor: 'border-emerald-300',
+    bgColor: 'bg-emerald-50 dark:bg-emerald-950/20',
     label: 'U čišćenju',
     icon: Clock,
   },
   clean: {
-    color: 'bg-green-500',
-    borderColor: 'border-green-400',
-    bgColor: 'bg-green-50 dark:bg-green-950/30',
+    color: 'bg-emerald-600',
+    borderColor: 'border-emerald-200',
+    bgColor: 'bg-emerald-50/60 dark:bg-emerald-950/15',
     label: 'Čista',
     icon: CheckCircle2,
   },
   inspected: {
-    color: 'bg-blue-500',
-    borderColor: 'border-blue-400',
-    bgColor: 'bg-blue-50 dark:bg-blue-950/30',
+    color: 'bg-gold-500',
+    borderColor: 'border-gold-300',
+    bgColor: 'bg-gold-50 dark:bg-gold-900/20',
     label: 'Pregledana',
     icon: Eye,
   },
   out_of_order: {
-    color: 'bg-gray-500',
-    borderColor: 'border-gray-400',
-    bgColor: 'bg-gray-100 dark:bg-gray-800',
+    color: 'bg-slate-400',
+    borderColor: 'border-slate-300',
+    bgColor: 'bg-slate-50 dark:bg-slate-900/40',
     label: 'Van funkcije',
     icon: XCircle,
   },
   do_not_disturb: {
-    color: 'bg-purple-500',
-    borderColor: 'border-purple-400',
-    bgColor: 'bg-purple-50 dark:bg-purple-950/30',
+    color: 'bg-emerald-800',
+    borderColor: 'border-emerald-700',
+    bgColor: 'bg-emerald-100/60 dark:bg-emerald-950/30',
     label: 'Ne uznemiravaj',
     icon: XCircle,
   },
 };
 
 const occupancyConfig = {
-  occupied: { label: 'Zauzeta', color: 'text-orange-600 bg-orange-100 dark:bg-orange-950/30 dark:text-orange-300', icon: User },
-  vacant: { label: 'Prazna', color: 'text-green-600 bg-green-100 dark:bg-green-950/30 dark:text-green-300', icon: CheckCircle2 },
-  checkout: { label: 'Check-out', color: 'text-red-600 bg-red-100 dark:bg-red-950/30 dark:text-red-300', icon: CalendarX },
-  checkin: { label: 'Check-in', color: 'text-blue-600 bg-blue-100 dark:bg-blue-950/30 dark:text-blue-300', icon: CalendarCheck },
-  checkin_expected: { label: 'Dolazak', color: 'text-blue-600 bg-blue-100 dark:bg-blue-950/30 dark:text-blue-300', icon: CalendarCheck },
-  checkout_expected: { label: 'Odlazak', color: 'text-amber-600 bg-amber-100 dark:bg-amber-950/30 dark:text-amber-300', icon: CalendarX },
+  occupied:          { label: 'Zauzeta',  color: 'text-gold-700 bg-gold-50 dark:bg-gold-900/20 dark:text-gold-300',           icon: User },
+  vacant:            { label: 'Prazna',   color: 'text-emerald-700 bg-emerald-50/70 dark:bg-emerald-950/20 dark:text-emerald-200', icon: CheckCircle2 },
+  checkout:          { label: 'Check-out', color: 'text-rose-700 bg-rose-50 dark:bg-rose-950/20 dark:text-rose-300',           icon: CalendarX },
+  checkin:           { label: 'Check-in',  color: 'text-emerald-700 bg-emerald-50/70 dark:bg-emerald-950/20 dark:text-emerald-200', icon: CalendarCheck },
+  checkin_expected:  { label: 'Dolazak',   color: 'text-emerald-700 bg-emerald-50/70 dark:bg-emerald-950/20 dark:text-emerald-200', icon: CalendarCheck },
+  checkout_expected: { label: 'Odlazak',   color: 'text-gold-700 bg-gold-50 dark:bg-gold-900/20 dark:text-gold-300',           icon: CalendarX },
 };
 
 const cleaningTypeLabels: Record<string, string> = {
@@ -601,37 +606,37 @@ export default function RoomGridView({ rooms, tasks = [], onRoomClick }: RoomGri
             <Button
               size="sm"
               variant={statusFilter === 'dirty' ? 'default' : 'outline'}
-              className="h-7 sm:h-9 text-[10px] sm:text-xs px-2 sm:px-3 bg-red-50 hover:bg-red-100 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:border-red-800 dark:hover:bg-red-950/50"
+              className="h-7 sm:h-9 text-[10px] sm:text-xs px-2 sm:px-3 bg-white hover:bg-rose-50/60 text-foreground border-rose-200 dark:bg-rose-950/20 dark:text-foreground dark:border-rose-900/60"
               onClick={() => setStatusFilter(statusFilter === 'dirty' ? null : 'dirty')}
             >
-              <div className="w-2 h-2 rounded-full bg-red-500 mr-1" />
+              <div className="w-2 h-2 rounded-full bg-rose-500 mr-1.5" />
               Prljave ({statusCounts.dirty})
             </Button>
             <Button
               size="sm"
               variant={statusFilter === 'in_cleaning' ? 'default' : 'outline'}
-              className="h-7 sm:h-9 text-[10px] sm:text-xs px-2 sm:px-3 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-950/30 dark:text-yellow-300 dark:border-yellow-800 dark:hover:bg-yellow-950/50"
+              className="h-7 sm:h-9 text-[10px] sm:text-xs px-2 sm:px-3 bg-white hover:bg-emerald-50/60 text-foreground border-emerald-200 dark:bg-emerald-950/20 dark:text-foreground dark:border-emerald-900/60"
               onClick={() => setStatusFilter(statusFilter === 'in_cleaning' ? null : 'in_cleaning')}
             >
-              <div className="w-2 h-2 rounded-full bg-yellow-500 mr-1" />
+              <div className="w-2 h-2 rounded-full bg-emerald-400 mr-1.5" />
               U čišćenju ({statusCounts.in_cleaning})
             </Button>
             <Button
               size="sm"
               variant={statusFilter === 'clean' ? 'default' : 'outline'}
-              className="h-7 sm:h-9 text-[10px] sm:text-xs px-2 sm:px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-300 dark:border-green-800 dark:hover:bg-green-950/50"
+              className="h-7 sm:h-9 text-[10px] sm:text-xs px-2 sm:px-3 bg-white hover:bg-emerald-50/60 text-foreground border-emerald-200 dark:bg-emerald-950/20 dark:text-foreground dark:border-emerald-900/60"
               onClick={() => setStatusFilter(statusFilter === 'clean' ? null : 'clean')}
             >
-              <div className="w-2 h-2 rounded-full bg-green-500 mr-1" />
+              <div className="w-2 h-2 rounded-full bg-emerald-700 mr-1.5" />
               Čiste ({statusCounts.clean})
             </Button>
             <Button
               size="sm"
               variant={statusFilter === 'inspected' ? 'default' : 'outline'}
-              className="h-7 sm:h-9 text-[10px] sm:text-xs px-2 sm:px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-800 dark:hover:bg-blue-950/50"
+              className="h-7 sm:h-9 text-[10px] sm:text-xs px-2 sm:px-3 bg-white hover:bg-gold-50/60 text-foreground border-gold-200 dark:bg-gold-900/20 dark:text-foreground dark:border-gold-800/60"
               onClick={() => setStatusFilter(statusFilter === 'inspected' ? null : 'inspected')}
             >
-              <div className="w-2 h-2 rounded-full bg-blue-500 mr-1" />
+              <div className="w-2 h-2 rounded-full bg-gold-500 mr-1.5" />
               Pregledane ({statusCounts.inspected})
             </Button>
           </div>
@@ -669,21 +674,21 @@ export default function RoomGridView({ rooms, tasks = [], onRoomClick }: RoomGri
           </Badge>
           <Badge
             variant={occupancyFilter === 'occupied' ? 'default' : 'outline'}
-            className="cursor-pointer hover:opacity-80 bg-orange-100 text-orange-700 dark:bg-orange-950/30 dark:text-orange-300"
+            className="cursor-pointer hover:opacity-80 bg-gold-50 text-gold-700 border-gold-200 dark:bg-gold-900/20 dark:text-gold-300"
             onClick={() => setOccupancyFilter(occupancyFilter === 'occupied' ? null : 'occupied')}
           >
             Zauzete
           </Badge>
           <Badge
             variant={occupancyFilter === 'vacant' ? 'default' : 'outline'}
-            className="cursor-pointer hover:opacity-80 bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-300"
+            className="cursor-pointer hover:opacity-80 bg-emerald-50/70 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-200"
             onClick={() => setOccupancyFilter(occupancyFilter === 'vacant' ? null : 'vacant')}
           >
             Prazne
           </Badge>
           <Badge
             variant={occupancyFilter === 'checkout' ? 'default' : 'outline'}
-            className="cursor-pointer hover:opacity-80 bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-300"
+            className="cursor-pointer hover:opacity-80 bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/20 dark:text-rose-300"
             onClick={() => setOccupancyFilter(occupancyFilter === 'checkout' ? null : 'checkout')}
           >
             Check-out

@@ -14,20 +14,47 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { PhotoUpload, PhotoPreview } from '@/components/PhotoUpload';
 
+// Common (non-room) hotel locations available in the complaint form.
+const COMMON_AREAS = [
+  'Recepcija',
+  'Lobby',
+  'Restoran',
+  'Bar',
+  'Bazen',
+  'Spa / Wellness',
+  'Teretana',
+  'Kuhinja',
+  'Vešeraj',
+  'Magacin',
+  'Hodnik',
+  'Lift',
+  'Parking',
+  'Terasa / Krov',
+  'Ostalo',
+] as const;
+
 export default function ComplaintSubmissionDashboard() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { toast } = useToast();
-  const [hotel, setHotel] = useState('');
-  const [customHotel, setCustomHotel] = useState('');
-  const [blok, setBlok] = useState('');
-  const [customBlok, setCustomBlok] = useState('');
-  const [soba, setSoba] = useState('');
+  const [location, setLocation] = useState('');
+  const [customLocation, setCustomLocation] = useState('');
   const [priority, setPriority] = useState('normal');
   const [description, setDescription] = useState('');
   const [uploadedPhotos, setUploadedPhotos] = useState<PhotoPreview[]>([]);
   const [complaintsLimit, setComplaintsLimit] = useState<string>('10');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Fetch the actual rooms in this hotel — replaces the legacy HGBR
+  // multi-hotel/multi-vila dropdowns that came from the cloned app.
+  const { data: roomsResponse } = useQuery<{ rooms: Array<{ id: string; room_number: string; floor: number }> }>({
+    queryKey: ['/api/rooms'],
+    queryFn: async () => {
+      const response = await apiRequest('GET', '/api/rooms');
+      return await response.json();
+    },
+  });
+  const rooms = (roomsResponse?.rooms || []).slice().sort((a, b) => a.room_number.localeCompare(b.room_number, undefined, { numeric: true }));
 
   // Fetch user's submitted complaints
   const { data: tasksResponse, isLoading } = useQuery<{ tasks: any[] }>({
@@ -75,33 +102,24 @@ export default function ComplaintSubmissionDashboard() {
     setIsSubmitting(true);
 
     try {
-      // Use custom values if "Ostalo" is selected
-      const finalHotel = hotel === 'Ostalo' ? customHotel : hotel;
-      const finalBlok = blok === 'Ostalo' ? customBlok : blok;
+      // Resolve final location text: explicit choice OR custom free-text when
+      // "Ostalo" is selected. The select holds either "Soba 101" / "Recepcija"
+      // (already the canonical location string) or the literal "Ostalo".
+      const finalLocation = location === 'Ostalo' ? customLocation.trim() : location;
 
-      if (!hotel || !blok || !description) {
+      if (!finalLocation || !description) {
         toast({
-          title: "Error",
-          description: "Please fill in Hotel/Zgrada, Blok/Prostorija, and description",
+          title: "Greška",
+          description: "Izaberite lokaciju i unesite opis problema.",
           variant: "destructive",
         });
         return;
       }
 
-      // Validate custom inputs if "Ostalo" is selected
-      if (hotel === 'Ostalo' && !customHotel.trim()) {
+      if (location === 'Ostalo' && !customLocation.trim()) {
         toast({
-          title: "Error",
-          description: "Please specify the hotel/building name",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (blok === 'Ostalo' && !customBlok.trim()) {
-        toast({
-          title: "Error",
-          description: "Please specify the block/room",
+          title: "Greška",
+          description: "Unesite naziv lokacije.",
           variant: "destructive",
         });
         return;
@@ -109,32 +127,44 @@ export default function ComplaintSubmissionDashboard() {
 
       if (!user) {
         toast({
-          title: "Error",
-          description: "User not authenticated",
+          title: "Greška",
+          description: "Korisnik nije autentifikovan.",
           variant: "destructive",
         });
         return;
       }
 
-      // Generate title from location using final values
-      const title = soba 
-        ? `${finalHotel}, ${finalBlok}, Soba ${soba}`
-        : `${finalHotel}, ${finalBlok}`;
+      // If the selected location is a room ("Soba 101"), capture the room
+      // number so the task is linked to that room. Otherwise the task is a
+      // common-area complaint with no room_number.
+      const roomMatch = finalLocation.match(/^Soba\s+(\S+)$/i);
+      const roomNumber = roomMatch ? roomMatch[1] : null;
 
-      // Convert photo previews to data URLs for storage
-      const photoDataUrls = uploadedPhotos.map(photo => photo.dataUrl);
+      // Block submission while any photo is still uploading to Supabase
+      // Storage — otherwise we'd persist a Base64 placeholder URL into the
+      // task row instead of the real https:// URL.
+      if (uploadedPhotos.some((p) => p.uploading)) {
+        toast({
+          title: 'Sačekajte',
+          description: 'Slike se još uploaduju.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // photo.dataUrl now holds an https:// URL to Supabase Storage.
+      const photoUrls = uploadedPhotos.map(photo => photo.dataUrl);
 
       await createTaskMutation.mutateAsync({
-        title,
+        title: finalLocation,
         description,
-        hotel,
-        blok,
-        soba: soba || null,
+        location: finalLocation,
+        soba: roomNumber,
         priority,
         userId: user.id,
         userName: user.fullName,
         userDepartment: user.department,
-        images: photoDataUrls.length > 0 ? photoDataUrls : undefined,
+        images: photoUrls.length > 0 ? photoUrls : undefined,
       });
 
       toast({
@@ -143,11 +173,8 @@ export default function ComplaintSubmissionDashboard() {
       });
 
       // Reset form
-      setHotel('');
-      setCustomHotel('');
-      setBlok('');
-      setCustomBlok('');
-      setSoba('');
+      setLocation('');
+      setCustomLocation('');
       setDescription('');
       setPriority('normal');
       setUploadedPhotos([]);
@@ -185,7 +212,7 @@ export default function ComplaintSubmissionDashboard() {
       case 'with_external':
         return <Badge className="text-xs">{t('statusInProgress')}</Badge>;
       case 'completed':
-        return <Badge variant="default" className="bg-green-600 hover:bg-green-700 text-xs">{t('statusCompleted')}</Badge>;
+        return <Badge variant="default" className="bg-emerald-700 hover:bg-emerald-800 text-xs">{t('statusCompleted')}</Badge>;
       case 'cancelled':
         return <Badge variant="destructive" className="text-xs">{t('statusCancelled')}</Badge>;
       case 'returned_to_operator':
@@ -273,84 +300,48 @@ export default function ComplaintSubmissionDashboard() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="hotel" className="text-base">{t('hotelBuildingRequired')}</Label>
-              <Select value={hotel} onValueChange={(value) => {
-                setHotel(value);
-                if (value !== 'Ostalo') setCustomHotel('');
+              <Label htmlFor="location" className="text-base">Lokacija *</Label>
+              <Select value={location} onValueChange={(value) => {
+                setLocation(value);
+                if (value !== 'Ostalo') setCustomLocation('');
               }}>
-                <SelectTrigger data-testid="select-hotel" className="text-base">
-                  <SelectValue placeholder={t('hotelPlaceholder')} />
+                <SelectTrigger data-testid="select-location" className="text-base">
+                  <SelectValue placeholder="Izaberite sobu ili prostor..." />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Hotel Slovenska plaža">Hotel Slovenska plaža</SelectItem>
-                  <SelectItem value="Hotel Aleksandar">Hotel Aleksandar</SelectItem>
-                  <SelectItem value="Hotel Mogren">Hotel Mogren</SelectItem>
-                  <SelectItem value="Hotel Palas">Hotel Palas</SelectItem>
-                  <SelectItem value="Hotel Castellastva">Hotel Castellastva</SelectItem>
-                  <SelectItem value="Hotel Palas Lux">Hotel Palas Lux</SelectItem>
-                  <SelectItem value="Ostalo">Ostalo</SelectItem>
+                <SelectContent className="max-h-80">
+                  {rooms.length > 0 && (
+                    <>
+                      <div className="px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Sobe
+                      </div>
+                      {rooms.map((room) => (
+                        <SelectItem key={room.id} value={`Soba ${room.room_number}`}>
+                          Soba {room.room_number}
+                          <span className="ml-2 text-xs text-muted-foreground">· {room.floor}. sprat</span>
+                        </SelectItem>
+                      ))}
+                      <div className="px-2 py-1.5 mt-1 border-t text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Zajednički prostori
+                      </div>
+                    </>
+                  )}
+                  {COMMON_AREAS.map((area) => (
+                    <SelectItem key={area} value={area}>
+                      {area}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-              {hotel === 'Ostalo' && (
+              {location === 'Ostalo' && (
                 <Input
-                  id="custom-hotel"
-                  placeholder="Unesite naziv hotela / Enter hotel name"
-                  value={customHotel}
-                  onChange={(e) => setCustomHotel(e.target.value)}
-                  data-testid="input-custom-hotel"
+                  id="custom-location"
+                  placeholder="npr. Stepenište između 2. i 3. sprata"
+                  value={customLocation}
+                  onChange={(e) => setCustomLocation(e.target.value)}
+                  data-testid="input-custom-location"
                   className="mt-2 text-base"
                 />
               )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="blok" className="text-base">{t('blockRoomRequired')}</Label>
-              <Select value={blok} onValueChange={(value) => {
-                setBlok(value);
-                if (value !== 'Ostalo') setCustomBlok('');
-              }}>
-                <SelectTrigger data-testid="select-blok" className="text-base">
-                  <SelectValue placeholder={t('blockPlaceholder')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Vila Mirta A-blok">Vila Mirta A-blok</SelectItem>
-                  <SelectItem value="Vila Magnolija B-blok">Vila Magnolija B-blok</SelectItem>
-                  <SelectItem value="Vila Palmi C-blok">Vila Palmi C-blok</SelectItem>
-                  <SelectItem value="Vila Kana D-blok">Vila Kana D-blok</SelectItem>
-                  <SelectItem value="Vila Kamelija E-blok">Vila Kamelija E-blok</SelectItem>
-                  <SelectItem value="Vila Oleandra F-blok">Vila Oleandra F-blok</SelectItem>
-                  <SelectItem value="Vila Limuna G-blok">Vila Limuna G-blok</SelectItem>
-                  <SelectItem value="Vila Maslina H-blok">Vila Maslina H-blok</SelectItem>
-                  <SelectItem value="Vila Ruzmarin I-blok">Vila Ruzmarin I-blok</SelectItem>
-                  <SelectItem value="Vila Lavanda L-blok">Vila Lavanda L-blok</SelectItem>
-                  <SelectItem value="Vila Cempresa M-blok">Vila Cempresa M-blok</SelectItem>
-                  <SelectItem value="Vila Tilija N-blok">Vila Tilija N-blok</SelectItem>
-                  <SelectItem value="Vila Pinea O-blok">Vila Pinea O-blok</SelectItem>
-                  <SelectItem value="Ostalo">Ostalo</SelectItem>
-                </SelectContent>
-              </Select>
-              {blok === 'Ostalo' && (
-                <Input
-                  id="custom-blok"
-                  placeholder="Unesite blok/prostoriju / Enter block/room"
-                  value={customBlok}
-                  onChange={(e) => setCustomBlok(e.target.value)}
-                  data-testid="input-custom-blok"
-                  className="mt-2 text-base"
-                />
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="soba" className="text-base">{t('roomOptional')}</Label>
-              <Input
-                id="soba"
-                placeholder={t('roomPlaceholder')}
-                value={soba}
-                onChange={(e) => setSoba(e.target.value)}
-                data-testid="input-soba"
-                className="text-base"
-              />
             </div>
 
             <div className="space-y-2">

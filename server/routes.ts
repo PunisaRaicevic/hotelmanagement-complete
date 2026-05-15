@@ -1,7 +1,9 @@
 // Real-time Socket.IO Notifications - v2.0 (Feb 2026)
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { randomUUID } from "crypto";
 import { storage } from "./storage";
+import { supabase } from "./lib/supabase";
 import bcrypt from "bcryptjs";
 import { processRecurringTasks, ensureChildTasksExist } from "./services/recurringTaskProcessor";
 import { initializeSocket, notifyWorkers, notifyTaskUpdate, notifyGuestDisplay, hideGuestDisplay, hideGuestDisplayByToken } from "./socket";
@@ -855,6 +857,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // -----------------------------------------------------------------------
+  // Image uploads → Supabase Storage
+  //
+  // Why this exists: complaint photos used to be stored as Base64 strings
+  // inside the `tasks.images` Postgres column, which inflates rows by ~33%
+  // per byte and bloats the DB (a single task with 3 phone photos pushed
+  // ~20MB into a row). This endpoint moves them to a real object store and
+  // keeps only the URL in the column.
+  //
+  // The client already compresses the photo before sending; this endpoint
+  // just decodes the Base64 payload once and streams it into the bucket.
+  // We never persist Base64 anywhere on the server side.
+  //
+  // Bucket: `task-images`. Auto-created on first call if it doesn't exist,
+  // with public read so the URL works without signed-URL gymnastics.
+  let bucketEnsured = false;
+  async function ensureTaskImagesBucket(): Promise<void> {
+    if (bucketEnsured) return;
+    const { data: buckets } = await supabase.storage.listBuckets();
+    if (!buckets?.some((b) => b.name === "task-images")) {
+      const { error } = await supabase.storage.createBucket("task-images", {
+        public: true,
+        fileSizeLimit: 10 * 1024 * 1024, // 10MB hard cap per file
+      });
+      if (error && !/already exists/i.test(error.message)) throw error;
+    }
+    bucketEnsured = true;
+  }
+
+  app.post("/api/uploads/image", requireAuth, async (req, res) => {
+    try {
+      const { dataUrl, filename } = req.body || {};
+      if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:")) {
+        return res.status(400).json({ error: "Expected `dataUrl` as a data: URI" });
+      }
+
+      const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+      if (!match) return res.status(400).json({ error: "Malformed data URL" });
+      const [, contentType, base64] = match;
+      if (!contentType.startsWith("image/")) {
+        return res.status(400).json({ error: "Only image/* content types are accepted" });
+      }
+      const buffer = Buffer.from(base64, "base64");
+      if (buffer.length > 10 * 1024 * 1024) {
+        return res.status(413).json({ error: "Image exceeds 10MB after decoding" });
+      }
+
+      await ensureTaskImagesBucket();
+
+      const ext = contentType.split("/")[1].split("+")[0] || "bin";
+      const safeName =
+        (typeof filename === "string" ? filename.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-40) : `photo.${ext}`);
+      const key = `${new Date().toISOString().slice(0, 10)}/${randomUUID()}-${safeName}`;
+
+      const { error: uploadErr } = await supabase.storage
+        .from("task-images")
+        .upload(key, buffer, { contentType, upsert: false });
+      if (uploadErr) {
+        console.error("[UPLOADS] Supabase upload error:", uploadErr);
+        return res.status(500).json({ error: "Storage upload failed", details: uploadErr.message });
+      }
+
+      const { data: pub } = supabase.storage.from("task-images").getPublicUrl(key);
+      console.log(`[UPLOADS] ${key} (${Math.round(buffer.length / 1024)}KB) → ${pub.publicUrl}`);
+      return res.json({ url: pub.publicUrl, key, size: buffer.length, contentType });
+    } catch (err: any) {
+      console.error("[UPLOADS] Unexpected error:", err);
+      return res.status(500).json({ error: "Internal server error", details: err?.message });
+    }
+  });
+
   app.post("/api/tasks", requireAuth, async (req, res) => {
     console.log("📥 [POST /api/tasks] Request received");
     try {
@@ -863,13 +936,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         images, status, assigned_to, assigned_to_name, is_recurring, recurrence_pattern, recurrence_start_date,
       } = req.body;
 
-      if (!title || !description || !hotel || !blok || !userId || !userName) {
+      if (!title || !description || !userId || !userName) {
         return res.status(400).json({ error: "Missing required fields" });
       }
 
-      const locationParts = [hotel, blok];
-      if (soba) locationParts.push(soba);
-      const location = locationParts.join(", ");
+      // Accept either a pre-built `location` string (new single-hotel form)
+      // or the legacy hotel/blok/soba triple (multi-hotel HGBR form).
+      let location: string;
+      if (typeof req.body.location === "string" && req.body.location.trim()) {
+        location = req.body.location.trim();
+      } else {
+        if (!hotel || !blok) {
+          return res.status(400).json({ error: "Missing location: provide `location` or `hotel`+`blok`" });
+        }
+        const locationParts = [hotel, blok];
+        if (soba) locationParts.push(soba);
+        location = locationParts.join(", ");
+      }
 
       const taskData: any = {
         title, description, location,
@@ -1050,6 +1133,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const task = await storage.updateTask(id, updateData);
       if (!task) return res.status(404).json({ error: "Task not found" });
+
+      // Auto-complete linked guest service request when technical task is completed.
+      // Why: housekeeping tasks already do this (see PATCH /api/housekeeping/tasks),
+      // but the technical-task equivalent was missing, leaving "X zahtjev gosta"
+      // badges stuck on rooms after the serviser finished the work.
+      if (status === "completed" && currentTask?.status !== "completed") {
+        try {
+          const allRequests = await storage.getGuestServiceRequests();
+          const linkedRequest = allRequests.find(r => r.linked_task_id === id);
+          if (linkedRequest && linkedRequest.status !== 'completed') {
+            await storage.updateGuestServiceRequest(linkedRequest.id, {
+              status: 'completed',
+              resolved_at: new Date().toISOString(),
+              resolved_by: sessionUser.id,
+            });
+            console.log(`[TASK] Auto-completed guest request ${linkedRequest.id} for task ${id}`);
+          }
+        } catch (err) {
+          console.error('Error auto-completing linked guest request:', err);
+        }
+      }
 
       let actionMessage = null;
       if (receipt_confirmed_at) actionMessage = `Receipt confirmed by ${sessionUser.full_name}`;

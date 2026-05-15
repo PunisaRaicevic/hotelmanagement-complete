@@ -691,7 +691,7 @@ export default function TechnicianDashboard() {
                               </p>
                             )}
                           </div>
-                          <XCircle className="w-8 h-8 text-orange-500 flex-shrink-0" />
+                          <XCircle className="w-8 h-8 text-rose-500 flex-shrink-0" />
                         </div>
                       </Card>
                     ))
@@ -726,7 +726,7 @@ export default function TechnicianDashboard() {
                               }
                             </p>
                           </div>
-                          <CheckCircle className="w-8 h-8 text-green-500 flex-shrink-0" />
+                          <CheckCircle className="w-8 h-8 text-emerald-700 flex-shrink-0" />
                         </div>
                       </Card>
                     ))
@@ -839,7 +839,7 @@ export default function TechnicianDashboard() {
                       const isReceiptConfirmed = selectedTask.worker_report?.includes('Prijem reklamacije potvrđen') || isConfirmingReceipt || !!selectedTask.receipt_confirmed_at;
                       return (
                         <Button
-                          className={`w-full min-h-14 touch-manipulation ${isReceiptConfirmed ? 'bg-gray-400 hover:bg-gray-400 text-gray-700 border-gray-500 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white border-green-700'}`}
+                          className={`w-full min-h-14 touch-manipulation ${isReceiptConfirmed ? 'bg-muted hover:bg-muted text-muted-foreground border-muted cursor-not-allowed' : 'bg-emerald-700 hover:bg-emerald-800 text-white border-emerald-800'}`}
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
@@ -874,7 +874,7 @@ export default function TechnicianDashboard() {
                       </Button>
                       <div className="flex flex-col sm:flex-row gap-3">
                         <Button
-                          className="flex-1 min-h-14 touch-manipulation bg-amber-500 hover:bg-amber-600 text-white border-amber-600"
+                          className="flex-1 min-h-14 touch-manipulation bg-gold-500 hover:bg-gold-600 text-emerald-900 border-gold-600"
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
@@ -1033,7 +1033,7 @@ export default function TechnicianDashboard() {
                 {/* View Details for Completed Tasks */}
                 {selectedTask.status === 'completed' && (
                   <div className="pt-4 border-t">
-                    <div className="flex items-center gap-2 text-green-600 mb-4">
+                    <div className="flex items-center gap-2 text-emerald-700 mb-4">
                       <CheckCircle className="w-5 h-5" />
                       <span className="font-medium text-base">{t('taskCompleted')}</span>
                     </div>

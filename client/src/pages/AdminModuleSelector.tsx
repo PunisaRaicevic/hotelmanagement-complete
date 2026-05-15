@@ -212,8 +212,18 @@ export default function AdminModuleSelector() {
   return (
     <IonPage>
       <IonContent>
-        {/* Apple-style background with subtle gradient */}
-        <div className="min-h-screen bg-gradient-to-br from-[#f5f5f7] to-[#e8e8ed]">
+        {/* Premium navy backdrop (cards float as glass on top) */}
+        <div
+          className="min-h-screen"
+          style={{
+            backgroundColor: '#142849',
+            backgroundImage:
+              'radial-gradient(ellipse 55% 35% at 12% 0%, rgba(195, 149, 76, 0.32), transparent 60%),' +
+              'radial-gradient(ellipse 65% 55% at 100% 100%, rgba(195, 149, 76, 0.16), transparent 60%),' +
+              'radial-gradient(ellipse 90% 90% at 50% 50%, rgba(60, 95, 145, 0.45), transparent 70%),' +
+              'linear-gradient(160deg, #1B3052 0%, #142849 55%, #0F2040 100%)',
+          }}
+        >
 
           {/* Top Navigation Bar - Apple style */}
           <div className="sticky top-0 z-50 backdrop-blur-xl bg-white/70 border-b border-gray-200/50">
@@ -446,7 +456,7 @@ export default function AdminModuleSelector() {
               <div className="hidden lg:block w-72 flex-shrink-0 space-y-3">
 
                 {/* Zahtjevi Gostiju */}
-                <div className="bg-white/80 backdrop-blur-xl rounded-2xl p-4 shadow-sm border border-gray-200/50">
+                <div className="bg-white/55 backdrop-blur-2xl rounded-2xl p-4 shadow-lg border border-white/40 ring-1 ring-emerald-900/10">
                   <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-3 px-1">Zahtjevi gostiju</p>
                   <div className="space-y-1">
                     <button
@@ -489,7 +499,7 @@ export default function AdminModuleSelector() {
                 </div>
 
                 {/* Osoblje */}
-                <div className="bg-white/80 backdrop-blur-xl rounded-2xl p-4 shadow-sm border border-gray-200/50">
+                <div className="bg-white/55 backdrop-blur-2xl rounded-2xl p-4 shadow-lg border border-white/40 ring-1 ring-emerald-900/10">
                   <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-3 px-1">Osoblje</p>
                   <div className="space-y-1">
                     <button
@@ -528,7 +538,7 @@ export default function AdminModuleSelector() {
                 </div>
 
                 {/* Lokacije osoblja */}
-                <div className="bg-white/80 backdrop-blur-xl rounded-2xl p-4 shadow-sm border border-gray-200/50">
+                <div className="bg-white/55 backdrop-blur-2xl rounded-2xl p-4 shadow-lg border border-white/40 ring-1 ring-emerald-900/10">
                   <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-3 px-1">Mapa</p>
                   <div className="space-y-1">
                     <button
@@ -694,7 +704,7 @@ export default function AdminModuleSelector() {
 
               {/* Main Content - Room Grid */}
               <div className="flex-1">
-                <div className="bg-white/80 backdrop-blur-xl rounded-xl sm:rounded-2xl p-2 sm:p-3 lg:p-5 shadow-sm border border-gray-200/50">
+                <div className="bg-white/55 backdrop-blur-2xl rounded-xl sm:rounded-2xl p-2 sm:p-3 lg:p-5 shadow-lg border border-white/40 ring-1 ring-emerald-900/10">
                   <div className="flex items-center justify-between mb-2 sm:mb-4">
                     <div>
                       <h2 className="text-base sm:text-lg font-semibold text-gray-800">Sobe</h2>

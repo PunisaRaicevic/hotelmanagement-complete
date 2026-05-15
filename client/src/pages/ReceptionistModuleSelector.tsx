@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Home, MessageSquarePlus, LogOut, ArrowLeft } from 'lucide-react';
 import HousekeepingSupervisorDashboard from './HousekeepingSupervisorDashboard';
 import ComplaintSubmissionDashboard from './ComplaintSubmissionDashboard';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { io, Socket } from 'socket.io-client';
 import { Capacitor } from '@capacitor/core';
 import { useToast } from '@/hooks/use-toast';
@@ -139,61 +140,72 @@ export default function ReceptionistModuleSelector() {
     }
   };
 
-  // If Domacinstvo module is selected
-  if (selectedModule === 'domacinstvo') {
-    return (
-      <IonPage>
-        <IonHeader>
-          <IonToolbar color="success">
-            <IonTitle>Domacinstvo</IonTitle>
-            <IonButtons slot="start">
-              <IonButton onClick={() => setSelectedModule('selector')}>
-                <ArrowLeft className="w-5 h-5 mr-1" />
-                Nazad
-              </IonButton>
-            </IonButtons>
-            <IonButtons slot="end">
-              <IonButton onClick={handleLogout}>
-                <LogOut className="w-5 h-5" />
-              </IonButton>
-            </IonButtons>
-          </IonToolbar>
-        </IonHeader>
-        <IonContent className="ion-padding">
-          <HousekeepingSupervisorDashboard />
-        </IonContent>
-      </IonPage>
-    );
-  }
+  // Integrated single-screen receptionist panel — Sobe & Gosti on top,
+  // Reklamacije below, both visible without module switching.
+  return (
+    <IonPage>
+      <IonContent>
+        <div
+          className="min-h-screen"
+          style={{
+            backgroundColor: '#142849',
+            backgroundImage:
+              'radial-gradient(ellipse 55% 35% at 12% 0%, rgba(195, 149, 76, 0.32), transparent 60%),' +
+              'radial-gradient(ellipse 65% 55% at 100% 100%, rgba(195, 149, 76, 0.16), transparent 60%),' +
+              'radial-gradient(ellipse 90% 90% at 50% 50%, rgba(60, 95, 145, 0.45), transparent 70%),' +
+              'linear-gradient(160deg, #1B3052 0%, #142849 55%, #0F2040 100%)',
+          }}
+        >
+          <div className="max-w-[1800px] mx-auto p-3 sm:p-5 lg:p-6 space-y-5">
+            {/* Page intro */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold text-white drop-shadow">Recepcija</h1>
+                <p className="text-white/70 text-sm">Dobrodošli, {user?.fullName}.</p>
+              </div>
+            </div>
 
-  // If Reklamacije module is selected
-  if (selectedModule === 'reklamacije') {
-    return (
-      <IonPage>
-        <IonHeader>
-          <IonToolbar color="warning">
-            <IonTitle>Prijava Reklamacije</IonTitle>
-            <IonButtons slot="start">
-              <IonButton onClick={() => setSelectedModule('selector')}>
-                <ArrowLeft className="w-5 h-5 mr-1" />
-                Nazad
-              </IonButton>
-            </IonButtons>
-            <IonButtons slot="end">
-              <IonButton onClick={handleLogout}>
-                <LogOut className="w-5 h-5" />
-              </IonButton>
-            </IonButtons>
-          </IonToolbar>
-        </IonHeader>
-        <IonContent className="ion-padding">
-          <ComplaintSubmissionDashboard />
-        </IonContent>
-      </IonPage>
-    );
-  }
+            <Tabs defaultValue="sobe" className="space-y-3">
+              <TabsList className="bg-white/55 backdrop-blur-xl border border-white/40 ring-1 ring-emerald-900/10 shadow-sm h-auto p-0.5 rounded-lg gap-0.5">
+                <TabsTrigger
+                  value="sobe"
+                  className="gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium data-[state=active]:bg-emerald-700 data-[state=active]:text-white data-[state=active]:shadow-sm text-emerald-900/80 [&_svg]:size-3.5"
+                >
+                  <Home />
+                  Sobe & Gosti
+                </TabsTrigger>
+                <TabsTrigger
+                  value="reklamacije"
+                  className="gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium data-[state=active]:bg-gold-500 data-[state=active]:text-emerald-900 data-[state=active]:shadow-sm text-emerald-900/80 [&_svg]:size-3.5"
+                >
+                  <MessageSquarePlus />
+                  Reklamacije
+                </TabsTrigger>
+              </TabsList>
 
-  // Module selector screen
+              <TabsContent value="sobe" className="mt-0">
+                <section className="bg-white/55 backdrop-blur-2xl rounded-2xl shadow-lg border border-white/40 ring-1 ring-emerald-900/10 overflow-hidden">
+                  <div className="p-2 sm:p-3 lg:p-4">
+                    <HousekeepingSupervisorDashboard />
+                  </div>
+                </section>
+              </TabsContent>
+
+              <TabsContent value="reklamacije" className="mt-0">
+                <section className="bg-white/55 backdrop-blur-2xl rounded-2xl shadow-lg border border-white/40 ring-1 ring-emerald-900/10 overflow-hidden">
+                  <div className="p-2 sm:p-3 lg:p-4">
+                    <ComplaintSubmissionDashboard />
+                  </div>
+                </section>
+              </TabsContent>
+            </Tabs>
+          </div>
+        </div>
+      </IonContent>
+    </IonPage>
+  );
+
+  // Legacy module selector (unreachable — kept for reference until removal):
   return (
     <IonPage>
       <IonHeader>
@@ -208,13 +220,23 @@ export default function ReceptionistModuleSelector() {
         </IonToolbar>
       </IonHeader>
       <IonContent>
-        <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-emerald-50 flex flex-col items-center justify-center p-6">
+        <div
+          className="min-h-screen flex flex-col items-center justify-center p-6"
+          style={{
+            backgroundColor: '#142849',
+            backgroundImage:
+              'radial-gradient(ellipse 55% 35% at 12% 0%, rgba(195, 149, 76, 0.32), transparent 60%),' +
+              'radial-gradient(ellipse 65% 55% at 100% 100%, rgba(195, 149, 76, 0.16), transparent 60%),' +
+              'radial-gradient(ellipse 90% 90% at 50% 50%, rgba(60, 95, 145, 0.45), transparent 70%),' +
+              'linear-gradient(160deg, #1B3052 0%, #142849 55%, #0F2040 100%)',
+          }}
+        >
           {/* Welcome message */}
           <div className="text-center mb-12">
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">
+            <h1 className="text-3xl font-bold text-white mb-2 drop-shadow">
               Dobrodosli, {user?.fullName}!
             </h1>
-            <p className="text-gray-600 text-lg">
+            <p className="text-white/70 text-lg">
               Izaberite modul za rad
             </p>
           </div>
@@ -224,23 +246,23 @@ export default function ReceptionistModuleSelector() {
             {/* Housekeeping Module */}
             <button
               onClick={() => setSelectedModule('domacinstvo')}
-              className="group relative w-72 h-80 bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 overflow-hidden border border-gray-100"
+              className="group relative w-72 h-80 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 overflow-hidden border border-white/40 ring-1 ring-emerald-900/10"
             >
-              {/* Gradient overlay */}
-              <div className="absolute inset-0 bg-gradient-to-br from-emerald-500 to-teal-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              {/* Gradient overlay on hover (deep navy) */}
+              <div className="absolute inset-0 bg-gradient-to-br from-emerald-700 to-emerald-900 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
               {/* Content */}
               <div className="relative h-full flex flex-col items-center justify-center p-6 z-10">
                 {/* Icon container */}
                 <div className="w-24 h-24 bg-emerald-100 group-hover:bg-white/20 rounded-full flex items-center justify-center mb-6 transition-colors duration-300">
-                  <Home className="w-12 h-12 text-emerald-600 group-hover:text-white transition-colors duration-300" />
+                  <Home className="w-12 h-12 text-emerald-700 group-hover:text-white transition-colors duration-300" />
                 </div>
 
                 {/* Text */}
-                <h2 className="text-2xl font-bold text-gray-800 group-hover:text-white mb-3 transition-colors duration-300">
+                <h2 className="text-2xl font-bold text-emerald-900 group-hover:text-white mb-3 transition-colors duration-300">
                   Domacinstvo
                 </h2>
-                <p className="text-gray-500 group-hover:text-white/80 text-center transition-colors duration-300">
+                <p className="text-emerald-900/60 group-hover:text-white/80 text-center transition-colors duration-300">
                   Upravljanje sobama, check-in/out gostiju, QR kodovi
                 </p>
 
@@ -256,29 +278,29 @@ export default function ReceptionistModuleSelector() {
             {/* Complaint Submission Module */}
             <button
               onClick={() => setSelectedModule('reklamacije')}
-              className="group relative w-72 h-80 bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 overflow-hidden border border-gray-100"
+              className="group relative w-72 h-80 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 overflow-hidden border border-white/40 ring-1 ring-emerald-900/10"
             >
-              {/* Gradient overlay */}
-              <div className="absolute inset-0 bg-gradient-to-br from-amber-500 to-orange-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              {/* Gradient overlay on hover (gold) */}
+              <div className="absolute inset-0 bg-gradient-to-br from-gold-500 to-gold-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
               {/* Content */}
               <div className="relative h-full flex flex-col items-center justify-center p-6 z-10">
                 {/* Icon container */}
-                <div className="w-24 h-24 bg-amber-100 group-hover:bg-white/20 rounded-full flex items-center justify-center mb-6 transition-colors duration-300">
-                  <MessageSquarePlus className="w-12 h-12 text-amber-600 group-hover:text-white transition-colors duration-300" />
+                <div className="w-24 h-24 bg-gold-100 group-hover:bg-white/20 rounded-full flex items-center justify-center mb-6 transition-colors duration-300">
+                  <MessageSquarePlus className="w-12 h-12 text-gold-700 group-hover:text-white transition-colors duration-300" />
                 </div>
 
                 {/* Text */}
-                <h2 className="text-2xl font-bold text-gray-800 group-hover:text-white mb-3 transition-colors duration-300">
+                <h2 className="text-2xl font-bold text-emerald-900 group-hover:text-white mb-3 transition-colors duration-300">
                   Prijava Reklamacije
                 </h2>
-                <p className="text-gray-500 group-hover:text-white/80 text-center transition-colors duration-300">
+                <p className="text-emerald-900/60 group-hover:text-white/80 text-center transition-colors duration-300">
                   Prijavite tehnicke probleme i kvarove u sobama
                 </p>
 
                 {/* Badge */}
-                <div className="absolute top-4 right-4 px-3 py-1 bg-amber-100 group-hover:bg-white/20 rounded-full">
-                  <span className="text-xs font-semibold text-amber-700 group-hover:text-white transition-colors duration-300">
+                <div className="absolute top-4 right-4 px-3 py-1 bg-gold-100 group-hover:bg-white/20 rounded-full">
+                  <span className="text-xs font-semibold text-gold-700 group-hover:text-white transition-colors duration-300">
                     Tehnika
                   </span>
                 </div>

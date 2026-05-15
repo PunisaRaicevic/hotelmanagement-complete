@@ -3,90 +3,96 @@
 @tailwind utilities;
 
 /* ========================================
-   HOTEL PARK - Modern Glassmorphism Theme
-   Primary: Emerald Green
-   Style: Glassmorphism with gradients
+   HOTEL MANAGEMENT - Premium Theme
+   Primary: Navy #132C52
+   Accent:  Gold #C3954C
    ======================================== */
 
 :root {
   /* === GLASSMORPHISM VARIABLES === */
-  --glass-bg: rgba(255, 255, 255, 0.7);
-  --glass-bg-strong: rgba(255, 255, 255, 0.85);
-  --glass-border: rgba(255, 255, 255, 0.5);
-  --glass-shadow: 0 8px 32px rgba(16, 185, 129, 0.1);
+  --glass-bg: rgba(255, 255, 255, 0.78);
+  --glass-bg-strong: rgba(255, 255, 255, 0.92);
+  --glass-border: rgba(19, 44, 82, 0.08);
+  --glass-shadow: 0 8px 32px rgba(19, 44, 82, 0.10);
   --glass-blur: blur(12px);
 
   /* === GRADIENT BACKGROUNDS === */
-  --gradient-primary: linear-gradient(135deg, #10b981 0%, #059669 50%, #047857 100%);
-  --gradient-secondary: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-  --gradient-accent: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-  --gradient-hero: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 50%, #a7f3d0 100%);
-  --gradient-sidebar: linear-gradient(180deg, #064e3b 0%, #065f46 50%, #047857 100%);
-  --gradient-card: linear-gradient(145deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%);
+  --gradient-primary: linear-gradient(135deg, #1F4475 0%, #15345E 50%, #132C52 100%);
+  --gradient-secondary: linear-gradient(135deg, #C3954C 0%, #A87B39 100%);
+  --gradient-accent: linear-gradient(135deg, #DDBA6E 0%, #C3954C 50%, #A87B39 100%);
+  /* Premium ambient: cool slate base + warm gold + deep navy orbs.
+     Visible enough to read as "intentional surface" not "white page". */
+  --gradient-hero:
+    radial-gradient(ellipse 60% 40% at 15% 0%,   rgba(195, 149, 76, 0.18), transparent 65%),
+    radial-gradient(ellipse 70% 60% at 105% 105%, rgba(31, 68, 117, 0.28), transparent 60%),
+    radial-gradient(ellipse 40% 40% at 50% 50%,  rgba(255, 255, 255, 0.50), transparent 70%),
+    linear-gradient(160deg, #DDE4EF 0%, #C9D2E0 60%, #B7C1D2 100%);
+  --gradient-sidebar: linear-gradient(180deg, #0E1F3B 0%, #132C52 50%, #15345E 100%);
+  --gradient-card: linear-gradient(145deg, rgba(255,255,255,0.94) 0%, rgba(255,255,255,0.78) 100%);
 
   /* === BUTTON SYSTEM === */
-  --button-outline: rgba(0,0,0, .08);
-  --badge-outline: rgba(0,0,0, .05);
+  --button-outline: rgba(19, 44, 82, .12);
+  --badge-outline: rgba(19, 44, 82, .08);
   --opaque-button-border-intensity: -8;
 
   /* === ELEVATION SYSTEM === */
-  --elevate-1: rgba(16, 185, 129, .05);
-  --elevate-2: rgba(16, 185, 129, .12);
+  --elevate-1: rgba(19, 44, 82, .04);
+  --elevate-2: rgba(19, 44, 82, .10);
 
   /* === CORE COLORS === */
-  --background: 152 30% 97%;
-  --foreground: 160 30% 15%;
-  --border: 152 20% 88%;
+  --background: 215 25% 87%;
+  --foreground: 215 50% 14%;
+  --border: 215 20% 82%;
 
-  /* === CARD (Glassmorphism) === */
+  /* === CARD === */
   --card: 0 0% 100%;
-  --card-foreground: 160 30% 15%;
-  --card-border: 152 25% 90%;
+  --card-foreground: 215 50% 14%;
+  --card-border: 215 25% 90%;
 
-  /* === SIDEBAR (Dark Green Gradient) === */
-  --sidebar: 160 84% 15%;
-  --sidebar-foreground: 152 80% 95%;
-  --sidebar-border: 160 60% 20%;
-  --sidebar-primary: 152 76% 46%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 160 60% 25%;
-  --sidebar-accent-foreground: 152 80% 95%;
-  --sidebar-ring: 152 76% 46%;
+  /* === SIDEBAR (Navy) === */
+  --sidebar: 219 56% 14%;
+  --sidebar-foreground: 38 35% 92%;
+  --sidebar-border: 219 40% 22%;
+  --sidebar-primary: 38 47% 53%;
+  --sidebar-primary-foreground: 219 56% 12%;
+  --sidebar-accent: 219 45% 22%;
+  --sidebar-accent-foreground: 38 35% 92%;
+  --sidebar-ring: 38 47% 53%;
 
   /* === POPOVER === */
   --popover: 0 0% 100%;
-  --popover-foreground: 160 30% 15%;
-  --popover-border: 152 20% 90%;
+  --popover-foreground: 215 50% 14%;
+  --popover-border: 215 20% 90%;
 
-  /* === PRIMARY (Emerald) === */
-  --primary: 152 76% 40%;
-  --primary-foreground: 0 0% 100%;
+  /* === PRIMARY (Navy) === */
+  --primary: 215 64% 20%;
+  --primary-foreground: 38 35% 96%;
 
-  /* === SECONDARY (Indigo) === */
-  --secondary: 239 84% 67%;
-  --secondary-foreground: 0 0% 100%;
+  /* === SECONDARY (Gold) === */
+  --secondary: 38 47% 53%;
+  --secondary-foreground: 215 64% 14%;
 
   /* === MUTED === */
-  --muted: 152 20% 92%;
-  --muted-foreground: 152 15% 45%;
+  --muted: 215 20% 94%;
+  --muted-foreground: 215 14% 42%;
 
-  /* === ACCENT (Amber) === */
-  --accent: 38 92% 50%;
-  --accent-foreground: 0 0% 100%;
+  /* === ACCENT (Gold) === */
+  --accent: 38 47% 53%;
+  --accent-foreground: 215 64% 14%;
 
   /* === DESTRUCTIVE (Red) === */
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
 
   /* === INPUT & RING === */
-  --input: 152 20% 88%;
-  --ring: 152 76% 40%;
+  --input: 215 20% 88%;
+  --ring: 38 47% 53%;
 
   /* === CHART COLORS === */
-  --chart-1: 152 76% 40%;
-  --chart-2: 262 83% 58%;
-  --chart-3: 199 89% 48%;
-  --chart-4: 38 92% 50%;
+  --chart-1: 215 64% 20%;
+  --chart-2: 38 47% 53%;
+  --chart-3: 199 75% 38%;
+  --chart-4: 262 60% 50%;
   --chart-5: 0 72% 51%;
 
   /* === TYPOGRAPHY === */
@@ -99,15 +105,15 @@
   --radius-sm: 0.5rem;
   --radius-lg: 1.5rem;
 
-  /* === SHADOWS (Soft & Modern) === */
-  --shadow-2xs: 0px 1px 2px 0px rgba(16, 185, 129, 0.03);
-  --shadow-xs: 0px 2px 4px 0px rgba(16, 185, 129, 0.05);
-  --shadow-sm: 0px 4px 8px -2px rgba(16, 185, 129, 0.08), 0px 2px 4px -2px rgba(16, 185, 129, 0.04);
-  --shadow: 0px 8px 16px -4px rgba(16, 185, 129, 0.10), 0px 4px 8px -4px rgba(16, 185, 129, 0.06);
-  --shadow-md: 0px 12px 24px -6px rgba(16, 185, 129, 0.12), 0px 6px 12px -6px rgba(16, 185, 129, 0.08);
-  --shadow-lg: 0px 20px 40px -8px rgba(16, 185, 129, 0.15), 0px 8px 16px -8px rgba(16, 185, 129, 0.10);
-  --shadow-xl: 0px 32px 64px -12px rgba(16, 185, 129, 0.18), 0px 12px 24px -12px rgba(16, 185, 129, 0.12);
-  --shadow-glow: 0px 0px 40px rgba(16, 185, 129, 0.3);
+  /* === SHADOWS (Soft Navy Tint) === */
+  --shadow-2xs: 0px 1px 2px 0px rgba(19, 44, 82, 0.04);
+  --shadow-xs: 0px 2px 4px 0px rgba(19, 44, 82, 0.06);
+  --shadow-sm: 0px 4px 8px -2px rgba(19, 44, 82, 0.08), 0px 2px 4px -2px rgba(19, 44, 82, 0.04);
+  --shadow: 0px 8px 16px -4px rgba(19, 44, 82, 0.10), 0px 4px 8px -4px rgba(19, 44, 82, 0.06);
+  --shadow-md: 0px 12px 24px -6px rgba(19, 44, 82, 0.14), 0px 6px 12px -6px rgba(19, 44, 82, 0.08);
+  --shadow-lg: 0px 20px 40px -8px rgba(19, 44, 82, 0.18), 0px 8px 16px -8px rgba(19, 44, 82, 0.10);
+  --shadow-xl: 0px 32px 64px -12px rgba(19, 44, 82, 0.22), 0px 12px 24px -12px rgba(19, 44, 82, 0.14);
+  --shadow-glow: 0px 0px 40px rgba(195, 149, 76, 0.35);
 
   --tracking-normal: 0em;
   --spacing: 0.25rem;
@@ -124,33 +130,34 @@
 
 /* === DARK MODE === */
 .dark {
-  --glass-bg: rgba(15, 23, 42, 0.8);
-  --glass-bg-strong: rgba(15, 23, 42, 0.9);
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  --glass-bg: rgba(14, 31, 59, 0.82);
+  --glass-bg-strong: rgba(14, 31, 59, 0.94);
+  --glass-border: rgba(195, 149, 76, 0.12);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 
-  --gradient-hero: linear-gradient(135deg, #064e3b 0%, #065f46 50%, #047857 100%);
-  --gradient-card: linear-gradient(145deg, rgba(30,41,59,0.9) 0%, rgba(15,23,42,0.7) 100%);
+  --gradient-hero: linear-gradient(135deg, #0E1F3B 0%, #132C52 50%, #15345E 100%);
+  --gradient-card: linear-gradient(145deg, rgba(21,52,94,0.92) 0%, rgba(14,31,59,0.78) 100%);
 
-  --elevate-1: rgba(16, 185, 129, .08);
-  --elevate-2: rgba(16, 185, 129, .15);
+  --elevate-1: rgba(195, 149, 76, .06);
+  --elevate-2: rgba(195, 149, 76, .14);
 
-  --background: 222 47% 8%;
-  --foreground: 152 30% 95%;
-  --border: 217 33% 17%;
+  --background: 219 56% 10%;
+  --foreground: 38 30% 92%;
+  --border: 219 35% 22%;
 
-  --card: 222 47% 11%;
-  --card-foreground: 152 30% 95%;
-  --card-border: 217 33% 20%;
+  --card: 219 50% 14%;
+  --card-foreground: 38 30% 92%;
+  --card-border: 219 35% 24%;
 
-  --popover: 222 47% 11%;
-  --popover-foreground: 152 30% 95%;
+  --popover: 219 50% 14%;
+  --popover-foreground: 38 30% 92%;
 
-  --muted: 217 33% 17%;
-  --muted-foreground: 215 20% 65%;
+  --muted: 219 35% 20%;
+  --muted-foreground: 219 14% 65%;
 
-  --primary: 152 76% 46%;
-  --secondary: 239 84% 67%;
+  --primary: 38 47% 53%;
+  --primary-foreground: 219 64% 14%;
+  --secondary: 219 50% 28%;
 }
 
 /* ========================================
@@ -166,11 +173,24 @@
   }
 
   body {
-    @apply font-sans antialiased bg-background text-foreground;
-    background-image: var(--gradient-hero);
-    background-attachment: fixed;
+    @apply font-sans antialiased text-foreground;
     min-height: 100vh;
   }
+}
+
+/* Premium "framed canvas" backdrop. Deep navy base with warm gold orbs and
+   a subtle vignette so white cards read as floating on a real surface
+   instead of a flat white page. Longhand props (not `background` shorthand)
+   because Chromium drops shorthand declarations that inline multi-stop vars. */
+html, body {
+  background-color: #1E3559;
+  background-image:
+    radial-gradient(ellipse 50% 35% at 12% 0%,    rgba(195, 149, 76, 0.32), transparent 60%),
+    radial-gradient(ellipse 60% 50% at 100% 100%, rgba(195, 149, 76, 0.18), transparent 60%),
+    radial-gradient(ellipse 90% 90% at 50% 50%,   rgba(60, 95, 145, 0.55), transparent 70%),
+    linear-gradient(160deg, #1B3052 0%, #142849 55%, #0F2040 100%);
+  background-attachment: fixed;
+  min-height: 100vh;
 }
 
 /* ========================================
@@ -199,13 +219,13 @@
     background: var(--gradient-primary);
     color: white;
     border: none;
-    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+    box-shadow: 0 4px 14px rgba(19, 44, 82, 0.30);
     transition: all 0.3s ease;
   }
 
   .btn-gradient:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45);
+    box-shadow: 0 6px 20px rgba(19, 44, 82, 0.40);
   }
 
   .btn-gradient:active {
@@ -226,7 +246,7 @@
   }
 
   .glow-text {
-    text-shadow: 0 0 20px rgba(16, 185, 129, 0.5);
+    text-shadow: 0 0 20px rgba(195, 149, 76, 0.5);
   }
 
   /* Animated Border Gradient */
@@ -262,7 +282,7 @@
   .stat-card .stat-icon {
     @apply w-14 h-14 rounded-xl flex items-center justify-center;
     background: var(--gradient-primary);
-    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+    box-shadow: 0 4px 14px rgba(19, 44, 82, 0.25);
   }
 
   /* Task Card Enhanced */
@@ -318,7 +338,7 @@
 
   .input-modern:focus {
     border-color: hsl(var(--primary));
-    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15);
+    box-shadow: 0 0 0 4px rgba(195, 149, 76, 0.20);
     outline: none;
   }
 
@@ -370,14 +390,14 @@
   .fab {
     @apply fixed bottom-6 right-6 w-14 h-14 rounded-full flex items-center justify-center;
     background: var(--gradient-primary);
-    box-shadow: 0 8px 24px rgba(16, 185, 129, 0.4);
+    box-shadow: 0 8px 24px rgba(19, 44, 82, 0.35);
     transition: all 0.3s ease;
     z-index: 50;
   }
 
   .fab:hover {
     transform: scale(1.1);
-    box-shadow: 0 12px 32px rgba(16, 185, 129, 0.5);
+    box-shadow: 0 12px 32px rgba(195, 149, 76, 0.5);
   }
 
   /* Loading Skeleton with Shimmer */

@@ -81,6 +81,35 @@ export default {
           busy: "rgb(239 68 68)",
           offline: "rgb(156 163 175)",
         },
+        // Override emerald-* utility classes to map to the navy brand scale
+        // so existing components that reference text-emerald-700, bg-emerald-50,
+        // etc. automatically pick up the new palette without per-file refactors.
+        emerald: {
+          50:  "#F2F5FB",
+          100: "#E1E8F2",
+          200: "#BCCBE0",
+          300: "#92A8C9",
+          400: "#5E7BAA",
+          500: "#365B8E",
+          600: "#1F4475",
+          700: "#15345E",
+          800: "#132C52",
+          900: "#0E1F3B",
+          950: "#07142A",
+        },
+        // Gold accent scale for premium hotel feel
+        gold: {
+          50:  "#FBF6EC",
+          100: "#F5E9CD",
+          200: "#EBD49A",
+          300: "#DDBA6E",
+          400: "#D0A55B",
+          500: "#C3954C",
+          600: "#A87B39",
+          700: "#85602E",
+          800: "#624624",
+          900: "#3E2C16",
+        },
       },
       fontFamily: {
         sans: ["var(--font-sans)"],

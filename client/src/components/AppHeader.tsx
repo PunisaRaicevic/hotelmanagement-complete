@@ -173,7 +173,7 @@ export default function AppHeader() {
   }, []);
 
   return (
-    <header className="flex items-center justify-between px-2 py-2 sm:px-4 sm:py-4 border-b bg-background sticky top-0 z-50">
+    <header className="flex items-center justify-between px-2 py-2 sm:px-4 sm:py-4 border-b border-white/30 bg-white/40 backdrop-blur-xl sticky top-0 z-50 shadow-sm">
       <div className="flex items-center gap-2 sm:gap-3">
         <h1 className="text-base sm:text-xl font-semibold truncate">{t('hotelManagement')}</h1>
       </div>
