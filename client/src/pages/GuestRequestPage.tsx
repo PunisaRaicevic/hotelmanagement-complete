@@ -983,13 +983,30 @@ export default function GuestRequestPage() {
     });
   };
 
+  // Shared navy+gold backdrop (matches LoginPage) and glass-card classes so
+  // every state on this page reads as the same product. Inline style is used
+  // because the gradient stack is complex; everything else stays in Tailwind.
+  const bgStyle: React.CSSProperties = {
+    backgroundColor: '#0F2040',
+    backgroundImage:
+      'radial-gradient(ellipse 50% 35% at 18% 0%, rgba(195,149,76,0.35), transparent 60%),' +
+      'radial-gradient(ellipse 60% 50% at 100% 100%, rgba(195,149,76,0.20), transparent 60%),' +
+      'radial-gradient(ellipse 80% 80% at 50% 50%, rgba(60,95,145,0.40), transparent 70%),' +
+      'linear-gradient(160deg, #1B3052 0%, #142849 55%, #0F2040 100%)',
+  };
+  const glassCard =
+    'bg-white/95 backdrop-blur-2xl border border-gold-500/20 ring-1 ring-white/10 rounded-2xl shadow-2xl';
+
   // Loading state
   if (status === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-50 to-white p-4">
-        <Card className="p-8 text-center max-w-sm w-full">
-          <Loader2 className="w-12 h-12 animate-spin mx-auto text-blue-500 mb-4" />
-          <p className="text-muted-foreground">{t('checkingQR')}</p>
+      <div
+        className="min-h-screen flex items-center justify-center px-4 pt-safe-top pb-safe-bottom relative overflow-hidden"
+        style={bgStyle}
+      >
+        <Card className={`${glassCard} p-8 text-center max-w-sm w-full`}>
+          <Loader2 className="w-12 h-12 animate-spin mx-auto text-gold-500 mb-4" />
+          <p className="text-emerald-900/70">{t('checkingQR')}</p>
         </Card>
       </div>
     );
@@ -998,14 +1015,19 @@ export default function GuestRequestPage() {
   // Invalid token state
   if (status === 'invalid') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-red-50 to-white p-4">
-        <Card className="p-8 text-center max-w-sm w-full">
-          <XCircle className="w-16 h-16 mx-auto text-red-500 mb-4" />
-          <h1 className="text-xl font-bold mb-2">{t('invalidQR')}</h1>
-          <p className="text-muted-foreground mb-4">{errorMessage}</p>
-          <div className="bg-amber-50 border border-amber-200 rounded p-3 text-sm text-amber-800">
-            <AlertTriangle className="w-4 h-4 inline mr-2" />
-            {t('contactReception')}
+      <div
+        className="min-h-screen flex items-center justify-center px-4 pt-safe-top pb-safe-bottom relative overflow-hidden"
+        style={bgStyle}
+      >
+        <Card className={`${glassCard} p-8 text-center max-w-sm w-full`}>
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
+            <XCircle className="w-10 h-10 text-red-600" />
+          </div>
+          <h1 className="text-xl font-bold mb-2 text-emerald-900">{t('invalidQR')}</h1>
+          <p className="text-emerald-900/60 mb-4">{errorMessage}</p>
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800 flex items-start gap-2 text-left">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+            <span>{t('contactReception')}</span>
           </div>
         </Card>
       </div>
@@ -1015,19 +1037,33 @@ export default function GuestRequestPage() {
   // Submitted state
   if (status === 'submitted') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-green-50 to-white p-4">
-        <Card className="p-8 text-center max-w-sm w-full">
-          <CheckCircle2 className="w-16 h-16 mx-auto text-green-500 mb-4" />
-          <h1 className="text-xl font-bold mb-2">{t('requestSent')}</h1>
-          <p className="text-muted-foreground mb-4">
+      <div
+        className="min-h-screen flex items-center justify-center px-4 pt-safe-top pb-safe-bottom relative overflow-hidden"
+        style={bgStyle}
+      >
+        <Card className={`${glassCard} p-8 text-center max-w-sm w-full`}>
+          <div className="w-20 h-20 mx-auto mb-5 rounded-full bg-gradient-to-br from-emerald-50 to-gold-50 flex items-center justify-center ring-1 ring-gold-500/30">
+            <CheckCircle2 className="w-12 h-12 text-emerald-700" />
+          </div>
+          <h1 className="text-2xl font-bold mb-2 tracking-tight">
+            <span className="text-emerald-900">{t('requestSent')}</span>
+          </h1>
+          <p className="text-emerald-900/60 mb-6">
             {t('staffWillHandle')}
           </p>
           <div className="space-y-2">
-            <Button onClick={viewMyRequests} className="w-full">
+            <Button
+              onClick={viewMyRequests}
+              className="w-full h-12 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white shadow-lg shadow-emerald-900/30"
+            >
               <MessageSquare className="w-4 h-4 mr-2" />
               {t('viewMyRequests')}
             </Button>
-            <Button onClick={resetForm} variant="outline" className="w-full">
+            <Button
+              onClick={resetForm}
+              variant="outline"
+              className="w-full h-12 rounded-xl border-gold-500/40 text-emerald-900 hover:bg-gold-50/60"
+            >
               <Plus className="w-4 h-4 mr-2" />
               {t('sendNewRequest')}
             </Button>
@@ -1040,13 +1076,20 @@ export default function GuestRequestPage() {
   // View my requests state
   if (status === 'viewRequests') {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white p-4 overflow-y-auto">
-        <div className="max-w-lg mx-auto pb-8">
+      <div
+        className="min-h-screen px-4 pt-safe-top pb-safe-bottom overflow-y-auto relative"
+        style={bgStyle}
+      >
+        <div className="max-w-lg mx-auto py-6">
           {/* Header */}
           <div className="text-center mb-6">
-            <Hotel className="w-10 h-10 mx-auto text-blue-600 mb-2" />
-            <h1 className="text-xl font-bold">{t('myRequests')}</h1>
-            <p className="text-muted-foreground text-sm">
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-md ring-1 ring-gold-500/30 mb-3">
+              <Hotel className="w-7 h-7 text-gold-400" />
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight">
+              <span className="text-white">{t('myRequests')}</span>
+            </h1>
+            <p className="text-gold-200/80 text-sm mt-1">
               {t('room')} {roomInfo?.room_number}
             </p>
           </div>
@@ -1058,27 +1101,28 @@ export default function GuestRequestPage() {
                 variant="ghost"
                 size="sm"
                 onClick={() => setSelectedRequest(null)}
+                className="text-gold-200 hover:text-white hover:bg-white/10 rounded-xl"
               >
                 <ArrowLeft className="w-4 h-4 mr-1" />
                 {t('backToList')}
               </Button>
 
-              <Card className="p-4">
+              <Card className={`${glassCard} p-4`}>
                 <div className="flex items-center justify-between mb-3">
-                  <Badge variant="outline">
+                  <Badge variant="outline" className="border-gold-500/40 text-emerald-900 bg-gold-50/40">
                     {getRequestTypeLabel(selectedRequest.request_type)}
                   </Badge>
                   <Badge variant={getStatusColor(selectedRequest.status) as any}>
                     {getStatusLabel(selectedRequest.status)}
                   </Badge>
                 </div>
-                <p className="text-sm mb-2">{selectedRequest.description}</p>
-                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <p className="text-sm mb-2 text-emerald-900">{selectedRequest.description}</p>
+                <p className="text-xs text-emerald-900/50 flex items-center gap-1">
                   <Clock className="w-3 h-3" />
                   {formatDateTime(selectedRequest.created_at)}
                 </p>
                 {selectedRequest.forwarded_to_department && (
-                  <div className="mt-2 text-xs text-blue-600 flex items-center gap-1">
+                  <div className="mt-2 text-xs text-gold-700 flex items-center gap-1">
                     <Forward className="w-3 h-3" />
                     {t('forwarded')}: {selectedRequest.forwarded_to_department === 'housekeeping' ? t('housekeeping') : t('technicalService')}
                   </div>
@@ -1086,8 +1130,8 @@ export default function GuestRequestPage() {
               </Card>
 
               <div>
-                <h3 className="font-medium mb-2 flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4" />
+                <h3 className="font-medium mb-2 flex items-center gap-2 text-white">
+                  <MessageSquare className="w-4 h-4 text-gold-400" />
                   {t('messages')}
                 </h3>
                 <GuestRequestChat
@@ -1103,31 +1147,31 @@ export default function GuestRequestPage() {
             <>
               {isLoadingRequests ? (
                 <div className="text-center py-8">
-                  <Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-500" />
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto text-gold-400" />
                 </div>
               ) : myRequests.length === 0 ? (
-                <Card className="p-8 text-center">
-                  <MessageSquare className="w-12 h-12 mx-auto text-muted-foreground mb-3 opacity-50" />
-                  <p className="text-muted-foreground">{t('noRequests')}</p>
+                <Card className={`${glassCard} p-8 text-center`}>
+                  <MessageSquare className="w-12 h-12 mx-auto text-emerald-900/30 mb-3" />
+                  <p className="text-emerald-900/60">{t('noRequests')}</p>
                 </Card>
               ) : (
                 <div className="space-y-3">
                   {myRequests.map((req) => (
                     <Card
                       key={req.id}
-                      className="p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                      className={`${glassCard} p-4 cursor-pointer hover:bg-white active:scale-[0.99] transition-all`}
                       onClick={() => setSelectedRequest(req)}
                     >
                       <div className="flex items-center justify-between mb-2">
-                        <Badge variant="outline">
+                        <Badge variant="outline" className="border-gold-500/40 text-emerald-900 bg-gold-50/40">
                           {getRequestTypeLabel(req.request_type)}
                         </Badge>
                         <Badge variant={getStatusColor(req.status) as any}>
                           {getStatusLabel(req.status)}
                         </Badge>
                       </div>
-                      <p className="text-sm line-clamp-2">{req.description}</p>
-                      <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                      <p className="text-sm line-clamp-2 text-emerald-900">{req.description}</p>
+                      <p className="text-xs text-emerald-900/50 mt-2 flex items-center gap-1">
                         <Clock className="w-3 h-3" />
                         {formatDateTime(req.created_at)}
                       </p>
@@ -1136,7 +1180,10 @@ export default function GuestRequestPage() {
                 </div>
               )}
 
-              <Button onClick={resetForm} className="w-full mt-4">
+              <Button
+                onClick={resetForm}
+                className="w-full h-12 mt-4 rounded-xl bg-gold-500 hover:bg-gold-600 text-emerald-950 font-semibold shadow-lg shadow-gold-900/20"
+              >
                 <Plus className="w-4 h-4 mr-2" />
                 {t('sendNewRequest')}
               </Button>
@@ -1149,31 +1196,48 @@ export default function GuestRequestPage() {
 
   // Valid token - show form
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white p-4 overflow-y-auto">
-      <div className="max-w-lg mx-auto pb-8">
+    <div
+      className="min-h-screen overflow-y-auto relative"
+      style={bgStyle}
+    >
+      {/* Soft floating gold orbs — same vibe as LoginPage */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div
+          className="absolute -top-32 -right-32 w-96 h-96 rounded-full blur-3xl"
+          style={{ background: 'radial-gradient(circle, rgba(195,149,76,0.20) 0%, transparent 70%)' }}
+        />
+        <div
+          className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full blur-3xl"
+          style={{ background: 'radial-gradient(circle, rgba(195,149,76,0.14) 0%, transparent 70%)' }}
+        />
+      </div>
+
+      <div className="max-w-lg mx-auto px-4 pt-safe-top pb-safe-bottom relative z-10">
         {/* Language Picker */}
-        <div className="flex justify-end mb-2">
+        <div className="flex justify-end pt-4 mb-2">
           <button
             onClick={() => setShowLangPicker(!showLangPicker)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border bg-white shadow-sm hover:bg-gray-50 text-sm transition-all"
+            className="flex items-center gap-1.5 px-3 h-10 rounded-full border border-gold-500/30 bg-white/10 backdrop-blur-md text-white hover:bg-white/20 text-sm transition-all"
           >
             <span className="text-base">{languages.find(l => l.id === lang)?.flag}</span>
-            <Globe className="w-3.5 h-3.5 text-muted-foreground" />
+            <Globe className="w-4 h-4 text-gold-300" />
           </button>
         </div>
         {showLangPicker && (
-          <Card className="p-3 mb-4 animate-in fade-in slide-in-from-top-2 duration-200">
+          <Card className={`${glassCard} p-3 mb-4 animate-in fade-in slide-in-from-top-2 duration-200`}>
             <div className="grid grid-cols-4 gap-1.5">
               {languages.map((l) => (
                 <button
                   key={l.id}
                   onClick={() => { setLang(l.id); setShowLangPicker(false); }}
-                  className={`flex flex-col items-center gap-0.5 p-2 rounded-lg transition-all text-center ${
-                    lang === l.id ? 'bg-blue-100 border-2 border-blue-400' : 'hover:bg-gray-100 border-2 border-transparent'
+                  className={`flex flex-col items-center gap-0.5 p-2 min-h-[3.25rem] rounded-lg transition-all text-center ${
+                    lang === l.id
+                      ? 'bg-gold-100 border-2 border-gold-500'
+                      : 'hover:bg-emerald-50 border-2 border-transparent'
                   }`}
                 >
                   <span className="text-xl">{l.flag}</span>
-                  <span className="text-[10px] font-medium leading-tight">{l.label}</span>
+                  <span className="text-[10px] font-medium leading-tight text-emerald-900">{l.label}</span>
                 </button>
               ))}
             </div>
@@ -1181,74 +1245,76 @@ export default function GuestRequestPage() {
         )}
 
         {/* Header */}
-        <div className="text-center mb-6">
-          <Hotel className="w-12 h-12 mx-auto text-blue-600 mb-2" />
-          <h1 className="text-2xl font-bold">{t('guestService')}</h1>
-          <p className="text-muted-foreground">
+        <div className="text-center mb-6 mt-2">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-md ring-1 ring-gold-500/30 mb-3 relative">
+            <div
+              className="absolute inset-0 rounded-2xl blur-xl"
+              style={{ background: 'radial-gradient(circle, rgba(195,149,76,0.40) 0%, transparent 70%)' }}
+            />
+            <Hotel className="w-8 h-8 text-gold-400 relative z-10" />
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight">
+            <span className="text-white">{t('guestService')}</span>
+          </h1>
+          <p className="text-gold-200/80 text-sm mt-1">
             {t('room')} {roomInfo?.room_number} • {t('floor')} {roomInfo?.floor}
           </p>
         </div>
 
         {/* Previous Requests Section - Show if guest has any requests */}
         {myRequests.length > 0 && (
-          <Card className="p-4 mb-4 border-blue-200 bg-blue-50/50">
+          <Card className={`${glassCard} p-4 mb-4`}>
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <MessageSquare className="w-5 h-5 text-blue-600" />
-                <span className="font-medium">{t('previousRequests')}</span>
+                <MessageSquare className="w-5 h-5 text-gold-600" />
+                <span className="font-medium text-emerald-900">{t('previousRequests')}</span>
               </div>
-              <Badge variant="secondary">{myRequests.length}</Badge>
+              <Badge className="bg-gold-500/15 text-gold-700 border border-gold-500/30 hover:bg-gold-500/15">
+                {myRequests.length}
+              </Badge>
             </div>
             <div className="space-y-2 max-h-48 overflow-y-auto">
               {myRequests.slice(0, 3).map((req) => (
                 <div
                   key={req.id}
-                  className="p-3 bg-white rounded-lg border cursor-pointer hover:bg-gray-50 transition-colors"
+                  className="p-3 bg-white rounded-xl border border-emerald-900/10 cursor-pointer hover:border-gold-500/40 hover:bg-gold-50/40 active:scale-[0.99] transition-all"
                   onClick={() => {
                     setSelectedRequest(req);
                     setStatus('viewRequests');
                   }}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-medium">{getRequestTypeLabel(req.request_type)}</span>
+                    <span className="text-sm font-medium text-emerald-900">{getRequestTypeLabel(req.request_type)}</span>
                     <Badge variant={getStatusColor(req.status) as any} className="text-xs">
                       {getStatusLabel(req.status)}
                     </Badge>
                   </div>
-                  <p className="text-xs text-muted-foreground line-clamp-1">{req.description}</p>
-                  <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                  <p className="text-xs text-emerald-900/60 line-clamp-1">{req.description}</p>
+                  <p className="text-xs text-emerald-900/50 mt-1 flex items-center gap-1">
                     <Clock className="w-3 h-3" />
                     {formatDateTime(req.created_at)}
                   </p>
                 </div>
               ))}
             </div>
-            {myRequests.length > 3 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full mt-2 text-blue-600"
-                onClick={viewMyRequests}
-              >
-                {t('viewAllCount').replace('{count}', String(myRequests.length))}
-              </Button>
-            )}
-            {myRequests.length <= 3 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full mt-2 text-blue-600"
-                onClick={viewMyRequests}
-              >
-                {t('viewAll')}
-              </Button>
-            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full mt-2 min-h-11 text-gold-700 hover:text-gold-800 hover:bg-gold-50/60 rounded-xl"
+              onClick={viewMyRequests}
+            >
+              {myRequests.length > 3
+                ? t('viewAllCount').replace('{count}', String(myRequests.length))
+                : t('viewAll')}
+            </Button>
           </Card>
         )}
 
         {/* Request Type Selection - Problems */}
-        <Card className="p-4 mb-4">
-          <Label className="text-sm font-medium mb-3 block">{t('reportProblem')}</Label>
+        <Card className={`${glassCard} p-4 mb-4`}>
+          <Label className="text-sm font-semibold mb-3 block text-emerald-900">
+            {t('reportProblem')}
+          </Label>
           <div className="grid grid-cols-3 gap-2">
             {requestTypes.slice(0, 3).map((type) => {
               const Icon = type.icon;
@@ -1257,12 +1323,12 @@ export default function GuestRequestPage() {
                 <button
                   key={type.id}
                   type="button"
-                  className="p-3 rounded-lg border-2 border-gray-200 hover:border-blue-400 hover:bg-blue-50 text-left transition-all active:scale-95"
+                  className="p-3 min-h-[5.5rem] rounded-xl border-2 border-emerald-900/10 bg-white hover:border-gold-500 hover:bg-gold-50/60 text-left transition-all active:scale-95"
                   onClick={() => openRequestDialog(type.id as RequestType)}
                 >
-                  <Icon className="w-5 h-5 mb-1 text-gray-500" />
-                  <p className="font-medium text-sm">{keys ? t(keys.label) : type.label}</p>
-                  <p className="text-xs text-muted-foreground leading-tight">{keys ? t(keys.desc) : type.description}</p>
+                  <Icon className="w-5 h-5 mb-1 text-gold-600" />
+                  <p className="font-medium text-sm text-emerald-900">{keys ? t(keys.label) : type.label}</p>
+                  <p className="text-xs text-emerald-900/55 leading-tight">{keys ? t(keys.desc) : type.description}</p>
                 </button>
               );
             })}
@@ -1270,9 +1336,9 @@ export default function GuestRequestPage() {
         </Card>
 
         {/* Hotel Services - revenue generating */}
-        <Card className="p-4 mb-4 border-emerald-200 bg-gradient-to-br from-emerald-50/50 to-white">
-          <Label className="text-sm font-medium mb-3 block flex items-center gap-2">
-            <Gift className="w-4 h-4 text-emerald-600" />
+        <Card className={`${glassCard} p-4 mb-4`}>
+          <Label className="text-sm font-semibold mb-3 block flex items-center gap-2 text-emerald-900">
+            <Gift className="w-4 h-4 text-gold-600" />
             {t('hotelServices')}
           </Label>
           <div className="grid grid-cols-2 gap-2">
@@ -1283,12 +1349,12 @@ export default function GuestRequestPage() {
                 <button
                   key={type.id}
                   type="button"
-                  className="p-3 rounded-lg border-2 border-emerald-100 hover:border-emerald-400 hover:bg-emerald-50 bg-white text-left transition-all active:scale-95"
+                  className="p-3 min-h-[5.5rem] rounded-xl border-2 border-gold-500/20 bg-gradient-to-br from-gold-50/50 to-white hover:border-gold-500 hover:from-gold-50 text-left transition-all active:scale-95"
                   onClick={() => openRequestDialog(type.id as RequestType)}
                 >
-                  <Icon className="w-5 h-5 mb-1 text-emerald-500" />
-                  <p className="font-medium text-sm">{keys ? t(keys.label) : type.label}</p>
-                  <p className="text-xs text-muted-foreground leading-tight">{keys ? t(keys.desc) : type.description}</p>
+                  <Icon className="w-5 h-5 mb-1 text-gold-700" />
+                  <p className="font-medium text-sm text-emerald-900">{keys ? t(keys.label) : type.label}</p>
+                  <p className="text-xs text-emerald-900/55 leading-tight">{keys ? t(keys.desc) : type.description}</p>
                 </button>
               );
             })}
@@ -1296,7 +1362,7 @@ export default function GuestRequestPage() {
         </Card>
 
         {/* Footer */}
-        <p className="text-center text-xs text-muted-foreground mt-2 pb-safe">
+        <p className="text-center text-xs text-gold-200/50 mt-4 pb-4">
           {t('footer')}
         </p>
 
@@ -1445,7 +1511,7 @@ export default function GuestRequestPage() {
                   setShowRequestDialog(false);
                 }}
                 disabled={isSubmitting || !description.trim()}
-                className="w-full h-11"
+                className="w-full h-12 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white font-semibold shadow-lg shadow-emerald-900/30 disabled:opacity-50"
               >
                 {isSubmitting ? (
                   <Loader2 className="w-5 h-5 animate-spin mr-2" />
@@ -1459,11 +1525,11 @@ export default function GuestRequestPage() {
         </Dialog>
       </div>
 
-      {/* CSS for mobile scrolling and safe areas */}
+      {/* CSS for mobile scrolling and safe areas (iOS notch, Android nav bar) */}
       <style>{`
-        .pb-safe {
-          padding-bottom: env(safe-area-inset-bottom, 16px);
-        }
+        .pt-safe-top { padding-top: max(env(safe-area-inset-top, 0px), 12px); }
+        .pb-safe-bottom { padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px); }
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom, 16px); }
       `}</style>
     </div>
   );
