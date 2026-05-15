@@ -323,9 +323,21 @@ export default function GuestDisplayPage() {
         )}
       </div>
 
-      {/* Footer - minimal */}
-      <div className="absolute bottom-4 left-0 right-0 text-center text-gold-300/30 text-xs tracking-wide">
-        Tapnite na vrh ekrana za opcije
+      {/* Footer - minimal hint + small switch-user pill.
+          On a real kiosk tablet at reception, staff use the pull-down header.
+          But when testing on a phone or switching demo accounts, the bottom
+          pill is much more discoverable than the tap-top gesture. */}
+      <div className="absolute bottom-4 left-0 right-0 flex flex-col items-center gap-2 text-center">
+        <button
+          onClick={handleLogout}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-gold-200 bg-white/5 border border-gold-500/30 hover:bg-white/15 hover:border-gold-500/50 backdrop-blur-sm transition-colors"
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          Odjava / Switch user
+        </button>
+        <span className="text-gold-300/30 text-[10px] tracking-wide">
+          Tapnite na vrh ekrana za opcije
+        </span>
       </div>
 
       {/* CSS animations */}
