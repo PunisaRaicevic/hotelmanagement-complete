@@ -579,120 +579,99 @@ export default function RoomGridView({ rooms, tasks = [], onRoomClick }: RoomGri
 
   return (
     <div className="space-y-4">
-      {/* Filters & Controls */}
-      <div className="p-2 sm:p-3 bg-muted/30 rounded-xl">
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          {/* Search */}
-          <div className="relative w-full sm:w-auto">
-            <Search className="w-4 h-4 absolute left-2.5 top-2.5 sm:top-3 text-muted-foreground" />
+      {/* Filters & Controls — kompaktna 2-redna paleta.
+          Row 1: search + view toggle (poseban prostor za pretragu).
+          Row 2: svi chip filteri pomešani (status + zauzetost), horizontalno
+          skrolovi ako ne staju. "Sve" i "Zauzetost:" prefiks odbačeni — clear
+          state se postiže drugim klikom na aktivni chip. */}
+      <div className="px-2 py-2 bg-muted/30 rounded-lg space-y-2">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 min-w-0">
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Traži sobu..."
-              className="pl-8 h-9 sm:h-10 w-full sm:w-48 rounded-lg text-sm"
+              className="pl-7 h-8 rounded-md text-xs"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-
-          {/* Status Filters */}
-          <div className="flex gap-1 flex-wrap overflow-x-auto">
-            <Button
-              size="sm"
-              variant={statusFilter === null ? 'default' : 'outline'}
-              className="h-7 sm:h-9 text-[10px] sm:text-xs px-2 sm:px-3"
-              onClick={() => setStatusFilter(null)}
-            >
-              Sve ({rooms.length})
-            </Button>
-            <Button
-              size="sm"
-              variant={statusFilter === 'dirty' ? 'default' : 'outline'}
-              className="h-7 sm:h-9 text-[10px] sm:text-xs px-2 sm:px-3 bg-white hover:bg-rose-50/60 text-foreground border-rose-200 dark:bg-rose-950/20 dark:text-foreground dark:border-rose-900/60"
-              onClick={() => setStatusFilter(statusFilter === 'dirty' ? null : 'dirty')}
-            >
-              <div className="w-2 h-2 rounded-full bg-rose-500 mr-1.5" />
-              Prljave ({statusCounts.dirty})
-            </Button>
-            <Button
-              size="sm"
-              variant={statusFilter === 'in_cleaning' ? 'default' : 'outline'}
-              className="h-7 sm:h-9 text-[10px] sm:text-xs px-2 sm:px-3 bg-white hover:bg-emerald-50/60 text-foreground border-emerald-200 dark:bg-emerald-950/20 dark:text-foreground dark:border-emerald-900/60"
-              onClick={() => setStatusFilter(statusFilter === 'in_cleaning' ? null : 'in_cleaning')}
-            >
-              <div className="w-2 h-2 rounded-full bg-emerald-400 mr-1.5" />
-              U čišćenju ({statusCounts.in_cleaning})
-            </Button>
-            <Button
-              size="sm"
-              variant={statusFilter === 'clean' ? 'default' : 'outline'}
-              className="h-7 sm:h-9 text-[10px] sm:text-xs px-2 sm:px-3 bg-white hover:bg-emerald-50/60 text-foreground border-emerald-200 dark:bg-emerald-950/20 dark:text-foreground dark:border-emerald-900/60"
-              onClick={() => setStatusFilter(statusFilter === 'clean' ? null : 'clean')}
-            >
-              <div className="w-2 h-2 rounded-full bg-emerald-700 mr-1.5" />
-              Čiste ({statusCounts.clean})
-            </Button>
-            <Button
-              size="sm"
-              variant={statusFilter === 'inspected' ? 'default' : 'outline'}
-              className="h-7 sm:h-9 text-[10px] sm:text-xs px-2 sm:px-3 bg-white hover:bg-gold-50/60 text-foreground border-gold-200 dark:bg-gold-900/20 dark:text-foreground dark:border-gold-800/60"
-              onClick={() => setStatusFilter(statusFilter === 'inspected' ? null : 'inspected')}
-            >
-              <div className="w-2 h-2 rounded-full bg-gold-500 mr-1.5" />
-              Pregledane ({statusCounts.inspected})
-            </Button>
-          </div>
-
-          {/* View Mode Toggle */}
-          <div className="flex gap-1 ml-auto">
+          <div className="flex gap-0.5 shrink-0">
             <Button
               size="sm"
               variant={viewMode === 'floor' ? 'default' : 'outline'}
-              className="h-7 sm:h-9 w-7 sm:w-9 p-0"
+              className="h-8 w-8 p-0"
               onClick={() => setViewMode('floor')}
             >
-              <Building2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <Building2 className="w-3.5 h-3.5" />
             </Button>
             <Button
               size="sm"
               variant={viewMode === 'grid' ? 'default' : 'outline'}
-              className="h-7 sm:h-9 w-7 sm:w-9 p-0"
+              className="h-8 w-8 p-0"
               onClick={() => setViewMode('grid')}
             >
-              <Grid3X3 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <Grid3X3 className="w-3.5 h-3.5" />
             </Button>
           </div>
         </div>
 
-        {/* Occupancy Quick Filters */}
-        <div className="flex gap-1.5 sm:gap-2 flex-wrap mt-2 sm:mt-3">
-          <span className="text-xs font-medium text-muted-foreground self-center">Zauzetost:</span>
-          <Badge
-            variant={occupancyFilter === null ? 'default' : 'outline'}
-            className="cursor-pointer hover:opacity-80"
-            onClick={() => setOccupancyFilter(null)}
-          >
-            Svi statusi
-          </Badge>
-          <Badge
-            variant={occupancyFilter === 'occupied' ? 'default' : 'outline'}
-            className="cursor-pointer hover:opacity-80 bg-gold-50 text-gold-700 border-gold-200 dark:bg-gold-900/20 dark:text-gold-300"
-            onClick={() => setOccupancyFilter(occupancyFilter === 'occupied' ? null : 'occupied')}
-          >
-            Zauzete
-          </Badge>
-          <Badge
-            variant={occupancyFilter === 'vacant' ? 'default' : 'outline'}
-            className="cursor-pointer hover:opacity-80 bg-emerald-50/70 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-200"
-            onClick={() => setOccupancyFilter(occupancyFilter === 'vacant' ? null : 'vacant')}
-          >
-            Prazne
-          </Badge>
-          <Badge
-            variant={occupancyFilter === 'checkout' ? 'default' : 'outline'}
-            className="cursor-pointer hover:opacity-80 bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/20 dark:text-rose-300"
-            onClick={() => setOccupancyFilter(occupancyFilter === 'checkout' ? null : 'checkout')}
-          >
-            Check-out
-          </Badge>
+        <div className="flex gap-1 flex-wrap">
+          {/* Status chips */}
+          {([
+            { key: 'dirty',       label: 'Prljave',     count: statusCounts.dirty,       dot: 'bg-rose-500' },
+            { key: 'in_cleaning', label: 'U čišćenju',  count: statusCounts.in_cleaning, dot: 'bg-emerald-400' },
+            { key: 'clean',       label: 'Čiste',       count: statusCounts.clean,       dot: 'bg-emerald-700' },
+            { key: 'inspected',   label: 'Pregledane',  count: statusCounts.inspected,   dot: 'bg-gold-500' },
+          ] as const).map((f) => {
+            const active = statusFilter === f.key;
+            return (
+              <button
+                key={f.key}
+                onClick={() => setStatusFilter(active ? null : f.key)}
+                className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-[11px] font-medium transition-all ${
+                  active
+                    ? 'ring-1 ring-emerald-800 bg-white shadow-sm'
+                    : 'border-transparent bg-white/60 hover:bg-white/90'
+                }`}
+              >
+                <span className={`w-2 h-2 rounded-full ${f.dot}`} />
+                {f.label}
+                <span className="text-muted-foreground tabular-nums">{f.count}</span>
+              </button>
+            );
+          })}
+
+          {/* Subtle divider */}
+          <span className="w-px h-5 bg-emerald-900/15 mx-0.5 self-center" />
+
+          {/* Occupancy chips */}
+          {([
+            { key: 'occupied', label: 'Zauzete',   tone: 'text-gold-800 bg-gold-50 border-gold-200' },
+            { key: 'vacant',   label: 'Prazne',    tone: 'text-emerald-800 bg-emerald-50/70 border-emerald-200' },
+            { key: 'checkout', label: 'Check-out', tone: 'text-rose-700 bg-rose-50 border-rose-200' },
+          ] as const).map((f) => {
+            const active = occupancyFilter === f.key;
+            return (
+              <button
+                key={f.key}
+                onClick={() => setOccupancyFilter(active ? null : f.key)}
+                className={`inline-flex items-center gap-1 px-2 py-1 rounded-md border text-[11px] font-medium transition-all ${f.tone} ${
+                  active ? 'ring-1 ring-emerald-800 shadow-sm' : 'hover:brightness-95'
+                }`}
+              >
+                {f.label}
+              </button>
+            );
+          })}
+
+          {(statusFilter || occupancyFilter) && (
+            <button
+              onClick={() => { setStatusFilter(null); setOccupancyFilter(null); }}
+              className="inline-flex items-center px-2 py-1 rounded-md text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              ✕ Reset
+            </button>
+          )}
         </div>
       </div>
 

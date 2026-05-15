@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { QRCodeSVG } from 'qrcode.react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Hotel, Wifi, WifiOff, LogOut, ChevronDown } from 'lucide-react';
+import { Wifi, WifiOff, LogOut, ChevronDown } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 
 interface QRData {
@@ -129,9 +129,18 @@ export default function GuestDisplayPage() {
   // Ako korisnik nije ulogovan, prikaži poruku
   if (!isAuthenticated || !user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-700 flex items-center justify-center p-4">
+      <div
+        className="min-h-screen flex items-center justify-center p-4"
+        style={{
+          backgroundColor: '#0F2040',
+          backgroundImage:
+            'radial-gradient(ellipse 55% 35% at 12% 0%, rgba(195, 149, 76, 0.32), transparent 60%),' +
+            'radial-gradient(ellipse 65% 55% at 100% 100%, rgba(195, 149, 76, 0.16), transparent 60%),' +
+            'linear-gradient(160deg, #1B3052 0%, #142849 55%, #0F2040 100%)',
+        }}
+      >
         <div className="text-center text-white">
-          <Hotel className="w-20 h-20 mx-auto mb-6 opacity-50" />
+          <img src="/icon-512.webp" alt="Hotel" className="w-20 h-20 mx-auto mb-6 opacity-80 rounded-2xl shadow-lg" />
           <h1 className="text-3xl font-bold mb-2">Guest Display</h1>
           <p className="text-xl opacity-70">Molimo prijavite se</p>
         </div>
@@ -143,9 +152,17 @@ export default function GuestDisplayPage() {
   const allowedRoles = ['guest_display', 'recepcioner', 'admin', 'sef_domacinstva'];
   if (!allowedRoles.includes(user.role)) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-700 flex items-center justify-center p-4">
+      <div
+        className="min-h-screen flex items-center justify-center p-4"
+        style={{
+          backgroundColor: '#0F2040',
+          backgroundImage:
+            'radial-gradient(ellipse 55% 35% at 12% 0%, rgba(195, 149, 76, 0.32), transparent 60%),' +
+            'linear-gradient(160deg, #1B3052 0%, #142849 55%, #0F2040 100%)',
+        }}
+      >
         <div className="text-center text-white">
-          <Hotel className="w-20 h-20 mx-auto mb-6 opacity-50" />
+          <img src="/icon-512.webp" alt="Hotel" className="w-20 h-20 mx-auto mb-6 opacity-80 rounded-2xl shadow-lg" />
           <h1 className="text-3xl font-bold mb-2">Pristup odbijen</h1>
           <p className="text-xl opacity-70">Nemate pristup guest display-u</p>
         </div>
@@ -154,11 +171,21 @@ export default function GuestDisplayPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-600 flex flex-col items-center justify-center p-4 relative overflow-hidden">
-      {/* Background decoration */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-white/5 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-white/5 rounded-full blur-3xl" />
+    <div
+      className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden"
+      style={{
+        backgroundColor: '#0F2040',
+        backgroundImage:
+          'radial-gradient(ellipse 50% 35% at 18% 0%, rgba(195, 149, 76, 0.35), transparent 60%),' +
+          'radial-gradient(ellipse 60% 50% at 100% 100%, rgba(195, 149, 76, 0.20), transparent 60%),' +
+          'radial-gradient(ellipse 80% 80% at 50% 50%, rgba(60, 95, 145, 0.40), transparent 70%),' +
+          'linear-gradient(160deg, #1B3052 0%, #142849 55%, #0F2040 100%)',
+      }}
+    >
+      {/* Background decoration — soft floating gold orbs */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full blur-3xl" style={{ background: 'radial-gradient(circle, rgba(195,149,76,0.18) 0%, transparent 70%)' }} />
+        <div className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full blur-3xl" style={{ background: 'radial-gradient(circle, rgba(195,149,76,0.12) 0%, transparent 70%)' }} />
       </div>
 
       {/* Invisible trigger zone at top of screen */}
@@ -173,14 +200,14 @@ export default function GuestDisplayPage() {
           headerVisible ? 'translate-y-0' : '-translate-y-full'
         }`}
       >
-        <div className="bg-black/80 backdrop-blur-md text-white px-6 py-4">
+        <div className="bg-emerald-950/85 backdrop-blur-md text-white px-6 py-4 border-b border-gold-500/20">
           <div className="flex items-center justify-between max-w-4xl mx-auto">
             {/* Left side - User info */}
             <div className="flex items-center gap-3">
-              <Hotel className="w-6 h-6" />
+              <img src="/icon-128.webp" alt="Hotel" className="w-8 h-8 rounded-lg shadow" />
               <div>
                 <p className="font-semibold">{user.fullName}</p>
-                <p className="text-xs text-white/60">Guest Display</p>
+                <p className="text-xs text-gold-200/70">Guest Display</p>
               </div>
             </div>
 
@@ -188,13 +215,13 @@ export default function GuestDisplayPage() {
             <div className="flex items-center gap-2 text-sm">
               {connected ? (
                 <>
-                  <Wifi className="w-4 h-4 text-green-400" />
-                  <span className="text-green-400">Povezano</span>
+                  <Wifi className="w-4 h-4 text-emerald-300" />
+                  <span className="text-emerald-300">Povezano</span>
                 </>
               ) : (
                 <>
-                  <WifiOff className="w-4 h-4 text-red-400 animate-pulse" />
-                  <span className="text-red-400">Nije povezano</span>
+                  <WifiOff className="w-4 h-4 text-rose-400 animate-pulse" />
+                  <span className="text-rose-400">Nije povezano</span>
                 </>
               )}
             </div>
@@ -202,7 +229,7 @@ export default function GuestDisplayPage() {
             {/* Right side - Logout button */}
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-gold-500 text-emerald-950 hover:bg-gold-400 rounded-lg transition-colors font-medium"
             >
               <LogOut className="w-4 h-4" />
               <span>Odjava</span>
@@ -214,7 +241,7 @@ export default function GuestDisplayPage() {
             className="flex justify-center mt-2 cursor-pointer"
             onClick={() => setHeaderVisible(false)}
           >
-            <ChevronDown className="w-5 h-5 text-white/40 animate-bounce" />
+            <ChevronDown className="w-5 h-5 text-gold-300/40 animate-bounce" />
           </div>
         </div>
       </div>
@@ -222,65 +249,82 @@ export default function GuestDisplayPage() {
       {/* Main content */}
       <div className="relative z-10 text-center">
         {!qrData ? (
-          // IDLE STATE - Dobrodošli poruka
+          // IDLE STATE - Dobrodošli poruka sa premium navy + gold logom
           <div className="text-white animate-fade-in">
-            <Hotel className="w-24 h-24 mx-auto mb-8 opacity-90" />
+            <div className="relative w-32 h-32 mx-auto mb-10">
+              {/* Soft gold halo behind the logo */}
+              <div className="absolute inset-0 rounded-full blur-2xl" style={{ background: 'radial-gradient(circle, rgba(195,149,76,0.45) 0%, transparent 70%)' }} />
+              <img
+                src="/icon-512.webp"
+                alt="Hotel"
+                className="relative w-32 h-32 rounded-3xl shadow-2xl ring-1 ring-gold-500/30"
+              />
+            </div>
             <h1 className="text-6xl md:text-7xl font-bold mb-4 tracking-tight">
-              Dobrodošli
+              <span className="text-white">Dobro</span><span className="text-gold-400">došli</span>
             </h1>
-            <p className="text-2xl md:text-3xl opacity-80 mb-2">
+            <p className="text-2xl md:text-3xl text-gold-200/80 mb-2 font-light italic">
               Welcome
             </p>
-            <p className="text-xl opacity-60 mt-8">
-              Willkommen | Benvenuti | Bienvenue
+            <p className="text-base md:text-lg text-white/50 mt-6 tracking-wide">
+              Willkommen · Benvenuti · Bienvenue
             </p>
 
-            {/* Subtle pulse indicator */}
-            <div className="mt-12 flex justify-center gap-2">
-              <div className="w-2 h-2 bg-white/40 rounded-full animate-pulse" />
-              <div className="w-2 h-2 bg-white/40 rounded-full animate-pulse delay-100" />
-              <div className="w-2 h-2 bg-white/40 rounded-full animate-pulse delay-200" />
+            {/* Subtle gold pulse indicator */}
+            <div className="mt-14 flex justify-center gap-2">
+              <div className="w-2 h-2 bg-gold-400/60 rounded-full animate-pulse" />
+              <div className="w-2 h-2 bg-gold-400/60 rounded-full animate-pulse delay-100" />
+              <div className="w-2 h-2 bg-gold-400/60 rounded-full animate-pulse delay-200" />
             </div>
           </div>
         ) : (
-          // QR CODE STATE - Prikaži QR kod
+          // QR CODE STATE - Prikaži QR kod sa gold frame
           <div className="animate-scale-in">
-            <div className="bg-white rounded-3xl p-8 md:p-12 shadow-2xl max-w-md mx-auto">
-              <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">
+            <div
+              className="bg-white rounded-3xl p-8 md:p-12 shadow-2xl max-w-md mx-auto ring-1 ring-gold-500/40"
+              style={{ boxShadow: '0 30px 60px -15px rgba(0,0,0,0.4), 0 0 0 1px rgba(195,149,76,0.2)' }}
+            >
+              <img
+                src="/icon-128.webp"
+                alt="Hotel"
+                className="w-12 h-12 mx-auto mb-4 rounded-xl shadow"
+              />
+              <h2 className="text-2xl md:text-3xl font-bold text-emerald-900 mb-2">
                 Skenirajte QR kod
               </h2>
-              <p className="text-lg text-gray-600 mb-6">
-                Soba {qrData.room_number}
+              <p className="text-lg text-emerald-900/70 mb-6">
+                <span className="font-semibold text-gold-600">Soba {qrData.room_number}</span>
                 {qrData.guest_name && qrData.guest_name !== 'Gost' && (
-                  <span className="block text-base mt-1">{qrData.guest_name}</span>
+                  <span className="block text-base mt-1 text-emerald-900/60">{qrData.guest_name}</span>
                 )}
               </p>
 
-              <div className="bg-white p-4 rounded-2xl inline-block shadow-inner border-4 border-gray-100">
+              <div className="bg-white p-4 rounded-2xl inline-block shadow-inner border-4 border-gold-100">
                 <QRCodeSVG
                   value={qrData.qr_url}
                   size={280}
                   level="H"
                   includeMargin={false}
+                  fgColor="#142849"
                 />
               </div>
 
-              <p className="mt-6 text-sm text-gray-500">
+              <p className="mt-6 text-sm text-emerald-900/50">
                 Scan to access guest portal
               </p>
             </div>
 
             {/* Room number badge */}
-            <div className="mt-6 inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm text-white px-6 py-3 rounded-full">
-              <Hotel className="w-5 h-5" />
+            <div className="mt-6 inline-flex items-center gap-2 bg-gold-500/15 backdrop-blur-sm text-white px-6 py-3 rounded-full border border-gold-500/40">
+              <span className="w-2 h-2 rounded-full bg-gold-400" />
               <span className="text-xl font-semibold">Soba {qrData.room_number}</span>
             </div>
           </div>
         )}
       </div>
 
-      {/* Footer - minimal, no user info (it's in header now) */}
-      <div className="absolute bottom-4 left-0 right-0 text-center text-white/20 text-xs">
+      {/* Footer - minimal */}
+      <div className="absolute bottom-4 left-0 right-0 text-center text-gold-300/30 text-xs tracking-wide">
         Tapnite na vrh ekrana za opcije
       </div>
 

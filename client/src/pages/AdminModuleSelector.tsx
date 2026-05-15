@@ -262,102 +262,98 @@ export default function AdminModuleSelector() {
           </div>
 
           <div className="max-w-[1800px] mx-auto p-2 sm:p-3 lg:p-6">
-            {/* Mobile Sidebar - Horizontal compact bar */}
-            <div className="lg:hidden mb-4">
-              <div className="bg-white/80 backdrop-blur-xl rounded-2xl p-2 shadow-sm border border-gray-200/50">
-                <div className="flex gap-2 overflow-x-auto pb-1">
-                  <div className="flex-shrink-0">
-                    <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 px-1">Zahtjevi</p>
-                    <div className="flex gap-1.5">
-                      <button
-                        onClick={() => setSidebarView(sidebarView === 'tech-requests' ? null : 'tech-requests')}
-                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all duration-200 text-xs font-medium whitespace-nowrap ${
-                          sidebarView === 'tech-requests'
-                            ? 'bg-gray-900 text-white'
-                            : 'bg-gray-100 text-gray-700'
-                        }`}
-                      >
-                        <Wrench className="w-3.5 h-3.5" />
-                        Tehnički
-                        {techRequests.length > 0 && (
-                          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
-                            sidebarView === 'tech-requests' ? 'bg-white/20' : 'bg-gray-200'
-                          }`}>
-                            {techRequests.length}
-                          </span>
-                        )}
-                      </button>
-                      <button
-                        onClick={() => setSidebarView(sidebarView === 'hk-requests' ? null : 'hk-requests')}
-                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all duration-200 text-xs font-medium whitespace-nowrap ${
-                          sidebarView === 'hk-requests'
-                            ? 'bg-gray-900 text-white'
-                            : 'bg-gray-100 text-gray-700'
-                        }`}
-                      >
-                        <Sparkles className="w-3.5 h-3.5" />
-                        HK
-                        {hkRequests.length > 0 && (
-                          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
-                            sidebarView === 'hk-requests' ? 'bg-white/20' : 'bg-gray-200'
-                          }`}>
-                            {hkRequests.length}
-                          </span>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                  <div className="w-px bg-gray-200 mx-1 self-stretch" />
-                  <div className="flex-shrink-0">
-                    <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 px-1">Osoblje</p>
-                    <div className="flex gap-1.5">
-                      <button
-                        onClick={() => setSidebarView(sidebarView === 'housekeepers' ? null : 'housekeepers')}
-                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all duration-200 text-xs font-medium whitespace-nowrap ${
-                          sidebarView === 'housekeepers'
-                            ? 'bg-gray-900 text-white'
-                            : 'bg-gray-100 text-gray-700'
-                        }`}
-                      >
-                        <Users className="w-3.5 h-3.5" />
-                        Sobarice
-                        <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
-                          sidebarView === 'housekeepers' ? 'bg-white/20' : 'bg-gray-200'
-                        }`}>
-                          {housekeepers.length}
-                        </span>
-                      </button>
-                      <button
-                        onClick={() => setSidebarView(sidebarView === 'technicians' ? null : 'technicians')}
-                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all duration-200 text-xs font-medium whitespace-nowrap ${
-                          sidebarView === 'technicians'
-                            ? 'bg-gray-900 text-white'
-                            : 'bg-gray-100 text-gray-700'
-                        }`}
-                      >
-                        <Settings className="w-3.5 h-3.5" />
-                        Tehničari
-                        <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
-                          sidebarView === 'technicians' ? 'bg-white/20' : 'bg-gray-200'
-                        }`}>
-                          {technicians.length}
-                        </span>
-                      </button>
-                    </div>
-                  </div>
-                  <div className="w-px bg-gray-200 mx-1 self-stretch" />
-                  <div className="flex-shrink-0">
-                    <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 px-1">Mapa</p>
-                    <div className="flex gap-1.5">
-                      <button
-                        onClick={() => setLocation('/staff-locations')}
-                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all duration-200 text-xs font-medium whitespace-nowrap bg-gray-100 text-gray-700 hover:bg-emerald-100 hover:text-emerald-700"
-                      >
-                        <MapPin className="w-3.5 h-3.5" />
-                        Lokacije
-                      </button>
-                    </div>
-                  </div>
+            {/* Mobile Sidebar - kompaktna horizontalna traka.
+                Section labels (ZAHTJEVI / OSOBLJE / MAPA) su odbačene jer su
+                pravile vizualni šum na uskim ekranima; tip se vidi iz ikonice
+                i kategorijske boje (gold = zahtjevi/akcije, navy = osoblje,
+                outline = mapa). */}
+            <div className="lg:hidden mb-3">
+              <div className="bg-white/55 backdrop-blur-2xl rounded-xl px-2 py-1.5 shadow-sm border border-white/40 ring-1 ring-emerald-900/10">
+                <div className="flex gap-1.5 overflow-x-auto">
+                  {/* Zahtjevi — gold accent */}
+                  <button
+                    onClick={() => setSidebarView(sidebarView === 'tech-requests' ? null : 'tech-requests')}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
+                      sidebarView === 'tech-requests'
+                        ? 'bg-gold-500 text-emerald-900 shadow'
+                        : 'bg-white/60 text-emerald-900 hover:bg-white/80'
+                    }`}
+                  >
+                    <Wrench className="w-3.5 h-3.5" />
+                    Tehnički
+                    {techRequests.length > 0 && (
+                      <span className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded text-[10px] font-bold ${
+                        sidebarView === 'tech-requests' ? 'bg-emerald-900/20 text-emerald-900' : 'bg-emerald-800 text-white'
+                      }`}>
+                        {techRequests.length}
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setSidebarView(sidebarView === 'hk-requests' ? null : 'hk-requests')}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
+                      sidebarView === 'hk-requests'
+                        ? 'bg-gold-500 text-emerald-900 shadow'
+                        : 'bg-white/60 text-emerald-900 hover:bg-white/80'
+                    }`}
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    HK
+                    {hkRequests.length > 0 && (
+                      <span className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded text-[10px] font-bold ${
+                        sidebarView === 'hk-requests' ? 'bg-emerald-900/20 text-emerald-900' : 'bg-emerald-800 text-white'
+                      }`}>
+                        {hkRequests.length}
+                      </span>
+                    )}
+                  </button>
+
+                  <div className="w-px bg-emerald-900/10 my-1" />
+
+                  {/* Osoblje — navy fill */}
+                  <button
+                    onClick={() => setSidebarView(sidebarView === 'housekeepers' ? null : 'housekeepers')}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
+                      sidebarView === 'housekeepers'
+                        ? 'bg-emerald-800 text-white shadow'
+                        : 'bg-white/60 text-emerald-900 hover:bg-white/80'
+                    }`}
+                  >
+                    <Users className="w-3.5 h-3.5" />
+                    Sobarice
+                    <span className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded text-[10px] font-bold ${
+                      sidebarView === 'housekeepers' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-900'
+                    }`}>
+                      {housekeepers.length}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => setSidebarView(sidebarView === 'technicians' ? null : 'technicians')}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
+                      sidebarView === 'technicians'
+                        ? 'bg-emerald-800 text-white shadow'
+                        : 'bg-white/60 text-emerald-900 hover:bg-white/80'
+                    }`}
+                  >
+                    <Settings className="w-3.5 h-3.5" />
+                    Tehničari
+                    <span className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded text-[10px] font-bold ${
+                      sidebarView === 'technicians' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-900'
+                    }`}>
+                      {technicians.length}
+                    </span>
+                  </button>
+
+                  <div className="w-px bg-emerald-900/10 my-1" />
+
+                  {/* Mapa — link out, outline style */}
+                  <button
+                    onClick={() => setLocation('/staff-locations')}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap border border-emerald-900/15 bg-white/40 text-emerald-900 hover:bg-white/70 transition-all"
+                  >
+                    <MapPin className="w-3.5 h-3.5" />
+                    Lokacije
+                  </button>
                 </div>
               </div>
               {/* Mobile Detail Panel */}

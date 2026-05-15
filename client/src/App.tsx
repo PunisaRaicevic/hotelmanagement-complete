@@ -154,10 +154,14 @@ function Router() {
     return <LoginPage onLogin={login} />;
   }
 
+  // Guest Display is a full-screen kiosk view — no chrome above the content,
+  // and the page itself owns scroll/padding so it can run edge-to-edge.
+  const isGuestDisplay = user.role === 'guest_display';
+
   return (
     <div className="flex flex-col h-screen w-full overflow-hidden">
-      <AppHeader />
-      <main className="flex-1 overflow-y-auto p-2 sm:p-4 lg:p-6">
+      {!isGuestDisplay && <AppHeader />}
+      <main className={`flex-1 overflow-y-auto ${isGuestDisplay ? '' : 'p-2 sm:p-4 lg:p-6'}`}>
         <Switch>
           <Route path="/" component={Dashboard} />
           <Route path="/tasks" component={TasksPage} />
