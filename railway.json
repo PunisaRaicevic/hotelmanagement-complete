@@ -2,7 +2,7 @@
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
     "builder": "NIXPACKS",
-    "buildCommand": "rm -f package-lock.json && npm install --legacy-peer-deps && npm run build:full"
+    "buildCommand": "rm -f package-lock.json && npm install --legacy-peer-deps --include=dev && npm run build:full"
   },
   "deploy": {
     "numReplicas": 1,
