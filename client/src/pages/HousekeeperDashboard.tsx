@@ -104,7 +104,7 @@ export default function HousekeeperDashboard() {
       });
 
       if (response.ok) {
-        toast({ title: 'Zadatak započet', description: `Soba ${task.room_number}` });
+        toast({ title: 'Prijem potvrđen', description: `Soba ${task.room_number} — zadatak prebačen u "U toku"` });
         fetchTasks();
       }
     } catch (error) {
@@ -211,9 +211,9 @@ export default function HousekeeperDashboard() {
         {showActions && (
           <div className="flex gap-2 pt-2">
             {task.status === 'pending' && (
-              <Button size="sm" onClick={() => handleStartTask(task)} className="flex-1">
+              <Button size="sm" onClick={() => handleStartTask(task)} className="flex-1 bg-gold-500 hover:bg-gold-600 text-emerald-900">
                 <PlayCircle className="w-4 h-4 mr-1" />
-                Započni
+                Potvrdi prijem i započni
               </Button>
             )}
             {(task.status === 'in_progress' || task.status === 'needs_rework') && (

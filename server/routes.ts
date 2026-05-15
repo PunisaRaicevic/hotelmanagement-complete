@@ -2208,12 +2208,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: 'in_progress',
       });
 
-      // Also update linked housekeeping task if it exists
+      // Also update linked housekeeping task if it exists.
+      // We deliberately do NOT bump its status to 'in_progress' here —
+      // the task stays 'pending' so the assigned housekeeper sees it in
+      // her "Čeka" tab first. Only when she taps "Započni" does the status
+      // flip to 'in_progress' (handled in PATCH /api/housekeeping/tasks/:id).
       if (guestRequest.linked_housekeeping_task_id) {
         await storage.updateHousekeepingTask(guestRequest.linked_housekeeping_task_id, {
           assigned_to,
           assigned_to_name,
-          status: 'in_progress',
         } as any);
       }
 
