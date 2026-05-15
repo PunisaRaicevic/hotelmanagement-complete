@@ -1,11 +1,15 @@
 import 'dotenv/config';
 
-// NOTE: we used to set NODE_TLS_REJECT_UNAUTHORIZED='0' globally for the
-// Supabase Postgres pooler's self-signed cert. That disabled TLS validation
-// for ALL outbound HTTPS in the process (Supabase REST, Firebase, Google
-// Translate, …), enabling MITM on any of those calls. The pg pools below
-// already pass `ssl: { rejectUnauthorized: false }` per-connection, which
-// is the correct scope.
+// TODO(security): scope this. We previously removed the global TLS bypass
+// thinking the pg pool's per-connection ssl flag was enough, but production
+// blew up with "self-signed certificate in certificate chain" on /. Something
+// outside the pg pool (supabase-js REST/Realtime over the Railway egress, or a
+// transitive dep) is hitting a cert it can't validate. Re-enable globally to
+// restore service, then later identify exactly which outbound host needs the
+// bypass and pin it via a custom https.Agent on that client only.
+if (process.env.NODE_ENV === 'production') {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+}
 
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
