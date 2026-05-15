@@ -165,10 +165,12 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
             </Button>
           </form>
 
-          {/* Test Accounts — visible in production too so klijenti mogu
-              da probaju različite uloge bez pravljenja pravih naloga.
-              Sve test lozinke su 111111. */}
-          {(
+          {/* Test Accounts — only rendered in dev builds. Exposing real
+              login credentials (admin / 111111) on the production login
+              screen lets anyone visiting the site become admin in two
+              clicks. Re-enable via `npm run dev` when demoing locally,
+              or gate behind a secret query param if needed in prod. */}
+          {import.meta.env.DEV && (
             <div className="mt-6">
               <Button
                 type="button"

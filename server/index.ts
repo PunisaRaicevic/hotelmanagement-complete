@@ -1,20 +1,37 @@
 import 'dotenv/config';
 
-// Allow Supabase pooler SSL connections (self-signed certificate)
-if (process.env.NODE_ENV === 'production') {
-  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-}
+// NOTE: we used to set NODE_TLS_REJECT_UNAUTHORIZED='0' globally for the
+// Supabase Postgres pooler's self-signed cert. That disabled TLS validation
+// for ALL outbound HTTPS in the process (Supabase REST, Firebase, Google
+// Translate, …), enabling MITM on any of those calls. The pg pools below
+// already pass `ssl: { rejectUnauthorized: false }` per-connection, which
+// is the correct scope.
 
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import ConnectPgSimple from "connect-pg-simple";
 import cors from "cors";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startCronScheduler } from "./cron";
 import { initializeFirebase } from "./services/firebase";
 
+// Hard-fail on missing/weak SESSION_SECRET so we never sign sessions with
+// a known fallback. JWT_SECRET is validated in ./auth at module load.
+if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32) {
+  throw new Error(
+    'SESSION_SECRET environment variable must be set and at least 32 characters long. ' +
+    'Generate one with: node -e "console.log(require(\'crypto\').randomBytes(48).toString(\'base64\'))"'
+  );
+}
+
 const app = express();
+
+// Trust Railway's proxy so req.ip reflects the real client IP (used by
+// the rate limiter and access logs).
+app.set('trust proxy', 1);
 
 // ULTRA-VERBOSE GLOBAL LOGGING - hvata SVE zahtjeve
 app.use((req, res, next) => {
@@ -26,10 +43,38 @@ app.use((req, res, next) => {
 });
 
 // ==========================================
-// 1. CORS MORA BITI PRVI (Pre Session i JSON)
+// 1. SECURITY HEADERS (helmet) + CORS
 // ==========================================
+app.use(
+  helmet({
+    // CSP is intentionally disabled — the SPA inlines styles/scripts and
+    // loads from several CDNs (Supabase, Firebase, Google Maps, Translate).
+    // Re-enable with a tested directive list once the asset inventory is known.
+    contentSecurityPolicy: false,
+    // Allow cross-origin image loads (Supabase Storage URLs are loaded by the SPA).
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  })
+);
+
+// CORS allowlist — extra origins can be added via comma-separated CORS_ORIGINS env.
+const corsAllowlist = new Set<string>([
+  'https://hotelmanagement-complete-production.up.railway.app',
+  'http://localhost:5173',
+  'http://localhost:5000',
+  // Capacitor mobile builds use these custom schemes.
+  'capacitor://localhost',
+  'ionic://localhost',
+  'http://localhost',
+  ...(process.env.CORS_ORIGINS?.split(',').map(s => s.trim()).filter(Boolean) ?? []),
+]);
+
 app.use(cors({
-  origin: true, // Dozvoli svim izvorima (bitno za mobilne app)
+  origin: (origin, callback) => {
+    // Allow same-origin / server-to-server / curl requests (no Origin header)
+    if (!origin) return callback(null, true);
+    if (corsAllowlist.has(origin)) return callback(null, true);
+    return callback(new Error(`CORS: origin ${origin} not allowed`));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
@@ -39,11 +84,15 @@ app.use(cors({
 // Explicit OPTIONS handler za pre-flight zahteve
 app.options('*', cors());
 
-// Validate SESSION_SECRET on startup
-if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32) {
-  // U produkciji ovo ne bi trebalo da ruši server ako je secret malo kraći, ali za warning je ok
-  console.warn('WARNING: SESSION_SECRET should be at least 32 characters long');
-}
+// Rate limit login attempts to slow down credential stuffing / brute force.
+const loginLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many login attempts. Try again in a minute.' },
+});
+app.use('/api/auth/login', loginLimiter);
 
 // Session store setup
 import pg from "pg";
@@ -76,7 +125,7 @@ const pgStore = new PgSession({
 app.use(
   session({
     store: pgStore,
-    secret: process.env.SESSION_SECRET || "default-dev-secret",
+    secret: process.env.SESSION_SECRET as string,
     resave: false,
     saveUninitialized: false,
     cookie: {

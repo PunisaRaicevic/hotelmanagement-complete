@@ -829,8 +829,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/tasks/my", requireAuth, async (req, res) => {
     try {
-      const userId = req.query.userId as string;
-      if (!userId) return res.status(400).json({ error: "User ID is required" });
+      // Always derive userId from the authenticated session, never from query.
+      // Trusting ?userId= would let any signed-in user read another user's tasks.
+      const userId = req.session.userId as string | undefined;
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
 
       const tasks = await storage.getTasksByUserId(userId);
       res.json({ tasks });
@@ -2011,7 +2013,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update guest service request (staff only)
+  // Update guest service request (staff only).
+  // Restricted to roles that legitimately resolve guest requests; body is
+  // validated by Zod so unprivileged fields (e.g. room_id, guest_name) can't
+  // be mass-assigned via { ...req.body }.
+  const updateGuestRequestSchema = z.object({
+    status: z.enum(['pending', 'in_progress', 'completed', 'cancelled']).optional(),
+    notes: z.string().max(2000).optional(),
+  });
+  const guestRequestEditorRoles = new Set([
+    'admin', 'recepcioner', 'sef', 'sef_domacinstva', 'sef_tehnicke', 'menadzer', 'operater',
+  ]);
   app.patch("/api/guest-requests/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
@@ -2019,8 +2031,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!sessionUser) {
         return res.status(401).json({ error: "Invalid session" });
       }
+      if (!guestRequestEditorRoles.has(sessionUser.role)) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
 
-      const updateData = { ...req.body };
+      const parsed = updateGuestRequestSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request body", details: parsed.error.flatten() });
+      }
+      const updateData: Record<string, any> = { ...parsed.data };
       if (updateData.status === 'completed') {
         updateData.resolved_at = new Date().toISOString();
         updateData.resolved_by = sessionUser.id;
