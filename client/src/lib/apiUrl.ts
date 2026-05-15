@@ -26,3 +26,19 @@ export function getApiUrl(endpoint: string): string {
   // Web app: use relative URLs (same origin)
   return `/${cleanEndpoint}`;
 }
+
+/**
+ * Public-facing base URL for links a guest will open from their own phone
+ * (QR codes, copy-link, share). Must point to the public backend, NOT the
+ * dev server: `window.location.origin` returns `http://localhost:5000` when
+ * staff is viewing the app on the dev machine, and a phone can't reach that.
+ */
+export function getPublicUrl(): string {
+  if (typeof window !== 'undefined') {
+    const origin = window.location.origin;
+    if (origin && !origin.includes('localhost') && !origin.startsWith('http://127.')) {
+      return origin;
+    }
+  }
+  return BACKEND_URL;
+}

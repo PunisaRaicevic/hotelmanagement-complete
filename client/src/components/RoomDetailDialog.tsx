@@ -42,7 +42,7 @@ import {
 } from 'lucide-react';
 import GuestRequestChat from './GuestRequestChat';
 import SelectHousekeeperDialog from './SelectHousekeeperDialog';
-import { getApiUrl } from '@/lib/apiUrl';
+import { getApiUrl, getPublicUrl } from '@/lib/apiUrl';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
@@ -687,7 +687,7 @@ export default function RoomDetailDialog({
 
   const copyQRLink = () => {
     if (!room?.guest_session_token) return;
-    const url = `${window.location.origin}/guest/${room.room_number}/${room.guest_session_token}`;
+    const url = `${getPublicUrl()}/guest/${room.room_number}/${room.guest_session_token}`;
     navigator.clipboard.writeText(url);
     toast({ title: 'Kopirano', description: 'Link je kopiran u clipboard' });
   };
@@ -721,7 +721,7 @@ export default function RoomDetailDialog({
   const occupancy = occupancyConfig[room.occupancy_status] || { label: room.occupancy_status, color: 'text-gray-600 bg-gray-100' };
   const isOccupied = room.occupancy_status === 'occupied';
   const hasActiveToken = !!room.guest_session_token;
-  const qrUrl = hasActiveToken ? `${window.location.origin}/guest/${room.room_number}/${room.guest_session_token}` : '';
+  const qrUrl = hasActiveToken ? `${getPublicUrl()}/guest/${room.room_number}/${room.guest_session_token}` : '';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
