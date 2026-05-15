@@ -65,10 +65,14 @@ const corsAllowlist = new Set<string>([
   'https://hotelmanagement-complete-production.up.railway.app',
   'http://localhost:5173',
   'http://localhost:5000',
-  // Capacitor mobile builds use these custom schemes.
+  // Capacitor mobile builds. iOS sends capacitor://localhost; Android sends
+  // http(s)://localhost depending on the `server.androidScheme` setting in
+  // capacitor.config.json (currently "https"). Keep all variants so a scheme
+  // change here doesn't break login.
   'capacitor://localhost',
   'ionic://localhost',
   'http://localhost',
+  'https://localhost',
   ...(process.env.CORS_ORIGINS?.split(',').map(s => s.trim()).filter(Boolean) ?? []),
 ]);
 
@@ -77,6 +81,7 @@ app.use(cors({
     // Allow same-origin / server-to-server / curl requests (no Origin header)
     if (!origin) return callback(null, true);
     if (corsAllowlist.has(origin)) return callback(null, true);
+    console.warn(`[CORS] blocked origin: ${origin}`);
     return callback(new Error(`CORS: origin ${origin} not allowed`));
   },
   credentials: true,
