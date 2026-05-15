@@ -398,19 +398,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         user.password_hash?.startsWith("$2b$") ||
         user.password_hash?.startsWith("$2y$");
 
-      let isValidPassword = false;
-
-      if (isBcryptHash) {
-        isValidPassword = await bcrypt.compare(password, user.password_hash);
-      } else {
-        isValidPassword = password === user.password_hash;
-        if (isValidPassword) {
-          const hashedPassword = await bcrypt.hash(password, 10);
-          await storage.updateUser(user.id, { password_hash: hashedPassword });
-        }
-      }
-
-      if (!isValidPassword) {
+      // Refuse to authenticate against a non-bcrypt password_hash. Previously
+      // we fell back to plaintext === comparison and lazily upgraded on
+      // success — that allowed plaintext rows to authenticate at all, which
+      // is also vulnerable to timing attacks. All live users have been
+      // migrated to bcrypt; run scripts/migrate-plaintext-passwords.ts
+      // before seeding any new plaintext rows.
+      if (!isBcryptHash || !(await bcrypt.compare(password, user.password_hash))) {
         return res.status(401).json({ error: "Invalid username or password" });
       }
 
