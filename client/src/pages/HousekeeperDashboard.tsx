@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { App as CapacitorApp } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -84,6 +86,44 @@ export default function HousekeeperDashboard() {
     if (user?.id) {
       fetchTasks();
     }
+  }, [user?.id]);
+
+  // Refresh tasks whenever the app comes back to the foreground or the browser
+  // tab regains focus. The server doesn't emit socket events for housekeeping
+  // tasks, so without this the housekeeper sees the push notification but the
+  // list stays stuck on whatever was cached at mount time.
+  // Keep the latest fetchTasks in a ref so the listener doesn't capture stale
+  // closures (`user?.id` updates etc.).
+  const fetchTasksRef = useRef(fetchTasks);
+  fetchTasksRef.current = fetchTasks;
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const refresh = () => {
+      if (document.visibilityState === 'visible') {
+        fetchTasksRef.current();
+      }
+    };
+
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+
+    // Capacitor: app:resume fires when the user brings the mobile app back
+    // from the background (e.g. after tapping a push notification).
+    let capacitorListener: { remove: () => Promise<void> } | undefined;
+    if (Capacitor.isNativePlatform()) {
+      CapacitorApp.addListener('appStateChange', ({ isActive }) => {
+        if (isActive) fetchTasksRef.current();
+      })
+        .then((handle) => { capacitorListener = handle; })
+        .catch((err) => console.warn('[HK] Capacitor App listener failed:', err));
+    }
+
+    return () => {
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+      capacitorListener?.remove().catch(() => {});
+    };
   }, [user?.id]);
 
   const pendingTasks = tasks.filter((t) => t.status === 'pending');
