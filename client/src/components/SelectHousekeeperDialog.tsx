@@ -25,6 +25,13 @@ interface SelectHousekeeperDialogProps {
   onOpenChange: (open: boolean) => void;
   roomId: string;
   roomNumber: string;
+  /**
+   * If provided, the dialog PATCHes this task to set the assignee instead of
+   * POSTing a new one. Use this when the server has already created an
+   * unassigned task (e.g. on room checkout) and you just need to pick who
+   * cleans it. Without this, the dialog creates a brand-new task.
+   */
+  existingTaskId?: string;
   onTaskCreated: () => void;
   onSkip: () => void;
 }
@@ -34,6 +41,7 @@ export default function SelectHousekeeperDialog({
   onOpenChange,
   roomId,
   roomNumber,
+  existingTaskId,
   onTaskCreated,
   onSkip,
 }: SelectHousekeeperDialogProps) {
@@ -71,22 +79,41 @@ export default function SelectHousekeeperDialog({
     setIsSubmitting(true);
     try {
       const token = localStorage.getItem('authToken');
-      const response = await fetch(getApiUrl('/api/housekeeping/tasks'), {
-        method: 'POST',
+
+      // Two paths:
+      //   existingTaskId set → server already made an unassigned task
+      //   (e.g. on room checkout). PATCH it to set the assignee.
+      //   existingTaskId unset → no task exists yet, POST a fresh one.
+      const url = existingTaskId
+        ? getApiUrl(`/api/housekeeping/tasks/${existingTaskId}`)
+        : getApiUrl('/api/housekeeping/tasks');
+      const method = existingTaskId ? 'PATCH' : 'POST';
+      const body = existingTaskId
+        ? {
+            assigned_to: housekeeper.id,
+            assigned_to_name: housekeeper.full_name,
+            priority,
+            // Append the message into guest_requests on assignment.
+            ...(message ? { guest_requests: message } : {}),
+          }
+        : {
+            room_id: roomId,
+            room_number: roomNumber,
+            cleaning_type: 'checkout',
+            assigned_to: housekeeper.id,
+            assigned_to_name: housekeeper.full_name,
+            priority,
+            scheduled_date: new Date().toISOString(),
+            guest_requests: message || undefined,
+          };
+
+      const response = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          room_id: roomId,
-          room_number: roomNumber,
-          cleaning_type: 'checkout',
-          assigned_to: housekeeper.id,
-          assigned_to_name: housekeeper.full_name,
-          priority,
-          scheduled_date: new Date().toISOString(),
-          guest_requests: message || undefined,
-        }),
+        body: JSON.stringify(body),
       });
 
       if (response.ok) {
@@ -95,7 +122,7 @@ export default function SelectHousekeeperDialog({
         onTaskCreated();
       }
     } catch (error) {
-      console.error('Error creating housekeeping task:', error);
+      console.error('Error assigning housekeeping task:', error);
     } finally {
       setIsSubmitting(false);
     }

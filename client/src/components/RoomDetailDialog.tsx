@@ -304,7 +304,7 @@ export default function RoomDetailDialog({
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [showHousekeeperDialog, setShowHousekeeperDialog] = useState(false);  // kept for manual re-assignment
   const [descTranslation, setDescTranslation] = useState<{ text: string; loading: boolean; showOriginal: boolean } | null>(null);
-  const [checkoutRoomData, setCheckoutRoomData] = useState<{ roomId: string; roomNumber: string } | null>(null);  // kept for manual re-assignment
+  const [checkoutRoomData, setCheckoutRoomData] = useState<{ roomId: string; roomNumber: string; taskId?: string } | null>(null);
   const [activeTask, setActiveTask] = useState<HousekeepingTask | null>(null);
   const [isLoadingTask, setIsLoadingTask] = useState(false);
   const [issuesText, setIssuesText] = useState('');
@@ -624,17 +624,22 @@ export default function RoomDetailDialog({
         if (data.room) {
           setRoom(data.room);
         }
-        // Show toast with auto-assignment info
-        if (data.assignedHousekeeperName) {
-          toast({ title: 'Uspješno', description: `Gost odjavljen. Checkout čišćenje dodijeljeno: ${data.assignedHousekeeperName}` });
-        } else if (data.housekeepingTask) {
-          toast({ title: 'Uspješno', description: 'Gost odjavljen. Checkout nalog kreiran (nema dostupnih sobarica za dodjelu)' });
-        } else {
-          toast({ title: 'Uspješno', description: 'Gost je odjavljen, QR kod je nevažeći' });
-        }
+        toast({ title: 'Uspješno', description: 'Gost je odjavljen, QR kod je nevažeći' });
         onRoomUpdated();
         setActiveTab('info');
         fetchActiveTask();
+        // Server created an unassigned checkout cleaning task — open the
+        // picker so the receptionist can choose which housekeeper handles
+        // this specific room. "Preskoči" leaves the task unassigned and
+        // it shows up in the supervisor's pending queue.
+        if (data.housekeepingTask?.id) {
+          setCheckoutRoomData({
+            roomId: room.id,
+            roomNumber: room.room_number,
+            taskId: data.housekeepingTask.id,
+          });
+          setShowHousekeeperDialog(true);
+        }
       } else {
         const error = await response.json();
         toast({ title: 'Greška', description: error.error, variant: 'destructive' });
@@ -1661,6 +1666,7 @@ export default function RoomDetailDialog({
           onOpenChange={setShowHousekeeperDialog}
           roomId={checkoutRoomData.roomId}
           roomNumber={checkoutRoomData.roomNumber}
+          existingTaskId={checkoutRoomData.taskId}
           onTaskCreated={() => {
             toast({ title: 'Uspješno', description: 'Sobarica je obaviještena o čišćenju sobe' });
             setCheckoutRoomData(null);
@@ -1668,6 +1674,8 @@ export default function RoomDetailDialog({
             fetchActiveTask();
           }}
           onSkip={() => {
+            // Task stays unassigned — supervisor will see it in their pending queue.
+            toast({ title: 'Preskočeno', description: 'Zadatak ostaje neraspoređen i čeka šefa domaćinstva' });
             setCheckoutRoomData(null);
           }}
         />
