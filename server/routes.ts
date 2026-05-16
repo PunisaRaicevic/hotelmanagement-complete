@@ -6,7 +6,16 @@ import { storage } from "./storage";
 import { supabase } from "./lib/supabase";
 import bcrypt from "bcryptjs";
 import { processRecurringTasks, ensureChildTasksExist } from "./services/recurringTaskProcessor";
-import { initializeSocket, notifyWorkers, notifyTaskUpdate, notifyGuestDisplay, hideGuestDisplay, hideGuestDisplayByToken } from "./socket";
+import {
+  initializeSocket,
+  notifyWorkers,
+  notifyTaskUpdate,
+  notifyGuestDisplay,
+  hideGuestDisplay,
+  hideGuestDisplayByToken,
+  notifyHousekeepingAssigned,
+  notifyHousekeepingUpdate,
+} from "./socket";
 import { z } from "zod";
 import { generateToken, verifyToken, extractTokenFromHeader } from "./auth";
 // Firebase Cloud Messaging for push notifications
@@ -1627,6 +1636,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           priority: 'normal',
           scheduled_date: new Date().toISOString(),
         });
+        // Real-time push to the assignee's dashboard (and broadcast for supervisors).
+        notifyHousekeepingAssigned(assignedTo, createdTask);
+        notifyHousekeepingUpdate(createdTask);
 
         // Send push notification to assigned housekeeper
         if (assignedTo) {
@@ -2120,6 +2132,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           updateData.linked_housekeeping_task_id = housekeepingTask.id;
           linkedTaskId = housekeepingTask.id;
+          // Task is created unassigned here — supervisor (sef_domacinstva) assigns
+          // it via the /assign endpoint. Broadcast so the supervisor dashboard sees it.
+          notifyHousekeepingUpdate(housekeepingTask);
 
           // Notify housekeeping supervisor
           const supervisors = await storage.getUsersByRole('sef_domacinstva');
@@ -2227,10 +2242,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // her "Čeka" tab first. Only when she taps "Započni" does the status
       // flip to 'in_progress' (handled in PATCH /api/housekeeping/tasks/:id).
       if (guestRequest.linked_housekeeping_task_id) {
-        await storage.updateHousekeepingTask(guestRequest.linked_housekeeping_task_id, {
-          assigned_to,
-          assigned_to_name,
-        } as any);
+        const updatedHkTask = await storage.updateHousekeepingTask(
+          guestRequest.linked_housekeeping_task_id,
+          { assigned_to, assigned_to_name } as any
+        );
+        // KEY EVENT for the user's complaint: this is the path the supervisor
+        // takes when she accepts a guest request and picks a housekeeper. The
+        // assigned housekeeper's dashboard listens for this and refreshes
+        // without waiting for her to manually pull-to-refresh or reopen the app.
+        if (updatedHkTask) {
+          notifyHousekeepingAssigned(assigned_to, updatedHkTask);
+          notifyHousekeepingUpdate(updatedHkTask);
+        }
       }
 
       // Also update linked maintenance task if it exists
@@ -2373,6 +2396,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const task = await storage.createHousekeepingTask(validationResult.data);
+      notifyHousekeepingAssigned(task.assigned_to ?? null, task);
+      notifyHousekeepingUpdate(task);
 
       // Update room status to dirty if creating a checkout cleaning
       if (validationResult.data.cleaning_type === 'checkout') {
@@ -2556,6 +2581,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const task = await storage.updateHousekeepingTask(id, updateData);
+      if (task) {
+        notifyHousekeepingUpdate(task);
+        // If this PATCH (re)assigns the task, also push to the new assignee.
+        if (updateData.assigned_to && updateData.assigned_to !== currentTask?.assigned_to) {
+          notifyHousekeepingAssigned(updateData.assigned_to, task);
+        }
+      }
       res.json({ task });
     } catch (error) {
       console.error("Error updating housekeeping task:", error);

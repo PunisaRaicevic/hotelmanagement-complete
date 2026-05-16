@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
+import { io, Socket } from 'socket.io-client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
-import { getApiUrl } from '@/lib/apiUrl';
+import { getApiUrl, getPublicUrl } from '@/lib/apiUrl';
 import StatCard from '@/components/StatCard';
 import RoomStatusBadge from '@/components/RoomStatusBadge';
 import {
@@ -88,28 +89,76 @@ export default function HousekeeperDashboard() {
     }
   }, [user?.id]);
 
-  // Refresh tasks whenever the app comes back to the foreground or the browser
-  // tab regains focus. The server doesn't emit socket events for housekeeping
-  // tasks, so without this the housekeeper sees the push notification but the
-  // list stays stuck on whatever was cached at mount time.
-  // Keep the latest fetchTasks in a ref so the listener doesn't capture stale
-  // closures (`user?.id` updates etc.).
+  // Keep the latest fetchTasks + tasks in refs so socket/focus listeners
+  // (set up once below) don't capture stale closures.
   const fetchTasksRef = useRef(fetchTasks);
   fetchTasksRef.current = fetchTasks;
+  const tasksRef = useRef(tasks);
+  tasksRef.current = tasks;
 
+  // Real-time updates: server emits housekeeping-task:assigned (to this
+  // user's room) and housekeeping-task:updated (broadcast) whenever the
+  // supervisor creates/assigns/modifies a housekeeping task. Listening here
+  // means the dashboard updates without the housekeeper needing to leave
+  // and re-enter the app.
   useEffect(() => {
     if (!user?.id) return;
-    const refresh = () => {
-      if (document.visibilityState === 'visible') {
+    const socketUrl = getPublicUrl();
+    const socket: Socket = io(socketUrl, {
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5,
+      reconnectionDelayMax: 5000,
+      timeout: 20000,
+      path: '/socket.io',
+    });
+
+    socket.on('connect', () => {
+      console.log('[HK SOCKET] connected', socket.id);
+      socket.emit('worker:join', user.id);
+    });
+
+    socket.on('housekeeping-task:assigned', (task) => {
+      console.log('[HK SOCKET] task assigned', task?.id);
+      // Refetch to pick up the new task with all server-side joins (room
+      // info, assignee name, etc.). Optimistic insert would skip a round
+      // trip but risk diverging shape from the GET response.
+      fetchTasksRef.current();
+    });
+
+    socket.on('housekeeping-task:updated', (task) => {
+      // Only refetch when the change is relevant to this housekeeper —
+      // either she's the (new) assignee, or she had it assigned before.
+      // Server broadcasts updates to everyone for supervisor dashboards;
+      // we filter client-side to avoid pointless refetches.
+      if (!task) return;
+      const mine =
+        task.assigned_to === user.id ||
+        tasksRef.current.some((t) => t.id === task.id);
+      if (mine) {
+        console.log('[HK SOCKET] task updated (mine)', task.id, task.status);
         fetchTasksRef.current();
       }
-    };
+    });
 
+    socket.on('disconnect', (reason) => {
+      console.warn('[HK SOCKET] disconnected:', reason);
+    });
+    socket.on('connect_error', (err) => {
+      console.error('[HK SOCKET] connect error:', err.message);
+    });
+
+    // Belt-and-braces: also refetch when the app comes back to the
+    // foreground / tab regains focus. Socket reconnects on resume but
+    // there's a brief window where it isn't connected and could miss
+    // an event emitted at exactly that moment.
+    const refresh = () => {
+      if (document.visibilityState === 'visible') fetchTasksRef.current();
+    };
     window.addEventListener('focus', refresh);
     document.addEventListener('visibilitychange', refresh);
 
-    // Capacitor: app:resume fires when the user brings the mobile app back
-    // from the background (e.g. after tapping a push notification).
     let capacitorListener: { remove: () => Promise<void> } | undefined;
     if (Capacitor.isNativePlatform()) {
       CapacitorApp.addListener('appStateChange', ({ isActive }) => {
@@ -120,6 +169,8 @@ export default function HousekeeperDashboard() {
     }
 
     return () => {
+      socket.emit('worker:leave', user.id);
+      socket.disconnect();
       window.removeEventListener('focus', refresh);
       document.removeEventListener('visibilitychange', refresh);
       capacitorListener?.remove().catch(() => {});

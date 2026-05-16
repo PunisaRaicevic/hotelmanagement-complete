@@ -220,6 +220,47 @@ export function notifyTaskUpdate(task: Record<string, any>) {
 }
 
 // ============================================================
+// HOUSEKEEPING TASK NOTIFICATIONS
+// Mirror of notifyWorkers / notifyTaskUpdate but for the
+// housekeeping_tasks table (different shape than maintenance tasks).
+// The housekeeper dashboard listens for these to update its list in
+// real time instead of relying on tab focus / app resume.
+// ============================================================
+
+/**
+ * Notify a specific housekeeper that a task was assigned to them.
+ * @param housekeeperId - users.id of the assigned housekeeper
+ * @param task - the full housekeeping_tasks row that was just inserted/assigned
+ */
+export function notifyHousekeepingAssigned(
+  housekeeperId: string | null | undefined,
+  task: Record<string, any>
+) {
+  if (!io) {
+    console.error('[SOCKET.IO] ERROR: Not initialized, cannot send housekeeping notification');
+    return;
+  }
+  if (!housekeeperId) {
+    // Unassigned tasks still go through notifyHousekeepingUpdate broadcast below.
+    return;
+  }
+  const room = `user:${housekeeperId}`;
+  console.log(`[SOCKET.IO] Emitting housekeeping-task:assigned to ${room} (task ${task.id})`);
+  io.to(room).emit('housekeeping-task:assigned', { ...task, timestamp: new Date().toISOString() });
+}
+
+/**
+ * Broadcast a housekeeping task update (status, assignment, issues_found, …)
+ * to every connected client. Supervisor dashboards and the assignee dashboard
+ * both want to know about changes.
+ */
+export function notifyHousekeepingUpdate(task: Record<string, any>) {
+  if (!io) return;
+  console.log(`[SOCKET.IO] Broadcasting housekeeping-task:updated (task ${task.id} -> ${task.status})`);
+  io.emit('housekeeping-task:updated', { ...task, timestamp: new Date().toISOString() });
+}
+
+// ============================================================
 // GUEST DISPLAY FUNCTIONS - Za prikaz QR koda na ekranu recepcije
 // ============================================================
 
