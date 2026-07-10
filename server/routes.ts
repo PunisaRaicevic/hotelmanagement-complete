@@ -545,8 +545,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         req.session.touch();
       }
 
+      // Uvijek vrati SVJEŽ JWT. Web sesija se produžava preko cookie-ja (touch),
+      // ali stari JWT ističe za 30d — a Socket.IO handshake traži VALIDAN JWT.
+      // Bez ovoga bi dugotrajna web sesija ostala bez realtime-a (socket odbijen).
+      const freshToken = generateToken({
+        userId: user.id,
+        username: user.username,
+        role: user.role,
+        fullName: user.full_name,
+      });
+
       const { password_hash, ...userWithoutPassword } = user;
-      res.json({ user: userWithoutPassword });
+      res.json({ user: userWithoutPassword, token: freshToken });
     } catch (error) {
       console.error("Session validation error:", error);
       res.status(500).json({ error: "Internal server error" });
@@ -1630,7 +1640,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         storage.getHousekeepingTasksByRoom(id),
         storage.getGuestServiceRequestsByRoom(id),
       ]);
-      const openHk = hkTasks.filter((t) => t.status === 'pending' || t.status === 'in_progress').length;
+      const openHk = hkTasks.filter((t) => t.status === 'pending' || t.status === 'in_progress' || t.status === 'needs_rework').length;
       const openReq = guestReqs.filter((r) => r.status !== 'completed' && r.status !== 'cancelled').length;
       if (openHk > 0 || openReq > 0) {
         return res.status(409).json({

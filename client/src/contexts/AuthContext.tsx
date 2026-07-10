@@ -61,6 +61,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // Update both state and localStorage with fresh data
             setUser(userSession);
             localStorage.setItem('user', JSON.stringify(userSession));
+            // Osvježi JWT (server ga uvijek vraća) da Socket.IO handshake ima
+            // validan token i kad je web sesija starija od 30d (cookie preživio).
+            if (data.token) localStorage.setItem('authToken', data.token);
           } else {
             // Session expired or invalid, clear localStorage
             localStorage.removeItem('user');

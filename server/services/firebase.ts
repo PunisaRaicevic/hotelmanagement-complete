@@ -10,11 +10,13 @@ import { supabase } from '../lib/supabase';
 
 let firebaseInitialized = false;
 
-// Dedup istog push-a u kratkom prozoru. Isti događaj (npr. dodjela taska) često
-// okine i Express PATCH handler I Supabase webhook → dvije identične notifikacije.
-// Ključ = userId|title|body; suprimiraj drugi u roku od 15s.
+// Dedup istog push-a u kratkom prozoru. Isti DOGAĐAJ (npr. dodjela taska) često
+// okine i Express PATCH handler I Supabase webhook → dvije notifikacije istom
+// korisniku za isti task (čak i ako je tekst malo drugačiji). Ključ = userId|taskId
+// (NE tekst — različiti taskovi u 8h batch-u znaju imati isti naslov/opis pa bi
+// se legitimne notifikacije gubile). Dedup se primjenjuje samo kad taskId postoji.
 const recentPushes = new Map<string, number>();
-const PUSH_DEDUP_WINDOW_MS = 15_000;
+const PUSH_DEDUP_WINDOW_MS = 10_000;
 function isDuplicatePush(key: string): boolean {
   const now = Date.now();
   recentPushes.forEach((ts, k) => {
@@ -290,8 +292,8 @@ priority?: 'urgent' | 'normal' | 'can_wait'
 ): Promise<{ sent: number; failed: number }> {
 try {
 
-if (isDuplicatePush(`${userId}|${title}|${body}`)) {
-console.log(`⏭️ Preskačem dupli push za ${userId}: ${title}`);
+if (taskId && isDuplicatePush(`${userId}|${taskId}`)) {
+console.log(`⏭️ Preskačem dupli push za ${userId} (task ${taskId}): ${title}`);
 return { sent: 0, failed: 0 };
 }
 

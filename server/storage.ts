@@ -346,14 +346,24 @@ export class SupabaseStorage implements IStorage {
   // loguje ali ne obara brisanje reda. Public URL:
   //   https://<proj>.supabase.co/storage/v1/object/public/task-images/<key>
   async removeStorageObjectsByUrls(urls: (string | null | undefined)[]): Promise<void> {
-    const marker = '/object/public/task-images/';
-    const keys = (urls || [])
-      .filter((u): u is string => typeof u === 'string' && u.includes(marker))
-      .map((u) => decodeURIComponent(u.split(marker)[1].split('?')[0]))
-      .filter(Boolean);
-    if (keys.length === 0) return;
-    const { error } = await supabase.storage.from('task-images').remove(keys);
-    if (error) console.error('[STORAGE] remove objects error:', error.message);
+    // Cijela funkcija je best-effort: nikad ne smije baciti van i oboriti brisanje
+    // reda (npr. decodeURIComponent baca URIError na loš %-escape, remove može
+    // odbiti mrežno). Sve umotano u try/catch, greška se samo loguje.
+    try {
+      const marker = '/object/public/task-images/';
+      const keys = (urls || [])
+        .filter((u): u is string => typeof u === 'string' && u.includes(marker))
+        .map((u) => {
+          const raw = u.split(marker)[1].split('?')[0];
+          try { return decodeURIComponent(raw); } catch { return raw; }
+        })
+        .filter(Boolean);
+      if (keys.length === 0) return;
+      const { error } = await supabase.storage.from('task-images').remove(keys);
+      if (error) console.error('[STORAGE] remove objects error:', error.message);
+    } catch (e) {
+      console.error('[STORAGE] removeStorageObjectsByUrls neočekivana greška:', e);
+    }
   }
 
   async createTaskHistory(historyData: Partial<InsertTaskHistory>): Promise<TaskHistory> {
