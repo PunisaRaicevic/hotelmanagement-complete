@@ -7,7 +7,7 @@ import ComplaintSubmissionDashboard from './ComplaintSubmissionDashboard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { io, Socket } from 'socket.io-client';
 import { Capacitor } from '@capacitor/core';
-import { getPublicUrl } from '@/lib/apiUrl';
+import { getSocketUrl } from '@/lib/apiUrl';
 import { useToast } from '@/hooks/use-toast';
 
 type ModuleType = 'selector' | 'domacinstvo' | 'reklamacije';
@@ -81,7 +81,7 @@ export default function ReceptionistModuleSelector() {
   useEffect(() => {
     if (!user?.id) return;
 
-    const socketUrl = getPublicUrl();
+    const socketUrl = getSocketUrl();
 
     console.log('[RECEPTIONIST SOCKET.IO] Connecting to:', socketUrl);
 

@@ -22,7 +22,7 @@ import { capacitorCamera } from '@/services/capacitorCamera';
 import { upsertTaskInCache, scheduleBackgroundHydration, optimisticUpdateTask, removeTaskFromCache } from '@/lib/taskCache';
 import { apiRequest } from '@/lib/queryClient';
 import { ImagePreviewModal } from '@/components/ImagePreviewModal';
-import { getApiUrl, getPublicUrl } from '@/lib/apiUrl';
+import { getApiUrl, getSocketUrl } from '@/lib/apiUrl';
 import { Capacitor } from '@capacitor/core';
 
 type PhotoPreview = {
@@ -129,7 +129,7 @@ export default function WorkerDashboard() {
     audioRef.current.volume = 0.7;
 
     // Connect to Socket.IO server (native → backend, web → origin) — isti izvor kao REST
-    const socketUrl = getPublicUrl();
+    const socketUrl = getSocketUrl();
     console.log('[SOCKET.IO DEBUG] Connecting to:', socketUrl);
     console.log('[SOCKET.IO DEBUG] Platform:', Capacitor.isNativePlatform() ? 'Mobile' : 'Web');
     

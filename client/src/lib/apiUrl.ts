@@ -42,3 +42,17 @@ export function getPublicUrl(): string {
   }
   return BACKEND_URL;
 }
+
+/**
+ * Base URL for the Socket.IO connection.
+ * - Native (Capacitor APK): hardcoded BACKEND_URL (phone can't reach localhost).
+ * - Web: current origin — u produkciji je to Railway domen (isti server), a u
+ *   lokalnom dev-u `http://localhost:5000` (isti Express koji nosi Socket.IO).
+ *   NE koristiti getPublicUrl() ovdje: on localhost preusmjeri na produkciju pa
+ *   lokalni realtime ne radi.
+ */
+export function getSocketUrl(): string {
+  if (Capacitor.isNativePlatform()) return BACKEND_URL;
+  if (typeof window !== 'undefined') return window.location.origin;
+  return BACKEND_URL;
+}

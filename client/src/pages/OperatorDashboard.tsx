@@ -14,7 +14,7 @@ import SelectTechnicianDialog from '@/components/SelectTechnicianDialog';
 import TaskDetailsDialog from '@/components/TaskDetailsDialog';
 import { io, Socket } from 'socket.io-client';
 import { Capacitor } from '@capacitor/core';
-import { getPublicUrl } from '@/lib/apiUrl';
+import { getSocketUrl } from '@/lib/apiUrl';
 
 type Task = {
   id: string;
@@ -337,7 +337,7 @@ export default function OperatorDashboard() {
   useEffect(() => {
     if (!user?.id) return;
 
-    const socketUrl = getPublicUrl();
+    const socketUrl = getSocketUrl();
 
     console.log('[OPERATOR SOCKET.IO] Connecting to:', socketUrl);
 

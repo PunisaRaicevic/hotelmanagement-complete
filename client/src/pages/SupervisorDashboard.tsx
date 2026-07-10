@@ -38,7 +38,7 @@ import CreateRecurringTaskDialog from '@/components/CreateRecurringTaskDialog';
 import TaskDetailsDialog from '@/components/TaskDetailsDialog';
 import EditTaskDialog from '@/components/EditTaskDialog';
 import { PhotoUpload, PhotoPreview } from '@/components/PhotoUpload';
-import { getApiUrl, getPublicUrl } from '@/lib/apiUrl';
+import { getApiUrl, getSocketUrl } from '@/lib/apiUrl';
 import { Input } from '@/components/ui/input';
 import { Wrench, Search, MessageSquare, AlertTriangle } from 'lucide-react';
 import RoomDetailDialog from '@/components/RoomDetailDialog';
@@ -324,7 +324,7 @@ export default function SupervisorDashboard() {
     if (!user?.id) return;
 
     // Connect to Socket.IO server (native → backend, web → origin)
-    const socketUrl = getPublicUrl();
+    const socketUrl = getSocketUrl();
 
     console.log('[SUPERVISOR SOCKET.IO] Connecting to:', socketUrl);
 

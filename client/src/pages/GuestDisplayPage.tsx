@@ -4,7 +4,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Wifi, WifiOff, LogOut, ChevronDown } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
-import { getPublicUrl } from '@/lib/apiUrl';
+import { getSocketUrl } from '@/lib/apiUrl';
 
 interface QRData {
   room_number: string;
@@ -53,7 +53,7 @@ export default function GuestDisplayPage() {
     if (!user?.id) return;
 
     // native → backend, web → origin (isti izvor kao REST; ne koristi VITE_API_URL)
-    const socketUrl = getPublicUrl();
+    const socketUrl = getSocketUrl();
 
     console.log('[GUEST DISPLAY] Connecting to Socket.IO:', socketUrl);
 

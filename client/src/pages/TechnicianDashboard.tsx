@@ -23,7 +23,7 @@ import { upsertTaskInCache, scheduleBackgroundHydration, optimisticUpdateTask } 
 import { apiRequest } from '@/lib/queryClient';
 import { ImagePreviewModal } from '@/components/ImagePreviewModal';
 import { Capacitor } from '@capacitor/core';
-import { getPublicUrl } from '@/lib/apiUrl';
+import { getSocketUrl } from '@/lib/apiUrl';
 
 type PhotoPreview = {
   id: string;
@@ -118,7 +118,7 @@ export default function TechnicianDashboard() {
     audioRef.current = new Audio('https://cdnjs.cloudflare.com/ajax/libs/ion-sound/3.0.7/sounds/bell_ring.mp3');
     audioRef.current.volume = 0.7;
 
-    const socketUrl = getPublicUrl();
+    const socketUrl = getSocketUrl();
 
     const socket = io(socketUrl, {
       auth: { token: localStorage.getItem('authToken') || undefined },

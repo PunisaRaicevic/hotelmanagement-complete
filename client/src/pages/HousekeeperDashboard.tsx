@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
-import { getApiUrl, getPublicUrl } from '@/lib/apiUrl';
+import { getApiUrl, getSocketUrl } from '@/lib/apiUrl';
 import StatCard from '@/components/StatCard';
 import RoomStatusBadge from '@/components/RoomStatusBadge';
 import {
@@ -103,7 +103,7 @@ export default function HousekeeperDashboard() {
   // and re-enter the app.
   useEffect(() => {
     if (!user?.id) return;
-    const socketUrl = getPublicUrl();
+    const socketUrl = getSocketUrl();
     const socket: Socket = io(socketUrl, {
       auth: { token: localStorage.getItem('authToken') || undefined },
       transports: ['websocket', 'polling'],
