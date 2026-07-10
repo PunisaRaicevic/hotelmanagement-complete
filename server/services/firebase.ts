@@ -10,6 +10,22 @@ import { supabase } from '../lib/supabase';
 
 let firebaseInitialized = false;
 
+// Dedup istog push-a u kratkom prozoru. Isti događaj (npr. dodjela taska) često
+// okine i Express PATCH handler I Supabase webhook → dvije identične notifikacije.
+// Ključ = userId|title|body; suprimiraj drugi u roku od 15s.
+const recentPushes = new Map<string, number>();
+const PUSH_DEDUP_WINDOW_MS = 15_000;
+function isDuplicatePush(key: string): boolean {
+  const now = Date.now();
+  recentPushes.forEach((ts, k) => {
+    if (now - ts > PUSH_DEDUP_WINDOW_MS) recentPushes.delete(k);
+  });
+  const last = recentPushes.get(key);
+  if (last !== undefined && now - last < PUSH_DEDUP_WINDOW_MS) return true;
+  recentPushes.set(key, now);
+  return false;
+}
+
 export function initializeFirebase() {
 if (firebaseInitialized) {
 return;
@@ -273,6 +289,11 @@ taskId?: string,
 priority?: 'urgent' | 'normal' | 'can_wait'
 ): Promise<{ sent: number; failed: number }> {
 try {
+
+if (isDuplicatePush(`${userId}|${title}|${body}`)) {
+console.log(`⏭️ Preskačem dupli push za ${userId}: ${title}`);
+return { sent: 0, failed: 0 };
+}
 
 const { data: tokens, error } = await supabase
 .from('user_device_tokens')

@@ -47,7 +47,8 @@ export interface IStorage {
   createTask(task: Partial<InsertTask>): Promise<Task>;
   updateTask(id: string, data: Partial<Task>): Promise<Task | undefined>;
   deleteTask(id: string): Promise<void>;
-  
+  removeStorageObjectsByUrls(urls: (string | null | undefined)[]): Promise<void>;
+
   createTaskHistory(history: Partial<InsertTaskHistory>): Promise<TaskHistory>;
   getTaskHistory(taskId: string): Promise<TaskHistory[]>;
   getTaskHistoriesForTasks(taskIds: string[]): Promise<TaskHistory[]>;
@@ -336,8 +337,23 @@ export class SupabaseStorage implements IStorage {
       .from('tasks')
       .delete()
       .eq('id', id);
-    
+
     if (error) throw error;
+  }
+
+  // Ukloni objekte iz `task-images` bucketa po njihovim javnim URL-ovima da ne
+  // ostanu orphan fajlovi kad se task/zahtjev obriše. Best-effort: greška se
+  // loguje ali ne obara brisanje reda. Public URL:
+  //   https://<proj>.supabase.co/storage/v1/object/public/task-images/<key>
+  async removeStorageObjectsByUrls(urls: (string | null | undefined)[]): Promise<void> {
+    const marker = '/object/public/task-images/';
+    const keys = (urls || [])
+      .filter((u): u is string => typeof u === 'string' && u.includes(marker))
+      .map((u) => decodeURIComponent(u.split(marker)[1].split('?')[0]))
+      .filter(Boolean);
+    if (keys.length === 0) return;
+    const { error } = await supabase.storage.from('task-images').remove(keys);
+    if (error) console.error('[STORAGE] remove objects error:', error.message);
   }
 
   async createTaskHistory(historyData: Partial<InsertTaskHistory>): Promise<TaskHistory> {

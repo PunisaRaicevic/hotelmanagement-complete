@@ -1396,6 +1396,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             notes: `Child task auto-deleted due to recurring template deletion by ${sessionUser.full_name}`,
           });
           await storage.deleteTask(childTask.id);
+          await storage.removeStorageObjectsByUrls([...(childTask.images || []), ...((childTask as any).worker_images || [])]);
           deletedChildCount++;
         }
 
@@ -1421,6 +1422,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       await storage.deleteTask(id);
+      // Ukloni pripadajuće slike iz Storage-a da ne ostanu orphan fajlovi.
+      await storage.removeStorageObjectsByUrls([...(task.images || []), ...((task as any).worker_images || [])]);
       res.json({ message: "Task deleted successfully", deletedChildTasks: deletedChildCount });
     } catch (error) {
       console.error("Error deleting task:", error);
@@ -1619,6 +1622,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/rooms/:id", requireAdmin, async (req, res) => {
     try {
       const { id } = req.params;
+
+      // Ne dozvoli brisanje sobe koja ima otvorene taskove/zahtjeve — soba se
+      // soft-deletuje (is_active=false), pa bi ti redovi ostali orphan (pokazuju
+      // na "obrisanu" sobu). Admin prvo mora da ih zatvori.
+      const [hkTasks, guestReqs] = await Promise.all([
+        storage.getHousekeepingTasksByRoom(id),
+        storage.getGuestServiceRequestsByRoom(id),
+      ]);
+      const openHk = hkTasks.filter((t) => t.status === 'pending' || t.status === 'in_progress').length;
+      const openReq = guestReqs.filter((r) => r.status !== 'completed' && r.status !== 'cancelled').length;
+      if (openHk > 0 || openReq > 0) {
+        return res.status(409).json({
+          error: `Soba ima otvorene stavke: ${openHk} zadataka čišćenja, ${openReq} zahtjeva gosta. Zatvorite ih prije brisanja.`,
+        });
+      }
+
       const deleted = await storage.deleteRoom(id);
 
       if (!deleted) {
@@ -2762,11 +2781,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Only admin or supervisor can delete tasks" });
       }
 
+      const hkTask = await storage.getHousekeepingTaskById(id);
       const deleted = await storage.deleteHousekeepingTask(id);
 
       if (!deleted) {
         return res.status(404).json({ error: "Housekeeping task not found" });
       }
+
+      // Ukloni slike housekeeping taska iz Storage-a (orphan cleanup).
+      if (hkTask) await storage.removeStorageObjectsByUrls((hkTask as any).images || []);
 
       res.json({ message: "Housekeeping task deleted successfully" });
     } catch (error) {
