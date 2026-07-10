@@ -87,8 +87,8 @@ export default function ComplaintSubmissionDashboard() {
       return result;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/tasks', 'my', user?.id] });
-      queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+      // Query key je ['/api/tasks/my', user?.id] — mora se tačno poklopiti prefiks.
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks/my'] });
     },
   });
 

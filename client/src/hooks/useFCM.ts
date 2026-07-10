@@ -179,6 +179,9 @@ export const useFCM = (userId?: string) => {
           console.log(`🔥 [FCM:${regTime}] Token primljen:`, fcmToken.value?.substring(0, 50) + '...');
           sendDebugLog('FCM TOKEN RECEIVED!', { tokenLength: fcmToken.value?.length });
 
+          // Zapamti token ovog uređaja da ga logout može deaktivirati (dijeljeni telefon).
+          try { if (fcmToken.value) localStorage.setItem('fcmToken', fcmToken.value); } catch {}
+
           if (!isMounted) return;
 
           try {

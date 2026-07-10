@@ -38,10 +38,14 @@ import CreateRecurringTaskDialog from '@/components/CreateRecurringTaskDialog';
 import TaskDetailsDialog from '@/components/TaskDetailsDialog';
 import EditTaskDialog from '@/components/EditTaskDialog';
 import { PhotoUpload, PhotoPreview } from '@/components/PhotoUpload';
-import { getApiUrl } from '@/lib/apiUrl';
+import { getApiUrl, getPublicUrl } from '@/lib/apiUrl';
 import { Input } from '@/components/ui/input';
 import { Wrench, Search, MessageSquare, AlertTriangle } from 'lucide-react';
 import RoomDetailDialog from '@/components/RoomDetailDialog';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 // Room type for maintenance view
 interface MaintenanceRoom {
@@ -319,17 +323,13 @@ export default function SupervisorDashboard() {
   useEffect(() => {
     if (!user?.id) return;
 
-    // Connect to Socket.IO server
-    let socketUrl: string;
-    if (Capacitor.isNativePlatform()) {
-      socketUrl = import.meta.env.VITE_API_URL || "https://hotelmanagement-complete-production.up.railway.app";
-    } else {
-      socketUrl = window.location.origin;
-    }
+    // Connect to Socket.IO server (native → backend, web → origin)
+    const socketUrl = getPublicUrl();
 
     console.log('[SUPERVISOR SOCKET.IO] Connecting to:', socketUrl);
 
     const socket = io(socketUrl, {
+      auth: { token: localStorage.getItem('authToken') || undefined },
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 1000,
@@ -487,6 +487,9 @@ export default function SupervisorDashboard() {
       console.error('Error completing external task:', error);
     }
   });
+
+  // window.confirm ne radi pouzdano u Capacitor WebView-u → in-component dialog.
+  const [recurringToDelete, setRecurringToDelete] = useState<string | null>(null);
 
   // Mutation for deleting recurring task
   const deleteRecurringTaskMutation = useMutation({
@@ -982,9 +985,7 @@ export default function SupervisorDashboard() {
                               className="w-full"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                if (confirm('Da li ste sigurni da želite da obrišete ovaj ponavljajući zadatak?')) {
-                                  deleteRecurringTaskMutation.mutate(task.id);
-                                }
+                                setRecurringToDelete(task.id);
                               }}
                               disabled={deleteRecurringTaskMutation.isPending}
                               data-testid={`button-delete-recurring-${task.id}`}
@@ -1589,6 +1590,28 @@ export default function SupervisorDashboard() {
           <RoomsMaintenanceView />
         </TabsContent>
       </Tabs>
+
+      <AlertDialog open={recurringToDelete !== null} onOpenChange={(open) => { if (!open) setRecurringToDelete(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Obrisati ponavljajući zadatak?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Da li ste sigurni da želite da obrišete ovaj ponavljajući zadatak? Ova radnja se ne može poništiti.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Otkaži</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (recurringToDelete) deleteRecurringTaskMutation.mutate(recurringToDelete);
+                setRecurringToDelete(null);
+              }}
+            >
+              Obriši
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   </>
   );

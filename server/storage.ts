@@ -1,4 +1,5 @@
 import { supabase } from "./lib/supabase";
+import { hotelMidnightUtc } from "./utils/timezone";
 import {
   type User,
   type InsertUser,
@@ -83,6 +84,7 @@ export interface IStorage {
   getActiveTaskCountByAssignee(): Promise<Record<string, number>>;
   createHousekeepingTask(task: Partial<InsertHousekeepingTask>): Promise<HousekeepingTask>;
   updateHousekeepingTask(id: string, data: Partial<HousekeepingTask>): Promise<HousekeepingTask | undefined>;
+  claimHousekeepingTaskStart(id: string): Promise<HousekeepingTask | undefined>;
   deleteHousekeepingTask(id: string): Promise<boolean>;
 
   // Housekeeping - Inventory
@@ -703,16 +705,17 @@ export class SupabaseStorage implements IStorage {
   }
 
   async getHousekeepingTasksByDate(date: string): Promise<HousekeepingTask[]> {
-    const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
+    // Dan-prozor u hotelskoj zoni (Europe/Podgorica), ne server-UTC — inače
+    // rano-jutarnji/kasno-večernji taskovi padnu u susjedni dan na rasporedu.
+    const startOfDay = hotelMidnightUtc(date);
+    const endOfDay = new Date(startOfDay);
+    endOfDay.setDate(endOfDay.getDate() + 1);
 
     const { data, error } = await supabase
       .from('housekeeping_tasks')
       .select('*')
       .gte('scheduled_date', startOfDay.toISOString())
-      .lte('scheduled_date', endOfDay.toISOString())
+      .lt('scheduled_date', endOfDay.toISOString())
       .order('priority', { ascending: false });
 
     if (error) throw error;
@@ -761,6 +764,22 @@ export class SupabaseStorage implements IStorage {
       throw error;
     }
     return updated as HousekeepingTask;
+  }
+
+  // Atomsko preuzimanje: postavi in_progress SAMO ako je task još 'pending'.
+  // WHERE status='pending' garantuje da samo jedna sobarica pobijedi u trci;
+  // vraća undefined ako je neko drugi već započeo.
+  async claimHousekeepingTaskStart(id: string): Promise<HousekeepingTask | undefined> {
+    const { data, error } = await supabase
+      .from('housekeeping_tasks')
+      .update({ status: 'in_progress', started_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .eq('status', 'pending')
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+    return (data as HousekeepingTask) || undefined;
   }
 
   async deleteHousekeepingTask(id: string): Promise<boolean> {

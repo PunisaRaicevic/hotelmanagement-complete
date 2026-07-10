@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import type { User as DBUser } from '@shared/types';
 import { getApiUrl } from '@/lib/apiUrl';
+import { queryClient } from '@/lib/queryClient';
 
 interface User {
   id: string;
@@ -154,16 +155,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('[AUTH] Logging out...');
       const storedToken = localStorage.getItem('authToken');
-      const headers: HeadersInit = {};
+      const fcmToken = localStorage.getItem('fcmToken');
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
       if (storedToken) {
         headers['Authorization'] = `Bearer ${storedToken}`;
       }
-      
-      // Destroy server session
+
+      // Destroy server session + deaktiviraj FCM token ovog uređaja
       await fetch(getApiUrl('/api/auth/logout'), {
         method: 'POST',
         credentials: 'include',
-        headers
+        headers,
+        body: JSON.stringify({ fcmToken: fcmToken || undefined })
       });
     } catch (error) {
       console.error('[AUTH] Logout error:', error);
@@ -173,6 +176,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       localStorage.removeItem('user');
       localStorage.removeItem('authToken');
+      localStorage.removeItem('fcmToken');
+      // Isprazni React Query keš da sljedeći korisnik (dijeljeni uređaj) ne vidi
+      // podatke prethodnog do staleTime/refetch-a.
+      queryClient.clear();
       console.log('[AUTH] ✅ Logout complete - all tokens cleared');
       toast({
         title: 'Odjavljeni ste',

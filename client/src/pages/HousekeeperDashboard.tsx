@@ -105,6 +105,7 @@ export default function HousekeeperDashboard() {
     if (!user?.id) return;
     const socketUrl = getPublicUrl();
     const socket: Socket = io(socketUrl, {
+      auth: { token: localStorage.getItem('authToken') || undefined },
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 1000,

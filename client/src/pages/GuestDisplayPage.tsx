@@ -4,6 +4,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Wifi, WifiOff, LogOut, ChevronDown } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
+import { getPublicUrl } from '@/lib/apiUrl';
 
 interface QRData {
   room_number: string;
@@ -51,17 +52,13 @@ export default function GuestDisplayPage() {
   useEffect(() => {
     if (!user?.id) return;
 
-    // Dinamička URL selekcija za mobile vs web
-    let socketUrl: string;
-    if (Capacitor.isNativePlatform()) {
-      socketUrl = import.meta.env.VITE_API_URL || 'https://hotelmanagement-complete-production.up.railway.app';
-    } else {
-      socketUrl = window.location.origin;
-    }
+    // native → backend, web → origin (isti izvor kao REST; ne koristi VITE_API_URL)
+    const socketUrl = getPublicUrl();
 
     console.log('[GUEST DISPLAY] Connecting to Socket.IO:', socketUrl);
 
     const newSocket = io(socketUrl, {
+      auth: { token: localStorage.getItem('authToken') || undefined },
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 1000,

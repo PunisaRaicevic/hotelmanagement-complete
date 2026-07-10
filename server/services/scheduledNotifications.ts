@@ -5,6 +5,7 @@
 
 import { storage } from '../storage';
 import { sendPushToAllUserDevices } from './firebase';
+import { hotelNowParts, hotelMidnightUtc } from '../utils/timezone';
 
 let lastNotificationDate: string | null = null;
 
@@ -12,15 +13,14 @@ let lastNotificationDate: string | null = null;
  * Check if notifications have already been sent today
  */
 function hasNotifiedToday(): boolean {
-  const today = new Date().toISOString().split('T')[0];
-  return lastNotificationDate === today;
+  return lastNotificationDate === hotelNowParts().date;
 }
 
 /**
  * Mark that notifications have been sent today
  */
 function markNotifiedToday(): void {
-  lastNotificationDate = new Date().toISOString().split('T')[0];
+  lastNotificationDate = hotelNowParts().date;
 }
 
 /**
@@ -28,12 +28,11 @@ function markNotifiedToday(): void {
  */
 export async function getTasksScheduledForToday(): Promise<any[]> {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
+    const todayStr = hotelNowParts().date;
+    const today = hotelMidnightUtc(todayStr);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    
+
     const tasks = await storage.getTasksScheduledBetween(
       today.toISOString(),
       tomorrow.toISOString()
@@ -108,11 +107,8 @@ export async function sendScheduledNotifications(): Promise<{sent: number, faile
  * Check if it's time to send scheduled notifications (8:00 AM)
  */
 export function isNotificationTime(): boolean {
-  const now = new Date();
-  const hour = now.getHours();
-  const minute = now.getMinutes();
-  
-  return hour === 8 && minute >= 0 && minute < 15;
+  // 8h po hotelskoj zoni; hasNotifiedToday spriječi ponovljeno slanje unutar sata.
+  return hotelNowParts().hour === 8;
 }
 
 /**

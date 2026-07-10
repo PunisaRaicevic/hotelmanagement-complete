@@ -17,6 +17,20 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        // Appflow Live-Update trunkira pojedinačni JS chunk ~1 MB+ → bijeli ekran.
+        // Izdvoj samo čiste (ne-React) libove; React + SVE što ga importuje mora
+        // ostati u JEDNOM "vendor" chunk-u, inače: undefined 'useState'.
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return undefined;
+          if (id.includes("/leaflet/")) return "vendor-leaflet";
+          if (id.includes("firebase") || id.includes("@firebase")) return "vendor-firebase";
+          if (id.includes("@capacitor")) return "vendor-capacitor";
+          return "vendor";
+        },
+      },
+    },
   },
   server: {
     fs: {

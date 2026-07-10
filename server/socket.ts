@@ -1,7 +1,21 @@
 import { Server as SocketIOServer } from 'socket.io';
 import type { Server } from 'http';
+import { verifyToken, type JWTPayload } from './auth';
 
 let io: SocketIOServer | null = null;
+
+// Isti env-driven allowlist kao Express CORS. Bez Origin headera (npr. native
+// WebSocket iz Capacitora / server-to-server) je dozvoljeno — pravi gate je JWT.
+const socketCorsAllowlist = new Set<string>([
+  'https://hotelmanagement-complete-production.up.railway.app',
+  'http://localhost:5173',
+  'http://localhost:5000',
+  'capacitor://localhost',
+  'ionic://localhost',
+  'http://localhost',
+  'https://localhost',
+  ...(process.env.CORS_ORIGINS?.split(',').map(s => s.trim()).filter(Boolean) ?? []),
+]);
 
 /**
  * Initialize Socket.IO server for real-time notifications
@@ -10,44 +24,62 @@ let io: SocketIOServer | null = null;
 export function initializeSocket(server: Server): SocketIOServer {
   io = new SocketIOServer(server, {
     cors: {
-      origin: "*", // In production, specify your domain
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (socketCorsAllowlist.has(origin)) return callback(null, true);
+        console.warn(`[SOCKET.IO] blocked origin: ${origin}`);
+        return callback(new Error('origin not allowed'), false);
+      },
       methods: ["GET", "POST"]
     },
     transports: ['websocket', 'polling']
   });
 
-  io.on('connection', (socket) => {
-    console.log(`[SOCKET.IO] Client connected: ${socket.id}`);
+  // Auth handshake: svaki socket MORA nositi validan JWT (isti kao REST bearer).
+  // Bez ovoga je bilo ko mogao emitovati display:join i skupljati guest tokene,
+  // ili worker:join sa tuđim userId-jem i slušati tuđe taskove.
+  io.use((socket, next) => {
+    const token = socket.handshake.auth?.token as string | undefined;
+    if (!token) return next(new Error('unauthorized: missing token'));
+    const payload = verifyToken(token);
+    if (!payload) return next(new Error('unauthorized: invalid token'));
+    (socket.data as { user?: JWTPayload }).user = payload;
+    next();
+  });
 
-    // When worker logs in, they join a room with their user ID
-    socket.on('worker:join', (userId: string) => {
-      console.log(`[SOCKET.IO] Worker joined room: ${userId}`);
-      socket.join(`user:${userId}`);
-      
-      // Acknowledge connection
-      socket.emit('worker:connected', { userId, socketId: socket.id });
+  io.on('connection', (socket) => {
+    const user = (socket.data as { user?: JWTPayload }).user!;
+    console.log(`[SOCKET.IO] Client connected: ${socket.id} (user ${user.userId}/${user.role})`);
+
+    // Svaki autentifikovani korisnik se pridružuje ISKLJUČIVO svojoj sobi —
+    // userId iz tokena, ne iz payload-a klijenta (koji je mogao biti lažiran).
+    socket.join(`user:${user.userId}`);
+
+    socket.on('worker:join', () => {
+      socket.join(`user:${user.userId}`);
+      socket.emit('worker:connected', { userId: user.userId, socketId: socket.id });
     });
 
-    // When worker logs out or leaves
-    socket.on('worker:leave', (userId: string) => {
-      console.log(`[SOCKET.IO] Worker left room: ${userId}`);
-      socket.leave(`user:${userId}`);
+    socket.on('worker:leave', () => {
+      socket.leave(`user:${user.userId}`);
     });
 
     socket.on('disconnect', () => {
       console.log(`[SOCKET.IO] Client disconnected: ${socket.id}`);
     });
 
-    // Guest Display: display se pridružuje globalnoj sobi
+    // Guest Display soba prima {room_number, guest_session_token} za svakog gosta.
+    // Samo 'guest_display' nalog (App.tsx gate) i admin smiju u nju.
     socket.on('display:join', () => {
-      console.log(`[SOCKET.IO] Guest display joined global room`);
+      if (user.role !== 'guest_display' && user.role !== 'admin') {
+        console.warn(`[SOCKET.IO] display:join odbijen za rolu ${user.role}`);
+        return;
+      }
       socket.join('guest-display-room');
       socket.emit('display:paired', { success: true });
     });
 
-    // Guest Display: display napušta sobu
     socket.on('display:leave', () => {
-      console.log(`[SOCKET.IO] Guest display left global room`);
       socket.leave('guest-display-room');
     });
   });

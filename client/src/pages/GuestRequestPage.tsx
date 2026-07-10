@@ -873,6 +873,28 @@ export default function GuestRequestPage() {
 
     setIsSubmitting(true);
     try {
+      // Fotke prvo idu u Supabase Storage (token-validiran javni endpoint);
+      // u zahtjev šaljemo samo URL-ove, nikad Base64 data-URL.
+      const imageUrls: string[] = [];
+      let uploadFailures = 0;
+      for (const p of photos) {
+        try {
+          const upRes = await fetch(`/api/public/room/${roomNumber}/${token}/upload-image`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dataUrl: p.dataUrl }),
+          });
+          const upData = await upRes.json();
+          if (upRes.ok && upData.url) imageUrls.push(upData.url);
+          else uploadFailures++;
+        } catch {
+          uploadFailures++;
+        }
+      }
+      if (uploadFailures > 0) {
+        toast({ title: t('error'), description: `${uploadFailures} slika nije poslato.`, variant: 'destructive' });
+      }
+
       const response = await fetch(`/api/public/room/${roomNumber}/${token}/request`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -883,7 +905,7 @@ export default function GuestRequestPage() {
           guest_name: guestName,
           guest_phone: guestPhone,
           priority,
-          images: photos.map(p => p.dataUrl),
+          images: imageUrls,
         }),
       });
 

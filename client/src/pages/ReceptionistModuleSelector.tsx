@@ -7,6 +7,7 @@ import ComplaintSubmissionDashboard from './ComplaintSubmissionDashboard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { io, Socket } from 'socket.io-client';
 import { Capacitor } from '@capacitor/core';
+import { getPublicUrl } from '@/lib/apiUrl';
 import { useToast } from '@/hooks/use-toast';
 
 type ModuleType = 'selector' | 'domacinstvo' | 'reklamacije';
@@ -80,16 +81,12 @@ export default function ReceptionistModuleSelector() {
   useEffect(() => {
     if (!user?.id) return;
 
-    let socketUrl: string;
-    if (Capacitor.isNativePlatform()) {
-      socketUrl = import.meta.env.VITE_API_URL || "https://hotelmanagement-complete-production.up.railway.app";
-    } else {
-      socketUrl = window.location.origin;
-    }
+    const socketUrl = getPublicUrl();
 
     console.log('[RECEPTIONIST SOCKET.IO] Connecting to:', socketUrl);
 
     const socket = io(socketUrl, {
+      auth: { token: localStorage.getItem('authToken') || undefined },
       transports: ['websocket', 'polling'],
       reconnection: true,
       path: '/socket.io',

@@ -98,7 +98,18 @@ export function serveStatic(app: Express) {
     );
   }
 
-  app.use(express.static(distPath));
+  // Hashed asseti (/assets/index-abc123.js) su content-addressed → immutable
+  // keširanje. Sve ostalo (uklj. index.html) NIKAD ne keširati, inače korisnik
+  // vrti stari index.html koji pokazuje na nepostojeće hash-fajlove → bijeli ekran.
+  app.use(express.static(distPath, {
+    setHeaders: (res, filePath) => {
+      if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+        res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+      } else {
+        res.setHeader("Cache-Control", "no-cache");
+      }
+    },
+  }));
 
   // fall through to index.html if the file doesn't exist
   // BUT skip API routes - they should return 404, not HTML
@@ -110,6 +121,7 @@ export function serveStatic(app: Express) {
       return next();
     }
 
+    res.setHeader("Cache-Control", "no-cache");
     res.sendFile(path.resolve(distPath, "index.html"));
   });
 }

@@ -6,6 +6,7 @@
 // ========================================================================
 
 import admin from 'firebase-admin';
+import { supabase } from '../lib/supabase';
 
 let firebaseInitialized = false;
 
@@ -142,11 +143,6 @@ taskId?: string,
 priority?: 'urgent' | 'normal' | 'can_wait'
 ): Promise<boolean> {
 try {
-const { createClient } = await import('@supabase/supabase-js');
-const supabase = createClient(
-process.env.SUPABASE_URL!,
-process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 const { data: user, error } = await supabase
 .from('users')
@@ -175,11 +171,6 @@ return false;
 
 async function deactivateInvalidToken(fcmToken: string, userId: string): Promise<void> {
 try {
-const { createClient } = await import('@supabase/supabase-js');
-const supabase = createClient(
-process.env.SUPABASE_URL!,
-process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 const { error } = await supabase
 .from('user_device_tokens')
@@ -282,11 +273,6 @@ taskId?: string,
 priority?: 'urgent' | 'normal' | 'can_wait'
 ): Promise<{ sent: number; failed: number }> {
 try {
-const { createClient } = await import('@supabase/supabase-js');
-const supabase = createClient(
-process.env.SUPABASE_URL!,
-process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 const { data: tokens, error } = await supabase
 .from('user_device_tokens')

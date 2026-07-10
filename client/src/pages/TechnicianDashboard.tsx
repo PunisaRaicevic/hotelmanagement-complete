@@ -23,6 +23,7 @@ import { upsertTaskInCache, scheduleBackgroundHydration, optimisticUpdateTask } 
 import { apiRequest } from '@/lib/queryClient';
 import { ImagePreviewModal } from '@/components/ImagePreviewModal';
 import { Capacitor } from '@capacitor/core';
+import { getPublicUrl } from '@/lib/apiUrl';
 
 type PhotoPreview = {
   id: string;
@@ -117,14 +118,10 @@ export default function TechnicianDashboard() {
     audioRef.current = new Audio('https://cdnjs.cloudflare.com/ajax/libs/ion-sound/3.0.7/sounds/bell_ring.mp3');
     audioRef.current.volume = 0.7;
 
-    let socketUrl: string;
-    if (Capacitor.isNativePlatform()) {
-      socketUrl = "https://hotelpark-tehnika-production.up.railway.app";
-    } else {
-      socketUrl = window.location.origin;
-    }
+    const socketUrl = getPublicUrl();
 
     const socket = io(socketUrl, {
+      auth: { token: localStorage.getItem('authToken') || undefined },
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 1000,

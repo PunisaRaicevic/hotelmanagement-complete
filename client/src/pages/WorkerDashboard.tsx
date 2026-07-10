@@ -22,7 +22,7 @@ import { capacitorCamera } from '@/services/capacitorCamera';
 import { upsertTaskInCache, scheduleBackgroundHydration, optimisticUpdateTask, removeTaskFromCache } from '@/lib/taskCache';
 import { apiRequest } from '@/lib/queryClient';
 import { ImagePreviewModal } from '@/components/ImagePreviewModal';
-import { getApiUrl } from '@/lib/apiUrl';
+import { getApiUrl, getPublicUrl } from '@/lib/apiUrl';
 import { Capacitor } from '@capacitor/core';
 
 type PhotoPreview = {
@@ -128,19 +128,13 @@ export default function WorkerDashboard() {
     audioRef.current = new Audio('https://cdnjs.cloudflare.com/ajax/libs/ion-sound/3.0.7/sounds/bell_ring.mp3');
     audioRef.current.volume = 0.7;
 
-    // Connect to Socket.IO server - use same logic as API calls
-    // For mobile (Capacitor): use backend URL
-    // For web: use current origin
-    let socketUrl: string;
-    if (Capacitor.isNativePlatform()) {
-      socketUrl = "https://hotelpark-tehnika-production.up.railway.app";
-    } else {
-      socketUrl = window.location.origin;
-    }
+    // Connect to Socket.IO server (native → backend, web → origin) — isti izvor kao REST
+    const socketUrl = getPublicUrl();
     console.log('[SOCKET.IO DEBUG] Connecting to:', socketUrl);
     console.log('[SOCKET.IO DEBUG] Platform:', Capacitor.isNativePlatform() ? 'Mobile' : 'Web');
     
     const socket = io(socketUrl, {
+      auth: { token: localStorage.getItem('authToken') || undefined },
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 1000,

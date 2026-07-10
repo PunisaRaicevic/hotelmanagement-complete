@@ -1,12 +1,12 @@
 import 'dotenv/config';
 
-// TODO(security): scope this. We previously removed the global TLS bypass
-// thinking the pg pool's per-connection ssl flag was enough, but production
-// blew up with "self-signed certificate in certificate chain" on /. Something
-// outside the pg pool (supabase-js REST/Realtime over the Railway egress, or a
-// transitive dep) is hitting a cert it can't validate. Re-enable globally to
-// restore service, then later identify exactly which outbound host needs the
-// bypass and pin it via a custom https.Agent on that client only.
+// TODO(security): scope this. Globalni NODE_TLS_REJECT_UNAUTHORIZED='0' gasi
+// validaciju certifikata za SAV odlazni saobraćaj (Supabase, Firebase, Google).
+// Prod je pucao sa "self-signed certificate in certificate chain" na / kad je
+// ovo bilo uklonjeno — pg session pool već ima ssl:{rejectUnauthorized:false},
+// pa nešto drugo (supabase-js egress preko Railway proxyja?) baca. Pravi fix:
+// dodati `undici` dep + scoped Agent na supabase-js `global.fetch`, pa OVO ukloniti
+// i testirati na živom Railway-u prije nego se ukloni globalni flag.
 if (process.env.NODE_ENV === 'production') {
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 }
@@ -103,6 +103,18 @@ const loginLimiter = rateLimit({
 });
 app.use('/api/auth/login', loginLimiter);
 
+// Rate limit javnih (neautentifikovanih) guest endpointa. Guest chat polluje
+// /requests i /messages na ~5s, pa limit mora biti dovoljno visok za polling
+// ali blokira flood submisija (svaka može nositi Base64 slike). Po IP-u.
+const guestLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Previše zahtjeva. Pokušajte ponovo za minut.' },
+});
+app.use('/api/public', guestLimiter);
+
 // Session store setup
 import pg from "pg";
 
@@ -140,7 +152,9 @@ app.use(
     cookie: {
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
       httpOnly: true,
-      secure: false, // False je OBAVEZNO za Replit/Development/Hibridne app
+      // Prod (Railway) servira web preko HTTPS → cookie mora biti secure da se ne
+      // šalje u cleartextu. APK ne zavisi od cookie-ja (koristi JWT bearer header).
+      secure: process.env.NODE_ENV === 'production',
       sameSite: "lax",
     },
   })

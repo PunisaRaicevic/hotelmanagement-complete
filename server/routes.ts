@@ -143,6 +143,27 @@ const createInventoryItemSchema = z.object({
   cost_per_unit: z.number().int().min(0).optional(),
 });
 
+// Kratkotrajni keš is_active provjere — 30d JWT bi inače autorizovao i
+// deaktiviranog (otpuštenog) radnika mjesecima. Keš izbjegava DB pogodak po
+// svakom zahtjevu; deaktivacija se primijeni za ≤60s.
+const activeCache = new Map<string, { active: boolean; ts: number }>();
+const ACTIVE_TTL_MS = 60_000;
+async function isUserActive(userId: string): Promise<boolean> {
+  const now = Date.now();
+  const cached = activeCache.get(userId);
+  if (cached && now - cached.ts < ACTIVE_TTL_MS) return cached.active;
+  try {
+    const user = await storage.getUserById(userId);
+    const active = !!user && user.is_active !== false;
+    activeCache.set(userId, { active, ts: now });
+    return active;
+  } catch {
+    // Ako DB provjera pukne, ne zaključavaj sve korisnike — propusti (fail-open),
+    // ali ne keširaj rezultat.
+    return true;
+  }
+}
+
 // Authentication middleware
 async function requireAuth(req: any, res: any, next: any) {
   const authHeader = req.headers.authorization;
@@ -153,6 +174,7 @@ async function requireAuth(req: any, res: any, next: any) {
     req.session = {};
   }
 
+  let userId: string | undefined;
   if (token) {
     const payload = verifyToken(token);
     if (payload) {
@@ -160,18 +182,24 @@ async function requireAuth(req: any, res: any, next: any) {
       req.session.userRole = payload.role;
       req.session.username = payload.username;
       req.session.fullName = payload.fullName;
-      console.log(`[AUTH] User authenticated via JWT: ${payload.userId}`);
-      return next();
+      userId = payload.userId;
     }
   }
-
-  if (req.session.userId) {
-    console.log(`[AUTH] User authenticated via session: ${req.session.userId}`);
-    return next();
+  if (!userId && req.session.userId) {
+    userId = req.session.userId;
   }
 
-  console.log('[AUTH] Authentication failed - no token or session');
-  return res.status(401).json({ error: "Authentication required" });
+  if (!userId) {
+    console.log('[AUTH] Authentication failed - no token or session');
+    return res.status(401).json({ error: "Authentication required" });
+  }
+
+  if (!(await isUserActive(userId))) {
+    console.warn(`[AUTH] Odbijen deaktiviran korisnik: ${userId}`);
+    return res.status(401).json({ error: "Account deactivated" });
+  }
+
+  return next();
 }
 
 // Admin authorization middleware
@@ -201,6 +229,32 @@ async function requireAdmin(req: any, res: any, next: any) {
     return res.status(403).json({ error: "Admin access required" });
   }
   next();
+}
+
+// Upiši promjenu statusa sobe u room_status_history. Housekeeping/checkout tok
+// je ranije mijenjao status sobe direktno preko updateRoom bez traga u istoriji,
+// pa je audit soba pokazivao samo ručne izmjene. Čita trenutni status kao "from".
+async function recordRoomStatusChange(
+  roomId: string,
+  toStatus: string,
+  userId: string | undefined,
+  notes?: string,
+): Promise<void> {
+  try {
+    const room = await storage.getRoomById(roomId);
+    if (!room || !toStatus || room.status === toStatus) return;
+    const u = userId ? await storage.getUserById(userId) : undefined;
+    await storage.createRoomStatusHistory({
+      room_id: roomId,
+      status_from: room.status,
+      status_to: toStatus,
+      changed_by: userId || null,
+      changed_by_name: u?.full_name || 'Sistem',
+      notes: notes || null,
+    } as any);
+  } catch (e) {
+    console.error('[ROOM HISTORY] upis nije uspio:', e);
+  }
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -500,7 +554,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Logout endpoint
-  app.post("/api/auth/logout", (req, res) => {
+  app.post("/api/auth/logout", async (req, res) => {
+    // Deaktiviraj FCM token ovog uređaja da sljedeći korisnik (dijeljeni telefon
+    // na recepciji) ne prima push prethodnog korisnika.
+    const { fcmToken } = req.body || {};
+    if (fcmToken) {
+      try {
+        await storage.deactivateDeviceToken(fcmToken);
+      } catch (e) {
+        console.error("Logout: greška pri deaktivaciji device tokena:", e);
+      }
+    }
     req.session.destroy((err: any) => {
       if (err) {
         console.error("Logout error:", err);
@@ -891,42 +955,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     bucketEnsured = true;
   }
 
+  // Zajednička logika: dekodira data: URL, validira tip/veličinu i strimuje u
+  // `task-images` bucket; vraća javni URL. Koriste je i autentifikovani (osoblje)
+  // i javni (gost) upload endpoint — nikad se Base64 ne čuva u bazi.
+  // Ravni oblik (bez discriminated union) jer projekat ima strictNullChecks:false
+  // pa TS ne suzava union pouzdano; na grešku je `url` null.
+  interface UploadResult {
+    url: string | null;
+    status: number;
+    error: string | null;
+    key?: string;
+    size?: number;
+    contentType?: string;
+  }
+  async function processImageUpload(dataUrl: unknown, filename: unknown): Promise<UploadResult> {
+    if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:")) {
+      return { url: null, status: 400, error: "Expected `dataUrl` as a data: URI" };
+    }
+    const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+    if (!match) return { url: null, status: 400, error: "Malformed data URL" };
+    const [, contentType, base64] = match;
+    if (!contentType.startsWith("image/")) {
+      return { url: null, status: 400, error: "Only image/* content types are accepted" };
+    }
+    const buffer = Buffer.from(base64, "base64");
+    if (buffer.length > 10 * 1024 * 1024) {
+      return { url: null, status: 413, error: "Image exceeds 10MB after decoding" };
+    }
+
+    await ensureTaskImagesBucket();
+
+    const ext = contentType.split("/")[1].split("+")[0] || "bin";
+    const safeName =
+      (typeof filename === "string" ? filename.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-40) : `photo.${ext}`);
+    const key = `${new Date().toISOString().slice(0, 10)}/${randomUUID()}-${safeName}`;
+
+    const { error: uploadErr } = await supabase.storage
+      .from("task-images")
+      .upload(key, buffer, { contentType, upsert: false });
+    if (uploadErr) {
+      console.error("[UPLOADS] Supabase upload error:", uploadErr);
+      return { url: null, status: 500, error: `Storage upload failed: ${uploadErr.message}` };
+    }
+
+    const { data: pub } = supabase.storage.from("task-images").getPublicUrl(key);
+    console.log(`[UPLOADS] ${key} (${Math.round(buffer.length / 1024)}KB) → ${pub.publicUrl}`);
+    return { url: pub.publicUrl, status: 200, error: null, key, size: buffer.length, contentType };
+  }
+
   app.post("/api/uploads/image", requireAuth, async (req, res) => {
     try {
       const { dataUrl, filename } = req.body || {};
-      if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:")) {
-        return res.status(400).json({ error: "Expected `dataUrl` as a data: URI" });
-      }
-
-      const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-      if (!match) return res.status(400).json({ error: "Malformed data URL" });
-      const [, contentType, base64] = match;
-      if (!contentType.startsWith("image/")) {
-        return res.status(400).json({ error: "Only image/* content types are accepted" });
-      }
-      const buffer = Buffer.from(base64, "base64");
-      if (buffer.length > 10 * 1024 * 1024) {
-        return res.status(413).json({ error: "Image exceeds 10MB after decoding" });
-      }
-
-      await ensureTaskImagesBucket();
-
-      const ext = contentType.split("/")[1].split("+")[0] || "bin";
-      const safeName =
-        (typeof filename === "string" ? filename.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-40) : `photo.${ext}`);
-      const key = `${new Date().toISOString().slice(0, 10)}/${randomUUID()}-${safeName}`;
-
-      const { error: uploadErr } = await supabase.storage
-        .from("task-images")
-        .upload(key, buffer, { contentType, upsert: false });
-      if (uploadErr) {
-        console.error("[UPLOADS] Supabase upload error:", uploadErr);
-        return res.status(500).json({ error: "Storage upload failed", details: uploadErr.message });
-      }
-
-      const { data: pub } = supabase.storage.from("task-images").getPublicUrl(key);
-      console.log(`[UPLOADS] ${key} (${Math.round(buffer.length / 1024)}KB) → ${pub.publicUrl}`);
-      return res.json({ url: pub.publicUrl, key, size: buffer.length, contentType });
+      const result = await processImageUpload(dataUrl, filename);
+      if (!result.url) return res.status(result.status).json({ error: result.error });
+      return res.json({ url: result.url, key: result.key, size: result.size, contentType: result.contentType });
     } catch (err: any) {
       console.error("[UPLOADS] Unexpected error:", err);
       return res.status(500).json({ error: "Internal server error", details: err?.message });
@@ -966,7 +1048,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: status || "new",
         created_by: userId,
         created_by_name: userName,
-        created_by_department: userDepartment || null,
+        created_by_department: userDepartment || "", // kolona je NOT NULL — nikad null
         images: images || null,
       };
 
@@ -1242,6 +1324,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
         console.log(`📨 FCM notifikacije poslane ${supervisors.length} sefovima`);
+      }
+
+      // 🔔 NOTIFIKACIJA OPERATERIMA KADA SE ZADATAK VRATI/PROSLIJEDI OPERATERU
+      // (returned_to_operator / with_operator). Bez ovoga je operater ostajao
+      // bez ikakvog push-a — task bi tiho stajao neviđen.
+      if (
+        (status === "returned_to_operator" || status === "with_operator") &&
+        currentTask?.status !== status
+      ) {
+        const operators = await storage.getUsersByRole('operater');
+        const naslov = status === "returned_to_operator"
+          ? 'Zadatak vraćen operateru!'
+          : 'Zadatak proslijeđen operateru!';
+        for (const operator of operators) {
+          sendPushToAllUserDevices(
+            operator.id,
+            naslov,
+            `${task.title}: ${(task.description || '').substring(0, 150)}`,
+            task.id,
+            'urgent'
+          ).catch((error) => {
+            console.error(`⚠️ Greška pri slanju FCM push-a operateru ${operator.id}:`, error);
+          });
+        }
+        console.log(`📨 FCM notifikacije poslane ${operators.length} operaterima (${status})`);
       }
 
       notifyTaskUpdate(task);
@@ -1588,6 +1695,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Room not found" });
       }
 
+      // Guard protiv dvostrukog checkout-a (double-tap / dva recepcionera):
+      // ako je soba već u checkout stanju, ne pravi drugi task niti diraj status.
+      if (room.occupancy_status === 'checkout') {
+        return res.status(409).json({ error: "Soba je već checkout-ovana", room });
+      }
+
+      // Trag u istoriji prije promjene statusa
+      await recordRoomStatusChange(id, 'dirty', req.session.userId, 'Checkout gosta');
+
       // Clear guest info and invalidate token
       const updatedRoom = await storage.updateRoom(id, {
         guest_name: null,
@@ -1611,19 +1727,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // housekeepers reception needs to choose explicitly.
       let createdTask = null;
       try {
-        createdTask = await storage.createHousekeepingTask({
-          room_id: id,
-          room_number: room.room_number,
-          cleaning_type: 'checkout',
-          assigned_to: null,
-          assigned_to_name: null,
-          priority: 'normal',
-          scheduled_date: new Date().toISOString(),
-        });
-        // Broadcast so supervisor dashboards see the new unassigned task
-        // even if the receptionist closes the picker without choosing.
-        notifyHousekeepingUpdate(createdTask);
-        console.log(`✅ [CHECKOUT] Unassigned task created for room ${room.room_number}; awaiting manual assignment.`);
+        // Dedup: ne pravi drugi otvoreni checkout task ako već postoji za sobu.
+        const existing = await storage.getHousekeepingTasksByRoom(id);
+        const openCheckout = existing.find(
+          (t) => t.cleaning_type === 'checkout' && (t.status === 'pending' || t.status === 'in_progress')
+        );
+        if (openCheckout) {
+          createdTask = openCheckout;
+          console.log(`ℹ️ [CHECKOUT] Otvoreni checkout task već postoji za sobu ${room.room_number}, preskačem kreiranje.`);
+        } else {
+          createdTask = await storage.createHousekeepingTask({
+            room_id: id,
+            room_number: room.room_number,
+            cleaning_type: 'checkout',
+            assigned_to: null,
+            assigned_to_name: null,
+            priority: 'normal',
+            scheduled_date: new Date().toISOString(),
+          });
+          // Broadcast so supervisor dashboards see the new unassigned task
+          // even if the receptionist closes the picker without choosing.
+          notifyHousekeepingUpdate(createdTask);
+          console.log(`✅ [CHECKOUT] Unassigned task created for room ${room.room_number}; awaiting manual assignment.`);
+        }
       } catch (taskError) {
         console.error("Error creating checkout task:", taskError);
       }
@@ -1770,6 +1896,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // PUBLIC: Guest image upload → Supabase Storage (token-validated, no account).
+  // Gost nema JWT pa ne može na /api/uploads/image; ova ruta validira session
+  // token sobe pa strimuje u isti `task-images` bucket i vraća URL. Time guest
+  // fotke više ne idu kao Base64 u bazu. Rate-limit pokriva /api/public prefiks.
+  app.post("/api/public/room/:roomNumber/:token/upload-image", async (req, res) => {
+    try {
+      const { roomNumber, token } = req.params;
+      const room = await storage.getRoomByNumber(roomNumber);
+      if (!room) return res.status(404).json({ error: "Room not found" });
+      if (!room.guest_session_token || room.guest_session_token !== token) {
+        return res.status(403).json({ error: "Invalid or expired QR code" });
+      }
+      if (room.occupancy_status !== 'occupied') {
+        return res.status(403).json({ error: "Room is not occupied" });
+      }
+
+      const { dataUrl, filename } = req.body || {};
+      const result = await processImageUpload(dataUrl, filename);
+      if (!result.url) return res.status(result.status).json({ error: result.error });
+      return res.json({ url: result.url });
+    } catch (err: any) {
+      console.error("[GUEST UPLOADS] Unexpected error:", err);
+      return res.status(500).json({ error: "Internal server error", details: err?.message });
+    }
+  });
+
   // PUBLIC: Submit guest service request (no auth required, but needs valid token)
   app.post("/api/public/room/:roomNumber/:token/request", async (req, res) => {
     try {
@@ -1795,6 +1947,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Room is not occupied" });
       }
 
+      // Sigurnosna mreža: ako stari klijent i dalje pošalje data: URL (Base64),
+      // prebaci ga u Storage ovdje pa u bazu ide samo URL — nikad Base64.
+      let imageUrls: string[] = [];
+      if (Array.isArray(images)) {
+        for (const img of images) {
+          if (typeof img !== 'string') continue;
+          if (img.startsWith('data:')) {
+            const up = await processImageUpload(img, undefined);
+            if (up.url) imageUrls.push(up.url);
+            else console.warn(`[GUEST REQUEST] slika odbijena: ${up.error}`);
+          } else {
+            imageUrls.push(img); // već je URL (novi klijent je uploadovao)
+          }
+        }
+      }
+
       // Create guest service request
       const request = await storage.createGuestServiceRequest({
         room_id: room.id,
@@ -1806,7 +1974,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         guest_name: guest_name || room.guest_name,
         guest_phone: guest_phone || room.guest_phone,
         priority: priority || 'normal',
-        images,
+        images: imageUrls,
       });
 
       // 🔔 NOTIFY RECEPTIONISTS when guest submits a request
@@ -2225,13 +2393,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Also update linked maintenance task if it exists
+      // Also update linked maintenance task if it exists.
+      // Status MORA biti 'assigned_to_radnik' — 'assigned' ne postoji u statusnoj
+      // mašini pa bi task nestao sa svih tabli (worker/šef filtriraju po poznatim
+      // statusima).
       if (guestRequest.linked_task_id) {
-        await storage.updateTask(guestRequest.linked_task_id, {
+        const updatedMaintTask = await storage.updateTask(guestRequest.linked_task_id, {
           assigned_to: assigned_to,
           assigned_to_name: assigned_to_name,
-          status: 'assigned',
+          status: 'assigned_to_radnik',
         });
+        if (updatedMaintTask) {
+          notifyWorkers(assigned_to, updatedMaintTask);
+          notifyTaskUpdate(updatedMaintTask);
+        }
       }
 
       // Send push notification to assigned staff member
@@ -2370,6 +2545,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Update room status to dirty if creating a checkout cleaning
       if (validationResult.data.cleaning_type === 'checkout') {
+        await recordRoomStatusChange(validationResult.data.room_id, 'dirty', req.session.userId, 'Checkout čišćenje kreirano');
         await storage.updateRoom(validationResult.data.room_id, { status: 'dirty' });
       }
 
@@ -2432,8 +2608,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Handle status transitions
       if (updateData.status) {
         if (updateData.status === 'in_progress' && currentTask.status === 'pending') {
-          updateData.started_at = new Date().toISOString();
+          // Atomski preuzmi task (WHERE status='pending') da dvije sobarice ne
+          // mogu obje započeti isti i pregaziti started_at.
+          const claimed = await storage.claimHousekeepingTaskStart(id);
+          if (!claimed) {
+            return res.status(409).json({ error: "Zadatak je već započela druga sobarica" });
+          }
+          // Claim je već postavio status/started_at — makni ih iz naknadnog update-a.
+          delete updateData.status;
+          delete updateData.started_at;
           // Update room status
+          await recordRoomStatusChange(currentTask.room_id, 'in_cleaning', sessionUser.id, 'Početak čišćenja');
           await storage.updateRoom(currentTask.room_id, { status: 'in_cleaning' });
         }
 
@@ -2445,6 +2630,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (room?.occupancy_status === 'checkout') {
             roomUpdate.occupancy_status = 'vacant';
           }
+          await recordRoomStatusChange(currentTask.room_id, 'clean', sessionUser.id, 'Čišćenje završeno');
           await storage.updateRoom(currentTask.room_id, roomUpdate);
 
           // Auto-complete linked guest service request
@@ -2476,6 +2662,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (roomForInspect?.occupancy_status === 'checkout') {
             inspectUpdate.occupancy_status = 'vacant';
           }
+          await recordRoomStatusChange(currentTask.room_id, 'inspected', sessionUser.id, 'Inspekcija sobe');
           await storage.updateRoom(currentTask.room_id, inspectUpdate);
 
           // Auto-complete linked guest service request on inspection
@@ -2497,6 +2684,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         if (updateData.status === 'needs_rework') {
           // Room stays in cleaning state
+          await recordRoomStatusChange(currentTask.room_id, 'dirty', sessionUser.id, 'Vraćeno na doradu');
           await storage.updateRoom(currentTask.room_id, { status: 'dirty' });
         }
       }
